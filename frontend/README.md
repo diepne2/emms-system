@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
@@ -18,4 +17,9 @@ If you are developing a production application, we recommend using TypeScript wi
 =======
 # emms-management-system
 Hệ thống Quản lý và Bảo trì Thiết bị (EMMS) – hỗ trợ quản lý thiết bị, theo dõi vòng đời tài sản, lập kế hoạch bảo trì định kỳ và ghi nhận lịch sử bảo trì cho doanh nghiệp.
->>>>>>> e68b7e879dc3ffd1b3d5054905b00297058b0ae4
+
+
+# Chạy FRONTEND: 
+npm run dev
+VITE v5.x.x ready in 300 ms
+Local:   http://localhost:5173/
