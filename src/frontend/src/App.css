@@ -1,0 +1,62 @@
+body{
+  margin:0;
+  font-family: "Inter", sans-serif;
+  background:#F5F7FA;
+}
+
+#root{
+  display:flex;
+}
+
+/* SIDEBAR */
+.sidebar{
+  width:240px;
+  height:100vh;
+  background:#1F2937;
+  color:white;
+}
+
+/* CONTENT */
+.main{
+  flex:1;
+  padding:30px;
+}
+
+/* CARD */
+.card{
+  background:white;
+  border-radius:10px;
+  padding:20px;
+  box-shadow:0 3px 10px rgba(0,0,0,0.05);
+}
+
+/* BUTTON */
+.btn-primary{
+  background:#1F3A8A;
+  color:white;
+  border:none;
+  padding:10px 20px;
+  border-radius:6px;
+}
+
+/* STATUS */
+.status-active{
+  background:#22C55E;
+  color:white;
+  padding:4px 10px;
+  border-radius:6px;
+}
+
+.status-maintenance{
+  background:#F59E0B;
+  color:white;
+  padding:4px 10px;
+  border-radius:6px;
+}
+
+.status-inactive{
+  background:#EF4444;
+  color:white;
+  padding:4px 10px;
+  border-radius:6px;
+}
