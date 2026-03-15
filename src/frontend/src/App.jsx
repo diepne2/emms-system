@@ -1,21 +1,31 @@
 import React, { Suspense, useEffect } from 'react'
-import { HashRouter, Route, Routes } from 'react-router-dom'
+import { HashRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 
 import { CSpinner, useColorModes } from '@coreui/react'
+
 import './scss/style.scss'
 import './scss/examples.scss'
 
-// Containers
+// Layout
 const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
- 
+
+// Pages
+const Login = React.lazy(() => import('./views/pages/login/Login'))
+const ForgotPassword = React.lazy(() => import('./views/pages/forgot-password/ForgotPassword'))
+const ResetPassword = React.lazy(() => import('./views/pages/reset-password/ResetPassword'))
+const Page404 = React.lazy(() => import('./views/pages/page404/Page404'))
+const Page500 = React.lazy(() => import('./views/pages/page500/Page500'))
 
 const App = () => {
-  const { isColorModeSet, setColorMode } = useColorModes('coreui-free-react-admin-template-theme')
+  const { isColorModeSet, setColorMode } =
+    useColorModes('coreui-free-react-admin-template-theme')
+
   const storedTheme = useSelector((state) => state.theme)
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.href.split('?')[1])
+    const urlParams = new URLSearchParams(window.location.search)
+
     const theme =
       urlParams.get('theme') &&
       urlParams.get('theme').match(/^[A-Za-z0-9\s]+/)[0]
@@ -24,26 +34,40 @@ const App = () => {
       setColorMode(theme)
     }
 
-    if (isColorModeSet()) {
-      return
+    if (!isColorModeSet()) {
+      setColorMode(storedTheme)
     }
-
-    setColorMode(storedTheme)
-  }, [])
+  }, [storedTheme, isColorModeSet, setColorMode])
 
   return (
     <HashRouter>
       <Suspense
         fallback={
           <div className="pt-3 text-center">
-            <CSpinner color="primary" variant="grow" />
+            <CSpinner color="primary" />
           </div>
         }
       >
         <Routes>
-        
-          
-          <Route path="*" element={<DefaultLayout />} />
+
+          {/* Root redirect */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
+          {/* PUBLIC ROUTES */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* ERROR ROUTES */}
+          <Route path="/404" element={<Page404 />} />
+          <Route path="/500" element={<Page500 />} />
+
+          {/* MAIN APP */}
+          <Route path="/*" element={<DefaultLayout />} />
+
+          {/* UNKNOWN ROUTE */}
+          <Route path="*" element={<Navigate to="/404" replace />} />
+
         </Routes>
       </Suspense>
     </HashRouter>
