@@ -11,6 +11,7 @@ const HR = React.lazy(() => import('./views/hr'))
 const Reports = React.lazy(() => import('./views/reports'))
 const Profile = React.lazy(() => import('./views/profile'))
 const Chat = React.lazy(() => import('./views/chat'))
+const Logout = React.lazy(() => import('./views/logout/Logout'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home', element: Dashboard },
@@ -29,6 +30,7 @@ const routes = [
 
   { path: '/profile', name: 'Profile', element: Profile },
   { path: '/chat', name: 'Chat', element: Chat },
+  { path: '/logout', name: 'Logout', element: Logout },
 ]
 
 export default routes

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true">
+
+    <!-- ===== LOG FOLDER ===== -->
+    <property name="LOG_PATH" value="logs"/>
+
+    <!-- ===== ROLLING FILE APPENDER ===== -->
+    <appender name="ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/emms.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- Xoay log theo ngày + index + nén .gz -->
+            <fileNamePattern>${LOG_PATH}/emms-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+
+            <!-- Mỗi file max 10MB -->
+            <maxFileSize>10MB</maxFileSize>
+
+            <!-- Giữ tối đa 7 file cũ -->
+            <maxHistory>7</maxHistory>
+
+            <!-- Tổng log tối đa 100MB -->
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ===== CONSOLE APPENDER ===== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ===== LOGGING LEVELS ===== -->
+    <logger name="com.emms" level="DEBUG" additivity="false">
+        <appender-ref ref="ROLLING"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="ROLLING"/>
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

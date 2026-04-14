@@ -1,7 +1,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-
 import { CSpinner, useColorModes } from '@coreui/react'
 
 import './scss/style.scss'
@@ -16,6 +15,7 @@ const ForgotPassword = React.lazy(() => import('./views/pages/forgot-password/Fo
 const ResetPassword = React.lazy(() => import('./views/pages/reset-password/ResetPassword'))
 const Page404 = React.lazy(() => import('./views/pages/page404/Page404'))
 const Page500 = React.lazy(() => import('./views/pages/page500/Page500'))
+const Logout = React.lazy(() => import('./views/logout/Logout'))
 
 const App = () => {
   const { isColorModeSet, setColorMode } =
@@ -49,12 +49,12 @@ const App = () => {
         }
       >
         <Routes>
-
           {/* Root redirect */}
           <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* PUBLIC ROUTES */}
           <Route path="/login" element={<Login />} />
+          <Route path="/logout" element={<Logout />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -67,7 +67,6 @@ const App = () => {
 
           {/* UNKNOWN ROUTE */}
           <Route path="*" element={<Navigate to="/404" replace />} />
-
         </Routes>
       </Suspense>
     </HashRouter>

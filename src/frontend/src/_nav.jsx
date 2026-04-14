@@ -5,7 +5,6 @@ import {
   cilSpeedometer,
   cilDevices,
   cilCalendar,
-  cilList,
   cilStorage,
   cilChartLine,
   cilUser,

@@ -1,21 +1,36 @@
 import React from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import DevicesPage from './Devices'
 
-import DeviceList from './DeviceList'
-import DeviceCreate from './DeviceCreate'
-import DeviceDetail from './DeviceDetail'
-import DeviceDocuments from "./DeviceDocuments"
-
-
-const Devices = () => {
+function DeviceGroupsPage() {
   return (
-    <Routes>
-      <Route path="list" element={<DeviceList />} />
-      <Route path="create" element={<DeviceCreate />} />
-      <Route path=":id" element={<DeviceDetail />} />
-      <Route path="documents" element={<DeviceDocuments />} />
-    </Routes>
+    <div className="p-3">
+      <div className="card border-0 shadow-sm">
+        <div className="card-body">
+          <h4 className="mb-2">Nhóm thiết bị</h4>
+          <p className="text-medium-emphasis mb-0">Chức năng đang cập nhật.</p>
+        </div>
+      </div>
+    </div>
   )
 }
 
-export default Devices
+function DeviceDocumentsPage() {
+  return (
+    <div className="p-3">
+      <DevicesPage defaultOpenDocuments={true} />
+    </div>
+  )
+}
+
+export default function DevicesModule() {
+  return (
+    <Routes>
+      <Route index element={<Navigate to="/devices/list" replace />} />
+      <Route path="list" element={<DevicesPage />} />
+      <Route path="group" element={<DeviceGroupsPage />} />
+      <Route path="documents" element={<DeviceDocumentsPage />} />
+      <Route path="*" element={<Navigate to="/devices/list" replace />} />
+    </Routes>
+  )
+}

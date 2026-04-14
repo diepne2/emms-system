@@ -1,0 +1,61 @@
+package com.emms.backend.controller.dashboard;
+
+import com.emms.backend.dto.SuccessResponse;
+import com.emms.backend.dto.dashboard.user.UserWOStats;
+import com.emms.backend.dto.dashboard.user.WOStatsByDay;
+import com.emms.backend.service.dashboard.UserAnalysisService;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/dashboard/users")
+public class UserAnalysisController {
+
+    private final UserAnalysisService userAnalysisService;
+
+    public UserAnalysisController(UserAnalysisService userAnalysisService) {
+        this.userAnalysisService = userAnalysisService;
+    }
+
+    // =========================
+    // 1. USER KPI
+    // =========================
+    @GetMapping("/{userId}/stats")
+    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    public ResponseEntity<SuccessResponse> getUserStats(
+            @PathVariable Long userId,
+            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
+    ) {
+
+        UserWOStats data = userAnalysisService.getUserStats(userId, fromDate, toDate);
+
+        return ResponseEntity.ok(
+                new SuccessResponse(true, "User stats fetched successfully", data)
+        );
+    }
+
+    // =========================
+    // 2. STATS THEO NGÀY
+    // =========================
+    @GetMapping("/{userId}/stats-by-day")
+    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    public ResponseEntity<SuccessResponse> getStatsByDay(
+            @PathVariable Long userId,
+            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
+    ) {
+
+        List<WOStatsByDay> data = userAnalysisService.getWOStatsByDay(userId, fromDate, toDate);
+
+        return ResponseEntity.ok(
+                new SuccessResponse(true, "User stats by day fetched successfully", data)
+        );
+    }
+}

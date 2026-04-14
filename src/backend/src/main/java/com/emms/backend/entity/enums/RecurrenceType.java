@@ -1,0 +1,8 @@
+package com.emms.backend.entity.enums;
+
+public enum RecurrenceType {
+    DAILY,
+    WEEKLY,
+    MONTHLY,
+    YEARLY
+}

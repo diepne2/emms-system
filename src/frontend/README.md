@@ -20,6 +20,7 @@ Hệ thống Quản lý và Bảo trì Thiết bị (EMMS) – hỗ trợ quản
 
 
 # Chạy FRONTEND: 
+cd C:\Users\ADMIN\emms-system\src\frontend\src
 npm run dev
 VITE v5.x.x ready in 300 ms
 Local:   http://localhost:5173/
