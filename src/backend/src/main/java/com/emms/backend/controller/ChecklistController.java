@@ -1,9 +1,7 @@
 package com.emms.backend.controller;
 
 import com.emms.backend.dto.checklist.ChecklistDTO;
-import com.emms.backend.dto.checklist.ChecklistPostDTO;
 import com.emms.backend.entity.Checklist;
-import com.emms.backend.exception.CustomException;
 import com.emms.backend.service.ChecklistService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,7 +12,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import java.util.Collection;
 
 @RestController
 @RequestMapping("/api/checklists")
@@ -24,35 +21,32 @@ public class ChecklistController {
 
     private final ChecklistService checklistService;
 
-    @GetMapping
-    @PreAuthorize("permitAll()")
-    public Collection<Checklist> getAll() {
-        return checklistService.getAll();
-    }
-
     @GetMapping("/{id}")
     @PreAuthorize("permitAll()")
-    public Checklist getById(@PathVariable("id") Long id) {
-        return checklistService.findById(id)
-                .orElseThrow(() -> new CustomException("Checklist not found", HttpStatus.NOT_FOUND));
+    public ResponseEntity<Checklist> getById(@PathVariable("id") Long id) {
+        Checklist checklist = checklistService.findEntityById(id);
+        return ResponseEntity.ok(checklist);
     }
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Checklist> create(
             @Parameter(description = "Checklist to create")
-            @Valid @RequestBody ChecklistPostDTO checklistReq) {
-        Checklist created = checklistService.createPost(checklistReq);
+            @Valid @RequestBody ChecklistDTO checklistReq
+    ) {
+        Checklist created = checklistService.create(checklistReq);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PatchMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public Checklist patch(
+    public ResponseEntity<Checklist> patch(
             @Parameter(description = "Checklist fields to update")
             @Valid @RequestBody ChecklistDTO checklistReq,
-            @PathVariable("id") Long id) {
-        return checklistService.update(id, checklistReq);
+            @PathVariable("id") Long id
+    ) {
+        Checklist updated = checklistService.update(id, checklistReq);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

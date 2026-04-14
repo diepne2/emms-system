@@ -3,10 +3,10 @@ package com.emms.backend.controller;
 import com.emms.backend.dto.location.LocationDTO;
 import com.emms.backend.dto.location.LocationShowDTO;
 import com.emms.backend.dto.location.LocationSummaryDTO;
-
 import com.emms.backend.service.LocationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,41 +23,47 @@ public class LocationController {
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
-    public LocationShowDTO create(@Valid @RequestBody LocationDTO dto) {
-        return locationService.create(dto);
+    public ResponseEntity<LocationShowDTO> create(@Valid @RequestBody LocationDTO dto) {
+        LocationShowDTO response = locationService.create(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
-    public LocationShowDTO update(@PathVariable Long id,
-                                  @Valid @RequestBody LocationDTO dto) {
-        return locationService.update(id, dto);
+    public ResponseEntity<LocationShowDTO> update(
+            @PathVariable Long id,
+            @Valid @RequestBody LocationDTO dto
+    ) {
+        LocationShowDTO response = locationService.update(id, dto);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public LocationShowDTO getById(@PathVariable Long id) {
-        return locationService.getById(id);
+    public ResponseEntity<LocationShowDTO> getById(@PathVariable Long id) {
+        LocationShowDTO response = locationService.getById(id);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public List<LocationShowDTO> getAll() {
-        return locationService.getAll();
+    public ResponseEntity<List<LocationShowDTO>> getAll() {
+        List<LocationShowDTO> response = locationService.getAll();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/summary")
     @PreAuthorize("isAuthenticated()")
-    public List<LocationSummaryDTO> getAllSummary() {
-        return locationService.getAllSummary();
+    public ResponseEntity<List<LocationSummaryDTO>> getAllSummary() {
+        List<LocationSummaryDTO> response = locationService.getAllSummary();
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
-    public void delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
         locationService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

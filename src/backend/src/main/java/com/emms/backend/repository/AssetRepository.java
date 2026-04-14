@@ -21,11 +21,11 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     long countByParentAssetName(String parentName);
 
+    boolean existsByParentAssetName(String parentName);
+
     List<Asset> findByLocationName(String locationName);
 
     List<Asset> findByNameIgnoreCaseAndStatus(String name, AssetStatus status);
 
     Optional<Asset> findByNameIgnoreCase(String name);
-
-    boolean existsByParentAsset_Id(Long parentId);
 }

@@ -1,86 +1,107 @@
 package com.emms.backend.security;
 
-import com.emms.backend.exception.CustomException;
-import com.emms.backend.entity.enums.RoleType;
-import com.emms.backend.utils.*;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Date;
 
 @Component
-@RequiredArgsConstructor
 public class JwtTokenProvider {
 
-    @Value("${security.jwt.token.secret-key}")
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+
+    private final CustomUserDetailsService customUserDetailsService;
+
+    @Value("${security.jwt.token.secret-key:abcdefghijklmnopqrstuvwxyz123456}")
     private String secretKey;
 
     @Value("${security.jwt.token.expire-length:3600000}")
     private long validityInMilliseconds;
 
+    @Value("${security.jwt.token.refresh-expire-length:604800000}")
+    private long refreshValidityInMilliseconds;
+
     private SecretKey key;
 
-    private final CustomUserDetailsService customUserDetailsService;
+    public JwtTokenProvider(CustomUserDetailsService customUserDetailsService) {
+        this.customUserDetailsService = customUserDetailsService;
+    }
 
-    // ================= INIT =================
     @PostConstruct
     protected void init() {
         byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
-        this.key = Keys.hmacShaKeyFor(keyBytes);
+        this.key = Keys.hmacShaKeyFor(normalizeKey(keyBytes));
     }
 
-    public String createToken(String username, List<RoleType> roles) {
-
-    Claims claims = Jwts.claims().setSubject(username);
-
-    List<String> authorities = roles == null
-            ? List.of()
-            : roles.stream()
-                .filter(Objects::nonNull)
-                .map(RoleType::name)
-                .toList();
-
-    claims.put("auth", authorities);
-
-    Date now = new Date();
-    Date validity = new Date(now.getTime() + validityInMilliseconds);
-
-    return Jwts.builder()
-            .setClaims(claims)
-            .setIssuedAt(now)
-            .setExpiration(validity)
-            .signWith(key)
-            .compact();
-}
-
-    // ================= AUTHENTICATION =================
-    public Authentication getAuthentication(String token) {
-
-        String username = getUsername(token);
-
-        UserDetails userDetails =
-                customUserDetailsService.loadUserByUsername(username);
-
-        if (!userDetails.isEnabled()) {
-            throw new CustomException("User account is disabled", HttpStatus.UNAUTHORIZED);
+    private byte[] normalizeKey(byte[] original) {
+        if (original.length >= 32) {
+            return original;
         }
+
+        byte[] normalized = new byte[32];
+        System.arraycopy(original, 0, normalized, 0, original.length);
+
+        for (int i = original.length; i < 32; i++) {
+            normalized[i] = '0';
+        }
+
+        return normalized;
+    }
+
+    public String createToken(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            throw new IllegalArgumentException("Authentication is invalid");
+        }
+        return createToken(authentication.getName());
+    }
+
+    public String createToken(String username) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Username must not be blank");
+        }
+
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + validityInMilliseconds);
+
+        return Jwts.builder()
+                .setSubject(username.trim())
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String createRefreshToken(String username) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Username must not be blank");
+        }
+
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + refreshValidityInMilliseconds);
+
+        return Jwts.builder()
+                .setSubject(username.trim())
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public Authentication getAuthentication(String token) {
+        String username = getUsername(token);
+        CustomUserDetail userDetails = customUserDetailsService.loadUserByUsername(username);
 
         return new UsernamePasswordAuthenticationToken(
                 userDetails,
@@ -89,79 +110,47 @@ public class JwtTokenProvider {
         );
     }
 
-    // ================= GET USERNAME =================
     public String getUsername(String token) {
-        return parseClaims(token).getSubject();
-    }
-
-    // ================= RESOLVE TOKEN =================
-    public String resolveToken(HttpServletRequest request) {
-
-        String bearerToken = request.getHeader("Authorization");
-
-        if (bearerToken != null && bearerToken.startsWith(Consts.TOKEN_PREFIX)) {
-            return bearerToken.substring(Consts.TOKEN_PREFIX.length());
-        }
-
-
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("swagger_jwt".equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-            }
-        }
-
-        return null;
-    }
-
-    // ================= VALIDATE =================
-    public boolean validateToken(String token) {
-
-        try {
-            parseClaims(token);
-            return true;
-
-        } catch (ExpiredJwtException e) {
-            throw new CustomException("JWT token expired", HttpStatus.UNAUTHORIZED);
-
-        } catch (JwtException | IllegalArgumentException e) {
-            throw new CustomException("Invalid JWT token", HttpStatus.UNAUTHORIZED);
-        }
-    }
-
-    // ================= PARSE =================
-    private Claims parseClaims(String token) {
-
-        return Jwts.parserBuilder()
+        Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+
+        return claims.getSubject();
     }
 
-    // ================= OPTIONAL =================
-    // nếu muốn lấy roles từ token (không bắt buộc)
-    public List<SimpleGrantedAuthority> getAuthorities(String token) {
-
-        Claims claims = parseClaims(token);
-
-        Object auth = claims.get("auth");
-
-        if (auth instanceof List<?> roles) {
-            return roles.stream()
-                    .filter(Objects::nonNull)
-                    .map(Object::toString)
-                    .map(SimpleGrantedAuthority::new)
-                    .collect(Collectors.toList());
+    public String resolveToken(HttpServletRequest request) {
+        if (request == null) {
+            return null;
         }
 
-        return List.of();
+        String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
+        if (bearerToken == null || bearerToken.isBlank()) {
+            return null;
+        }
+
+        if (!bearerToken.startsWith(BEARER_PREFIX)) {
+            return null;
+        }
+
+        String token = bearerToken.substring(BEARER_PREFIX.length()).trim();
+        return token.isEmpty() ? null : token;
     }
 
-    public String generateToken(Authentication authentication) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'generateToken'");
+    public boolean validateToken(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+
+        try {
+            Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException ex) {
+            return false;
+        }
     }
 }

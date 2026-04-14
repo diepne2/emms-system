@@ -4,34 +4,65 @@ import com.emms.backend.dto.comment.CommentPatchDTO;
 import com.emms.backend.dto.comment.CommentPostDTO;
 import com.emms.backend.dto.comment.CommentShowDTO;
 import com.emms.backend.entity.Comment;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.springframework.stereotype.Component;
 
-@Mapper(
-        componentModel = "spring",
-        uses = {
-                UserMapper.class
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Component
+public class CommentMapper {
+
+    public Comment fromPostDto(CommentPostDTO dto) {
+        if (dto == null) {
+            return null;
         }
-)
-public interface CommentMapper {
 
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "user", ignore = true)
-    @Mapping(target = "workOrder", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    Comment updateComment(@MappingTarget Comment entity, CommentPatchDTO dto);
+        Comment comment = new Comment();
+        comment.setContent(dto.getContent());
+        return comment;
+    }
 
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "user", ignore = true)
-    @Mapping(target = "workOrder", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    Comment fromPostDto(CommentPostDTO dto);
+    public void updateComment(Comment entity, CommentPatchDTO dto) {
+        if (entity == null || dto == null) {
+            return;
+        }
 
-    @Mapping(target = "system", constant = "false")
-    CommentShowDTO toShowDto(Comment model);
+        if (dto.getContent() != null) {
+            entity.setContent(dto.getContent());
+        }
+    }
+
+    public CommentShowDTO toShowDto(Comment entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        CommentShowDTO dto = new CommentShowDTO();
+        dto.setId(entity.getId());
+        dto.setContent(entity.getContent());
+        dto.setCreatedAt(entity.getCreatedAt());
+
+        if (entity.getWorkOrder() != null) {
+            dto.setWorkOrderId(entity.getWorkOrder().getId());
+            dto.setWorkOrderTitle(entity.getWorkOrder().getTitle());
+        }
+
+        if (entity.getUser() != null) {
+            dto.setUserId(entity.getUser().getUserId());
+            dto.setUserFullName(entity.getUser().getFullName());
+            dto.setUsername(entity.getUser().getUsername());
+        }
+
+        return dto;
+    }
+
+    public List<CommentShowDTO> toShowDtoList(List<Comment> entities) {
+        if (entities == null) {
+            return List.of();
+        }
+
+        return entities.stream()
+                .map(this::toShowDto)
+                .collect(Collectors.toList());
+    }
 }

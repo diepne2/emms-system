@@ -3,9 +3,16 @@ package com.emms.backend.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "locations", indexes = {
-        @Index(name = "idx_location_name", columnList = "name")
-})
+@Table(
+        name = "locations",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_location_name", columnNames = "name")
+        },
+        indexes = {
+                @Index(name = "idx_location_name", columnList = "name"),
+                @Index(name = "idx_location_parent", columnList = "parent_location")
+        }
+)
 public class Location {
 
     @Id

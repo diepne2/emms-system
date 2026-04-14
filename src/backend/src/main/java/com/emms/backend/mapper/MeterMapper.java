@@ -4,81 +4,94 @@ import com.emms.backend.dto.meter.MeterDTO;
 import com.emms.backend.dto.meter.MeterShowDTO;
 import com.emms.backend.dto.meter.MeterSummaryDTO;
 import com.emms.backend.entity.Meter;
-import com.emms.backend.entity.Reading;
+import com.emms.backend.entity.User;
 import com.emms.backend.service.ReadingService;
-import org.mapstruct.AfterMapping;
 import org.mapstruct.BeanMapping;
-import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
-@Mapper(
-        componentModel = "spring",
-        uses = {
-                LocationMapper.class,
-                AssetMapper.class,
-                UserMapper.class,
-                FileMapper.class,
-                MeterCategoryMapper.class
-        }
-)
+@Mapper(componentModel = "spring")
 public interface MeterMapper {
 
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "assetId", source = "asset.id")
+    @Mapping(target = "locationId", source = "location.id")
+    @Mapping(target = "meterCategoryId", ignore = true)
+    @Mapping(target = "imageId", source = "image.assetId")
+    @Mapping(target = "userIds", expression = "java(mapUserIds(entity.getUsers()))")
+    MeterDTO toDto(Meter entity);
+
+    @Mapping(target = "lastReading", ignore = true)
+    @Mapping(target = "nextReading", ignore = true)
+    MeterShowDTO toShowDto(Meter entity);
+
+    default MeterShowDTO toShowDto(Meter entity, ReadingService readingService) {
+        if (entity == null) {
+            return null;
+        }
+
+        MeterShowDTO dto = toShowDto(entity);
+
+        if (readingService != null && entity.getId() != null) {
+            try {
+                readingService.findLatestByMeter(entity.getId())
+                        .ifPresent(reading -> {
+                            LocalDateTime recordedAt = reading.getRecordedAt();
+                            dto.setLastReading(recordedAt);
+
+                            if (recordedAt != null && entity.getUpdateFrequency() != null) {
+                                dto.setNextReading(recordedAt.plusMinutes(entity.getUpdateFrequency()));
+                            }
+                        });
+            } catch (Exception ignored) {
+            }
+        }
+
+        return dto;
+    }
+
+    MeterSummaryDTO toSummaryDto(Meter entity);
+
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "asset", ignore = true)
+    @Mapping(target = "location", ignore = true)
     @Mapping(target = "meterCategory", ignore = true)
     @Mapping(target = "image", ignore = true)
     @Mapping(target = "users", ignore = true)
-    @Mapping(target = "location", ignore = true)
-    @Mapping(target = "asset", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "demo", ignore = true)
-    Meter updateMeter(@MappingTarget Meter entity, MeterDTO dto);
+    Meter fromDto(MeterDTO dto);
 
-    @Mapping(source = "meterCategory.id", target = "meterCategoryId")
-    @Mapping(source = "image.id", target = "imageId")
-    @Mapping(source = "location.locationId", target = "locationId")
-    @Mapping(source = "asset.assetId", target = "assetId")
-    @Mapping(
-            target = "userIds",
-            expression = "java(model.getUsers() == null ? new ArrayList<>() : model.getUsers().stream().map(com.emms.backend.entity.User::getUserId).collect(Collectors.toList()))"
-    )
-    MeterDTO toPatchDto(Meter model);
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "asset", ignore = true)
+    @Mapping(target = "location", ignore = true)
+    @Mapping(target = "meterCategory", ignore = true)
+    @Mapping(target = "image", ignore = true)
+    @Mapping(target = "users", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "demo", ignore = true)
+    void updateMeter(@MappingTarget Meter entity, MeterDTO dto);
 
-    @Mapping(source = "id", target = "id")
-    MeterShowDTO toShowDto(Meter model, @Context ReadingService readingService);
-
-    @AfterMapping
-    default void enrichShowDto(
-            Meter model,
-            @MappingTarget MeterShowDTO target,
-            @Context ReadingService readingService
-    ) {
-        if (model == null || model.getId() == null || target == null) {
-            return;
+    default Collection<Long> mapUserIds(List<User> users) {
+        if (users == null || users.isEmpty()) {
+            return new ArrayList<>();
         }
 
-        Optional<Reading> latestOptional = readingService.findLatestByMeter(model.getId());
-        if (latestOptional.isEmpty()) {
-            return;
+        List<Long> ids = new ArrayList<>();
+        for (User user : users) {
+            if (user != null && user.getUserId() != null) {
+                ids.add(user.getUserId());
+            }
         }
-
-        Reading latest = latestOptional.get();
-        LocalDateTime lastReading = latest.getRecordedAt();
-        target.setLastReading(lastReading);
-
-        Integer updateFrequency = model.getUpdateFrequency();
-        if (lastReading != null && updateFrequency != null && updateFrequency > 0) {
-            target.setNextReading(lastReading.plusDays(updateFrequency));
-        }
+        return ids;
     }
-
-    @Mapping(source = "id", target = "id")
-    MeterSummaryDTO toSummaryDto(Meter model);
 }

@@ -9,125 +9,92 @@ import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.LocationMapper;
 import com.emms.backend.repository.LocationRepository;
 import jakarta.persistence.EntityManager;
-
-import org.mapstruct.MappingTarget;
 import org.springframework.context.MessageSource;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @Transactional
 public class LocationService {
 
     private final LocationRepository locationRepository;
-    private final UserService userService;
-    private final MessageSource messageSource;
-    private final VendorService vendorService;
     private final LocationMapper locationMapper;
-    private final NotificationService notificationService;
+    private final MessageSource messageSource;
     private final EntityManager em;
-    private final FileService fileService;
 
-    public LocationService(LocationRepository locationRepository,
-                           UserService userService,
-                           MessageSource messageSource,
-                           VendorService vendorService,
-                           LocationMapper locationMapper,
-                           NotificationService notificationService,
-                           EntityManager em,
-                           FileService fileService) {
+    public LocationService(
+            LocationRepository locationRepository,
+            LocationMapper locationMapper,
+            MessageSource messageSource,
+            EntityManager em
+    ) {
         this.locationRepository = locationRepository;
-        this.userService = userService;
-        this.messageSource = messageSource;
-        this.vendorService = vendorService;
         this.locationMapper = locationMapper;
-        this.notificationService = notificationService;
+        this.messageSource = messageSource;
         this.em = em;
-        this.fileService = fileService;
     }
 
     // =========================
     // ENTITY-BASED CRUD
     // =========================
-
     public Location create(Location location) {
         validateEntity(location);
+        validateDuplicateNameForCreate(location.getName());
 
         Location saved = locationRepository.saveAndFlush(location);
         em.refresh(saved);
-
         return saved;
     }
 
     public Location update(Long id, Location location) {
         if (id == null) {
-            throw new CustomException(getMessage("location.id.required", "Location id must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.id.required", "Location id must not be null"), HttpStatus.BAD_REQUEST);
         }
-
         if (location == null) {
-            throw new CustomException(getMessage("location.data.required", "Location data must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.data.required", "Location data must not be null"), HttpStatus.BAD_REQUEST);
         }
 
-        Location existing = locationRepository.findById(id)
-                .orElseThrow(() -> new CustomException(
-                        getMessage("location.notfound", "Location not found"),
-                        HttpStatus.NOT_FOUND
-                ));
-
+        Location existing = findEntityById(id);
         applyEntityPatch(existing, location);
         validateEntity(existing);
+        validateDuplicateNameForUpdate(existing.getName(), id);
 
         Location saved = locationRepository.saveAndFlush(existing);
         em.refresh(saved);
-
         return saved;
     }
 
-    public Collection<Location> getAllEntities() {
-        return locationRepository.findAll();
+    @Transactional(readOnly = true)
+    public List<Location> getAllEntities() {
+        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
     }
 
     public void delete(Long id) {
         if (id == null) {
-            throw new CustomException(getMessage("location.id.required", "Location id must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.id.required", "Location id must not be null"), HttpStatus.BAD_REQUEST);
         }
 
-        Location existing = locationRepository.findById(id)
-                .orElseThrow(() -> new CustomException(
-                        getMessage("location.notfound", "Location not found"),
-                        HttpStatus.NOT_FOUND
-                ));
-
+        Location existing = findEntityById(id);
         locationRepository.delete(existing);
     }
 
+    @Transactional(readOnly = true)
     public Optional<Location> findById(Long id) {
         if (id == null) {
-            throw new CustomException(getMessage("location.id.required", "Location id must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.id.required", "Location id must not be null"), HttpStatus.BAD_REQUEST);
         }
         return locationRepository.findById(id);
     }
 
+    @Transactional(readOnly = true)
     public Location findEntityById(Long id) {
         if (id == null) {
-            throw new CustomException(getMessage("location.id.required", "Location id must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.id.required", "Location id must not be null"), HttpStatus.BAD_REQUEST);
         }
 
         return locationRepository.findById(id)
@@ -139,6 +106,13 @@ public class LocationService {
 
     public Location save(Location location) {
         validateEntity(location);
+
+        if (location.getId() == null) {
+            validateDuplicateNameForCreate(location.getName());
+        } else {
+            validateDuplicateNameForUpdate(location.getName(), location.getId());
+        }
+
         return locationRepository.save(location);
     }
 
@@ -157,11 +131,9 @@ public class LocationService {
     // =========================
     // DTO-BASED CRUD
     // =========================
-
     public LocationShowDTO create(LocationDTO dto) {
         if (dto == null) {
-            throw new CustomException(getMessage("location.data.required", "Location data must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.data.required", "Location data must not be null"), HttpStatus.BAD_REQUEST);
         }
 
         Location entity = locationMapper.fromDto(dto);
@@ -171,22 +143,19 @@ public class LocationService {
 
     public LocationShowDTO update(Long locationId, LocationDTO dto) {
         if (locationId == null) {
-            throw new CustomException(getMessage("location.id.required", "Location id must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.id.required", "Location id must not be null"), HttpStatus.BAD_REQUEST);
         }
-
         if (dto == null) {
-            throw new CustomException(getMessage("location.data.required", "Location data must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.data.required", "Location data must not be null"), HttpStatus.BAD_REQUEST);
         }
 
         Location existing = findEntityById(locationId);
         locationMapper.updateLocationFromDto(dto, existing);
         validateEntity(existing);
+        validateDuplicateNameForUpdate(existing.getName(), locationId);
 
         Location saved = locationRepository.saveAndFlush(existing);
         em.refresh(saved);
-
         return locationMapper.toShowDto(saved);
     }
 
@@ -197,7 +166,7 @@ public class LocationService {
 
     @Transactional(readOnly = true)
     public List<LocationShowDTO> getAll() {
-        return locationRepository.findAll()
+        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"))
                 .stream()
                 .map(locationMapper::toShowDto)
                 .toList();
@@ -205,7 +174,7 @@ public class LocationService {
 
     @Transactional(readOnly = true)
     public List<LocationSummaryDTO> getAllSummary() {
-        return locationRepository.findAll()
+        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"))
                 .stream()
                 .map(locationMapper::toSummaryDto)
                 .toList();
@@ -214,7 +183,6 @@ public class LocationService {
     // =========================
     // IMPORT SUPPORT
     // =========================
-
     public LocationImportDTO[] orderLocations(List<LocationImportDTO> list) {
         if (list == null || list.isEmpty()) {
             return new LocationImportDTO[0];
@@ -222,7 +190,6 @@ public class LocationService {
 
         List<LocationImportDTO> result = new ArrayList<>(list);
         result.sort(Comparator.comparingInt(dto -> getDepth(dto, list)));
-
         return result.toArray(new LocationImportDTO[0]);
     }
 
@@ -259,17 +226,16 @@ public class LocationService {
         return depth;
     }
 
-    public void setLocationFieldsFromImportDto(Location entity,
-                                               LocationImportDTO dto,
-                                               Map<String, Location> locationsByName) {
+    public void setLocationFieldsFromImportDto(
+            Location entity,
+            LocationImportDTO dto,
+            Map<String, Location> locationsByName
+    ) {
         if (entity == null) {
-            throw new CustomException(getMessage("location.entity.required", "Location entity must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.entity.required", "Location entity must not be null"), HttpStatus.BAD_REQUEST);
         }
-
         if (dto == null) {
-            throw new CustomException(getMessage("location.import.required", "Location import data must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.import.required", "Location import data must not be null"), HttpStatus.BAD_REQUEST);
         }
 
         entity.setName(extractName(dto));
@@ -288,16 +254,32 @@ public class LocationService {
     // =========================
     // INTERNAL HELPERS
     // =========================
-
     private void validateEntity(Location location) {
         if (location == null) {
-            throw new CustomException(getMessage("location.data.required", "Location data must not be null"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.data.required", "Location data must not be null"), HttpStatus.BAD_REQUEST);
         }
-
         if (location.getName() == null || location.getName().isBlank()) {
-            throw new CustomException(getMessage("location.name.required", "Location name must not be blank"),
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(getMessage("location.name.required", "Location name must not be blank"), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void validateDuplicateNameForCreate(String name) {
+        String normalized = trim(name);
+        if (normalized != null && locationRepository.existsByNameIgnoreCase(normalized)) {
+            throw new CustomException(
+                    getMessage("location.name.exists", "Location name already exists"),
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+    }
+
+    private void validateDuplicateNameForUpdate(String name, Long id) {
+        String normalized = trim(name);
+        if (normalized != null && locationRepository.existsByNameIgnoreCaseAndIdNot(normalized, id)) {
+            throw new CustomException(
+                    getMessage("location.name.exists", "Location name already exists"),
+                    HttpStatus.BAD_REQUEST
+            );
         }
     }
 
@@ -330,7 +312,7 @@ public class LocationService {
     private String extractParentLocation(LocationImportDTO dto) {
         return trim(invokeStringGetter(dto, "getParentLocation"));
     }
-    
+
     private String extractVendors(LocationImportDTO dto) {
         return trim(invokeStringGetter(dto, "getVendors"));
     }

@@ -36,10 +36,6 @@ public class Schedule {
     @Column(name = "ends_on")
     private LocalDate endsOn;
 
-    /**
-     * số ngày cộng thêm để ra due date của WO
-     * ví dụ schedule date = 2026-04-10, dueDateDelay = 3 -> due date = 2026-04-13
-     */
     @Column(name = "due_date_delay")
     private Integer dueDateDelay;
 
@@ -54,10 +50,6 @@ public class Schedule {
     @Column(name = "recurrence_based_on", nullable = false, length = 30)
     private RecurrenceBasedOn recurrenceBasedOn = RecurrenceBasedOn.SCHEDULED_DATE;
 
-    /**
-     * 1 = Monday, 7 = Sunday
-     * chỉ dùng khi recurrenceType = WEEKLY
-     */
     @ElementCollection
     @CollectionTable(
             name = "schedule_days_of_week",
@@ -66,10 +58,12 @@ public class Schedule {
     @Column(name = "day_of_week", nullable = false)
     private List<Integer> daysOfWeek = new ArrayList<>();
 
+    @JsonIgnore
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "preventive_maintenance_id", nullable = false, unique = true)
-    @JsonIgnore
     private PreventiveMaintenance preventiveMaintenance;
+
+
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -81,7 +75,7 @@ public class Schedule {
     }
 
     public Schedule(PreventiveMaintenance preventiveMaintenance) {
-        this.preventiveMaintenance = preventiveMaintenance;
+        setPreventiveMaintenance(preventiveMaintenance);
     }
 
     @PrePersist
@@ -255,7 +249,7 @@ public class Schedule {
     }
 
     public void setDaysOfWeek(List<Integer> daysOfWeek) {
-        this.daysOfWeek = daysOfWeek == null ? new ArrayList<>() : daysOfWeek;
+        this.daysOfWeek = daysOfWeek == null ? new ArrayList<>() : new ArrayList<>(daysOfWeek);
     }
 
     public PreventiveMaintenance getPreventiveMaintenance() {
@@ -264,6 +258,9 @@ public class Schedule {
 
     public void setPreventiveMaintenance(PreventiveMaintenance preventiveMaintenance) {
         this.preventiveMaintenance = preventiveMaintenance;
+        if (preventiveMaintenance != null && preventiveMaintenance.getSchedule() != this) {
+            preventiveMaintenance.setSchedule(this);
+        }
     }
 
     public LocalDateTime getCreatedAt() {

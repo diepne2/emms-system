@@ -4,13 +4,10 @@ import com.emms.backend.dto.comment.CommentCriteria;
 import com.emms.backend.dto.comment.CommentPatchDTO;
 import com.emms.backend.dto.comment.CommentPostDTO;
 import com.emms.backend.entity.Comment;
-import com.emms.backend.entity.Notification;
 import com.emms.backend.entity.User;
 import com.emms.backend.entity.WorkOrder;
-import com.emms.backend.entity.enums.NotificationType;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.infrastructure.MailServiceFactory;
-import com.emms.backend.service.NotificationService;
 import com.emms.backend.mapper.CommentMapper;
 import com.emms.backend.repository.CommentRepository;
 import com.emms.backend.repository.UserRepository;
@@ -23,7 +20,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +59,9 @@ public class CommentService {
         }
         if (user == null) {
             throw new CustomException("Current user must not be null", HttpStatus.UNAUTHORIZED);
+        }
+        if (commentReq.getWorkOrderId() == null) {
+            throw new CustomException("Work order id must not be null", HttpStatus.BAD_REQUEST);
         }
 
         WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(commentReq.getWorkOrderId(), user);
@@ -123,10 +122,12 @@ public class CommentService {
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         }
 
-        WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(
-                extractWorkOrderId(savedComment.getWorkOrder()),
-                user
-        );
+        Long workOrderId = extractWorkOrderId(savedComment.getWorkOrder());
+        if (workOrderId == null) {
+            throw new CustomException("Comment is not linked to a work order", HttpStatus.BAD_REQUEST);
+        }
+
+        WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(workOrderId, user);
 
         commentMapper.updateComment(savedComment, commentPatchDTO);
 
@@ -152,7 +153,7 @@ public class CommentService {
 
         Specification<Comment> specification = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("workOrder").get("workOrderId"), criteria.getWorkOrderId()));
+            predicates.add(cb.equal(root.get("workOrder").get("id"), criteria.getWorkOrderId()));
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
@@ -169,7 +170,7 @@ public class CommentService {
         }
 
         workOrderService.checkAccessToWorkOrderId(workOrderId, user);
-        return commentRepository.countByWorkOrderId(workOrderId);
+        return commentRepository.countByWorkOrder_Id(workOrderId);
     }
 
     private Set<User> getNotifiedUsers(Comment comment, User actor) {
@@ -182,13 +183,14 @@ public class CommentService {
         return userRepository.findAllById(taggedUserIds)
                 .stream()
                 .filter(Objects::nonNull)
+                .filter(User::isEnabled)
                 .filter(u -> !Objects.equals(extractUserId(u), extractUserId(actor)))
                 .sorted(Comparator.comparing(this::extractUserId, Comparator.nullsLast(Long::compareTo)))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private String formatCommentContent(String content) {
-        if (content == null) {
+        if (content == null || content.isBlank()) {
             return "";
         }
 
@@ -198,7 +200,6 @@ public class CommentService {
         );
     }
 
-    @Async
     public void sendCommentNotifications(Comment comment,
                                          WorkOrder workOrder,
                                          Set<User> notifiedUsers,
@@ -216,28 +217,20 @@ public class CommentService {
         String emailTitleKey = isUpdate ? "comment_updated" : "new_comment";
         String emailTemplate = isUpdate ? "comment-updated.html" : "new-comment.html";
 
+        String title = messageSource.getMessage(emailTitleKey, null, locale);
         String message = messageSource.getMessage(
                 notificationKey,
                 new Object[]{actor.getFullName(), workOrder.getTitle()},
                 locale
         );
 
-        Long workOrderId = extractWorkOrderId(workOrder);
-
-        List<Notification> notifications = notifiedUsers.stream()
-                .map(notifiedUser -> new Notification(
-                        message,
-                        notifiedUser,
-                        NotificationType.WORK_ORDER,
-                        workOrderId
-                ))
-                .toList();
-
-        notificationService.createMultiple(
-                notifications,
-                true,
-                messageSource.getMessage(emailTitleKey, null, locale)
-        );
+        for (User notifiedUser : notifiedUsers) {
+            notificationService.createNotification(
+                    notifiedUser.getUserId(),
+                    title,
+                    message
+            );
+        }
 
         sendCommentEmail(comment, workOrder, notifiedUsers, actor, locale, emailTitleKey, emailTemplate);
     }
@@ -250,6 +243,7 @@ public class CommentService {
                                   String emailTitleKey,
                                   String emailTemplate) {
         String commentContent = formatCommentContent(comment.getContent());
+
         String commentLink = frontendUrl
                 + "/app/work-orders/"
                 + extractWorkOrderId(workOrder)

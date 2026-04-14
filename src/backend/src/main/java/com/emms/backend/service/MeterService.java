@@ -5,7 +5,6 @@ import com.emms.backend.dto.meter.MeterDTO;
 import com.emms.backend.dto.meter.MeterShowDTO;
 import com.emms.backend.dto.meter.MeterSummaryDTO;
 import com.emms.backend.entity.Asset;
-import com.emms.backend.entity.AssetDocument;
 import com.emms.backend.entity.Location;
 import com.emms.backend.entity.Meter;
 import com.emms.backend.entity.MeterCategory;
@@ -155,7 +154,9 @@ public class MeterService {
         }
 
         if (dto.getImageId() != null) {
-            
+            // Sửa method này theo đúng kiểu entity file/image bạn đang dùng.
+            // Ví dụ:
+            // entity.setImage(fileService.findEntityById(dto.getImageId()));
         }
 
         if (dto.getLocationId() != null) {

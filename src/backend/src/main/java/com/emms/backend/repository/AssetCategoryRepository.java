@@ -1,19 +1,16 @@
 package com.emms.backend.repository;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.Collection;
-import java.util.Optional;
-
 
 import com.emms.backend.entity.AssetCategory;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface AssetCategoryRepository extends JpaRepository<AssetCategory, Long>{
-    Optional<AssetCategory> findByName(String name);
+import java.util.List;
+import java.util.Optional;
+
+public interface AssetCategoryRepository extends JpaRepository<AssetCategory, Long> {
+
+    List<AssetCategory> findByParent_Id(Long parentId);
+
     Optional<AssetCategory> findByNameIgnoreCase(String name);
 
-    Collection<AssetCategory> findByParent_CategoryId(Long parentId);
-    Collection<AssetCategory> findByParent(AssetCategory parent);
-
     boolean existsByNameIgnoreCase(String name);
-    
 }

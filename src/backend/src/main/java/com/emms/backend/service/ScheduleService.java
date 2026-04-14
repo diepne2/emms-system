@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -36,6 +37,7 @@ public class ScheduleService {
         if (preventiveMaintenanceId == null) {
             throw new CustomException("preventiveMaintenanceId không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         validateScheduleDTO(dto);
 
         PreventiveMaintenance preventiveMaintenance = preventiveMaintenanceRepository.findById(preventiveMaintenanceId)
@@ -44,7 +46,8 @@ public class ScheduleService {
                         HttpStatus.NOT_FOUND
                 ));
 
-        if (scheduleRepository.findByPreventiveMaintenance_PreventiveMaintenanceId(preventiveMaintenanceId).isPresent()) {
+
+        if (scheduleRepository.findByPreventiveMaintenance_Id(preventiveMaintenanceId).isPresent()) {
             throw new CustomException(
                     "Preventive maintenance này đã có schedule",
                     HttpStatus.BAD_REQUEST
@@ -62,6 +65,7 @@ public class ScheduleService {
         if (scheduleId == null) {
             throw new CustomException("scheduleId không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         validateScheduleDTO(dto);
 
         Schedule savedSchedule = scheduleRepository.findById(scheduleId)
@@ -99,7 +103,8 @@ public class ScheduleService {
             throw new CustomException("preventiveMaintenanceId không được để trống", HttpStatus.BAD_REQUEST);
         }
 
-        return scheduleRepository.findByPreventiveMaintenance_PreventiveMaintenanceId(preventiveMaintenanceId)
+
+        return scheduleRepository.findByPreventiveMaintenance_Id(preventiveMaintenanceId)
                 .orElseThrow(() -> new CustomException(
                         "Không tìm thấy schedule cho preventive maintenance id: " + preventiveMaintenanceId,
                         HttpStatus.NOT_FOUND
@@ -161,31 +166,23 @@ public class ScheduleService {
         RecurrenceBasedOn recurrenceBasedOn = schedule.getRecurrenceBasedOn();
 
         if (recurrenceBasedOn == RecurrenceBasedOn.COMPLETED_DATE) {
-            // Với COMPLETED_DATE, việc generate thường phụ thuộc logic business khác
-            // nên service này chỉ xác nhận schedule đang active.
             return true;
         }
 
-        switch (recurrenceType) {
-            case DAILY:
-                return isDailyMatch(startsOn, date, frequency);
-
-            case WEEKLY:
-                return isWeeklyMatch(schedule, startsOn, date, frequency);
-
-            case MONTHLY:
-                return isMonthlyMatch(startsOn, date, frequency);
-
-            case YEARLY:
-                return isYearlyMatch(startsOn, date, frequency);
-
-            default:
-                return false;
+        if (recurrenceType == null) {
+            recurrenceType = RecurrenceType.DAILY;
         }
+
+        return switch (recurrenceType) {
+            case DAILY -> isDailyMatch(startsOn, date, frequency);
+            case WEEKLY -> isWeeklyMatch(schedule, startsOn, date, frequency);
+            case MONTHLY -> isMonthlyMatch(startsOn, date, frequency);
+            case YEARLY -> isYearlyMatch(startsOn, date, frequency);
+        };
     }
 
     private void applyDtoToEntity(Schedule schedule, ScheduleDTO dto) {
-        schedule.setDisabled(dto.getDisabled() != null && dto.getDisabled());
+        schedule.setDisabled(Boolean.TRUE.equals(dto.getDisabled()));
         schedule.setStartsOn(dto.getStartsOn() == null ? LocalDate.now() : dto.getStartsOn());
         schedule.setFrequency(dto.getFrequency() == null ? 1 : dto.getFrequency());
         schedule.setEndsOn(dto.getEndsOn());
@@ -221,8 +218,10 @@ public class ScheduleService {
         if (dto.getRecurrenceType() == RecurrenceType.WEEKLY) {
             List<Integer> days = dto.getDaysOfWeek();
             if (days == null || days.isEmpty()) {
-                throw new CustomException("daysOfWeek không được để trống khi recurrenceType = WEEKLY",
-                        HttpStatus.BAD_REQUEST);
+                throw new CustomException(
+                        "daysOfWeek không được để trống khi recurrenceType = WEEKLY",
+                        HttpStatus.BAD_REQUEST
+                );
             }
         }
     }
@@ -267,7 +266,7 @@ public class ScheduleService {
     }
 
     private boolean isDailyMatch(LocalDate startsOn, LocalDate date, int frequency) {
-        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(startsOn, date);
+        long daysBetween = ChronoUnit.DAYS.between(startsOn, date);
         return daysBetween >= 0 && daysBetween % frequency == 0;
     }
 
@@ -276,7 +275,7 @@ public class ScheduleService {
             return false;
         }
 
-        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(startsOn, date);
+        long daysBetween = ChronoUnit.DAYS.between(startsOn, date);
         if (daysBetween < 0) {
             return false;
         }
@@ -286,7 +285,7 @@ public class ScheduleService {
             return false;
         }
 
-        int dayValue = date.getDayOfWeek().getValue(); // 1 = Monday, 7 = Sunday
+        int dayValue = date.getDayOfWeek().getValue();
         return schedule.getDaysOfWeek().contains(dayValue);
     }
 

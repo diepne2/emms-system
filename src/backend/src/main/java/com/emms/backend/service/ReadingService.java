@@ -120,7 +120,7 @@ public class ReadingService {
             throw new CustomException("meterId không được để trống", HttpStatus.BAD_REQUEST);
         }
 
-        return readingRepository.findByMeter_MeterIdOrderByRecordedAtDesc(meterId);
+        return readingRepository.findByMeter_IdOrderByRecordedAtDesc(meterId);
     }
 
     @Transactional(readOnly = true)
@@ -128,7 +128,7 @@ public class ReadingService {
         if (meterId == null) {
             throw new CustomException("meterId không được để trống", HttpStatus.BAD_REQUEST);
         }
-        return readingRepository.findTopByMeter_MeterIdOrderByRecordedAtDesc(meterId);
+        return readingRepository.findTopByMeter_IdOrderByRecordedAtDesc(meterId);
     }
 
     private void validateDto(ReadingDTO dto, boolean requireMeterId) {

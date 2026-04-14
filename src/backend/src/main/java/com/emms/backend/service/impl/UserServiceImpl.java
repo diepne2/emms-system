@@ -11,7 +11,6 @@ import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.UserMapper;
 import com.emms.backend.repository.RoleRepository;
 import com.emms.backend.repository.UserRepository;
-import com.emms.backend.security.JwtTokenProvider;
 import com.emms.backend.service.UserInvitationService;
 import com.emms.backend.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,7 +36,6 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManager authenticationManager;
     private final UserInvitationService userInvitationService;
 
@@ -45,14 +43,12 @@ public class UserServiceImpl implements UserService {
                            RoleRepository roleRepository,
                            UserMapper userMapper,
                            PasswordEncoder passwordEncoder,
-                           JwtTokenProvider jwtTokenProvider,
                            AuthenticationManager authenticationManager,
                            UserInvitationService userInvitationService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
-        this.jwtTokenProvider = jwtTokenProvider;
         this.authenticationManager = authenticationManager;
         this.userInvitationService = userInvitationService;
     }
@@ -341,7 +337,7 @@ public class UserServiceImpl implements UserService {
             user.markLoginSuccess();
             userRepository.save(user);
 
-            return jwtTokenProvider.generateToken(authentication);
+            return authentication.getName();
         } catch (BadCredentialsException ex) {
             Optional<User> optionalUser = userRepository.findByUsernameOrEmail(usernameOrEmail.trim());
             optionalUser.ifPresent(savedUser -> {

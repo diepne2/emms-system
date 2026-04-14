@@ -5,7 +5,6 @@ import com.emms.backend.dto.chat.ChatMessageRequest;
 import com.emms.backend.entity.ChatConversation;
 import com.emms.backend.entity.ChatMessage;
 import com.emms.backend.entity.ChatParticipant;
-import com.emms.backend.entity.Notification;
 import com.emms.backend.entity.User;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.ChatMessageMapper;
@@ -138,12 +137,14 @@ public class ChatService {
             User targetUser = userRepository.findById(participant.getUserId())
                     .orElseThrow(() -> new CustomException("Không tìm thấy user tham gia chat", HttpStatus.NOT_FOUND));
 
+            // Realtime update cho UI chat
             pushNotificationService.pushChatToUser(
                     targetUser.getUsername(),
                     conversation.getId(),
                     dto
             );
 
+            // Chỉ tạo notification DB cho người nhận
             if (!participant.getUserId().equals(senderId)) {
                 createChatNotification(targetUser, sender, conversation.getId(), content);
             }
@@ -198,20 +199,10 @@ public class ChatService {
             return;
         }
 
-        Notification notification = new Notification();
-        notification.setUser(targetUser);
-        notification.setUsername(targetUser.getUsername());
-        notification.setTitle("Tin nhắn mới từ " + sender.getUsername());
-        notification.setMessage(truncate(sender.getUsername() + ": " + content, 255));
-        notification.setType(Notification.Type.PUSH);
-        notification.setCategory(Notification.Category.CHAT);
-        notification.setPriority(Notification.Priority.MEDIUM);
-        notification.setCreatedBy(sender.getUsername());
-        notification.setSourceType("CHAT_CONVERSATION");
-        notification.setSourceId(conversationId);
-        notification.setActionUrl("/chat/" + conversationId);
+        String title = "Tin nhắn mới từ " + safeUsername(sender);
+        String message = truncate(safeUsername(sender) + ": " + content, 255);
 
-        notificationService.create(notification);
+        notificationService.createNotification(targetUser.getUserId(), title, message);
     }
 
     @Transactional(readOnly = true)
@@ -232,6 +223,13 @@ public class ChatService {
         }
 
         return null;
+    }
+
+    private String safeUsername(User user) {
+        if (user == null || user.getUsername() == null || user.getUsername().isBlank()) {
+            return "Unknown";
+        }
+        return user.getUsername().trim();
     }
 
     private String truncate(String text, int maxLength) {

@@ -26,23 +26,22 @@ public class WorkOrderMeterTriggerService {
     private final EntityManager em;
 
     public WorkOrderMeterTrigger create(WorkOrderMeterTriggerDTO dto) {
-
         if (dto == null) {
             throw new CustomException("DTO is required", HttpStatus.BAD_REQUEST);
         }
-
-        WorkOrderMeterTrigger entity = new WorkOrderMeterTrigger();
-        mapper.update(entity, dto);
 
         if (dto.getMeterId() == null) {
             throw new CustomException("Meter is required", HttpStatus.BAD_REQUEST);
         }
 
+        WorkOrderMeterTrigger entity = new WorkOrderMeterTrigger();
+        mapper.update(entity, dto);
+
         Meter meter = meterService.findEntityById(dto.getMeterId());
         entity.setMeter(meter);
 
-        validate(entity);
         normalize(entity);
+        validate(entity);
 
         WorkOrderMeterTrigger saved = repo.saveAndFlush(entity);
         em.refresh(saved);
@@ -50,9 +49,15 @@ public class WorkOrderMeterTriggerService {
     }
 
     public WorkOrderMeterTrigger update(Long id, WorkOrderMeterTriggerDTO dto) {
+        if (id == null) {
+            throw new CustomException("Id is required", HttpStatus.BAD_REQUEST);
+        }
+
+        if (dto == null) {
+            throw new CustomException("DTO is required", HttpStatus.BAD_REQUEST);
+        }
 
         WorkOrderMeterTrigger entity = findEntityById(id);
-
         mapper.update(entity, dto);
 
         if (dto.getMeterId() != null) {
@@ -60,27 +65,38 @@ public class WorkOrderMeterTriggerService {
             entity.setMeter(meter);
         }
 
-        validate(entity);
         normalize(entity);
+        validate(entity);
 
-        return repo.saveAndFlush(entity);
+        WorkOrderMeterTrigger saved = repo.saveAndFlush(entity);
+        em.refresh(saved);
+        return saved;
     }
 
+    @Transactional(readOnly = true)
     public Collection<WorkOrderMeterTrigger> getAll() {
         return repo.findAll();
     }
 
+    @Transactional(readOnly = true)
     public WorkOrderMeterTrigger findEntityById(Long id) {
+        if (id == null) {
+            throw new CustomException("Id is required", HttpStatus.BAD_REQUEST);
+        }
+
         return repo.findById(id)
                 .orElseThrow(() -> new CustomException("Not found", HttpStatus.NOT_FOUND));
     }
 
     public void delete(Long id) {
+        if (id == null) {
+            throw new CustomException("Id is required", HttpStatus.BAD_REQUEST);
+        }
+
         repo.delete(findEntityById(id));
     }
 
     private void validate(WorkOrderMeterTrigger e) {
-
         if (e.getName() == null || e.getName().isBlank()) {
             throw new CustomException("Name required", HttpStatus.BAD_REQUEST);
         }
@@ -94,11 +110,11 @@ public class WorkOrderMeterTriggerService {
         }
 
         if (e.getTriggerValue().compareTo(BigDecimal.ZERO) < 0) {
-            throw new CustomException("Trigger value >= 0", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Trigger value must be >= 0", HttpStatus.BAD_REQUEST);
         }
 
         if (e.getCooldownMinutes() == null || e.getCooldownMinutes() < 0) {
-            throw new CustomException("Cooldown >= 0", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Cooldown must be >= 0", HttpStatus.BAD_REQUEST);
         }
 
         if (e.getMeter() == null || e.getMeter().getId() == null) {
@@ -107,7 +123,6 @@ public class WorkOrderMeterTriggerService {
     }
 
     private void normalize(WorkOrderMeterTrigger e) {
-
         if (e.getName() != null) {
             e.setName(e.getName().trim());
         }

@@ -1,290 +1,141 @@
 package com.emms.backend.service;
 
-import com.emms.backend.advancedsearch.SearchCriteria;
-import com.emms.backend.advancedsearch.SpecificationBuilder;
-import com.emms.backend.dto.notification.NotificationPatchDTO;
 import com.emms.backend.entity.Notification;
+import com.emms.backend.entity.User;
 import com.emms.backend.exception.CustomException;
-import com.emms.backend.mapper.NotificationMapper;
 import com.emms.backend.repository.NotificationRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import com.emms.backend.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @Transactional
+@Slf4j
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
-    private final NotificationMapper notificationMapper;
+    private final UserRepository userRepository;
     private final SimpMessageSendingOperations messagingTemplate;
 
     public NotificationService(NotificationRepository notificationRepository,
-                               NotificationMapper notificationMapper,
-                               SimpMessageSendingOperations messagingTemplate) {
+                               UserRepository userRepository,
+                               @Nullable SimpMessageSendingOperations messagingTemplate) {
         this.notificationRepository = notificationRepository;
-        this.notificationMapper = notificationMapper;
+        this.userRepository = userRepository;
         this.messagingTemplate = messagingTemplate;
     }
 
-    public Notification create(Notification notification) {
-        validateNotification(notification);
-        normalizeNotification(notification);
+    public Notification createNotification(Long userId, String title, String message) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(
+                        "Không tìm thấy người dùng với id: " + userId,
+                        HttpStatus.NOT_FOUND
+                ));
 
-        Notification savedNotification = notificationRepository.save(notification);
+        Notification notification = new Notification();
+        notification.setUser(user);
+        notification.setTitle(trim(title));
+        notification.setMessage(trim(message));
+        notification.setRead(false);
+        notification.setCreatedAt(LocalDateTime.now());
 
-        pushToWeb(savedNotification);
-        pushUnreadCount(extractUserId(savedNotification));
-
-        return savedNotification;
-    }
-
-    public List<Notification> createMultiple(List<Notification> notifications) {
-        if (notifications == null || notifications.isEmpty()) {
-            return List.of();
-        }
-
-        for (Notification notification : notifications) {
-            validateNotification(notification);
-            normalizeNotification(notification);
-        }
-
-        List<Notification> savedNotifications = notificationRepository.saveAll(notifications);
-
-        for (Notification notification : savedNotifications) {
-            pushToWeb(notification);
-            pushUnreadCount(extractUserId(notification));
-        }
-
-        return savedNotifications;
-    }
-
-    public Notification update(Long id, NotificationPatchDTO notificationPatchDTO) {
-        if (notificationPatchDTO == null) {
-            throw new CustomException("Notification patch must not be null", HttpStatus.BAD_REQUEST);
-        }
-
-        Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Notification not found", HttpStatus.NOT_FOUND));
-
-        notificationMapper.updateNotification(notification, notificationPatchDTO);
-        normalizeNotification(notification);
-
-        Notification savedNotification = notificationRepository.save(notification);
-
-        pushToWeb(savedNotification);
-        pushUnreadCount(extractUserId(savedNotification));
-
-        return savedNotification;
+        Notification saved = notificationRepository.save(notification);
+        pushToUser(user, saved);
+        return saved;
     }
 
     @Transactional(readOnly = true)
-    public Collection<Notification> getAll() {
-        return notificationRepository.findAll();
+    public List<Notification> getNotificationsByUserId(Long userId) {
+        validateUserExists(userId);
+        return notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId);
     }
 
     @Transactional(readOnly = true)
-    public Notification findById(Long id) {
-        return notificationRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Notification not found", HttpStatus.NOT_FOUND));
+    public long countUnreadNotifications(Long userId) {
+        validateUserExists(userId);
+        return notificationRepository.countByUser_UserIdAndIsReadFalse(userId);
     }
 
-    @Transactional(readOnly = true)
-    public Collection<Notification> findByUser(Long userId) {
-        validateUserId(userId);
-        return notificationRepository.findByUser_Id(userId);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<Notification> findBySearchCriteria(SearchCriteria searchCriteria) {
-        if (searchCriteria == null) {
-            throw new CustomException("Search criteria must not be null", HttpStatus.BAD_REQUEST);
-        }
-
-        SpecificationBuilder<Notification> builder = new SpecificationBuilder<>();
-        if (searchCriteria.getFilterFields() != null) {
-            searchCriteria.getFilterFields().forEach(builder::with);
-        }
-
-        Pageable pageable = PageRequest.of(
-                searchCriteria.getPageNum(),
-                searchCriteria.getPageSize(),
-                searchCriteria.getDirection(),
-                searchCriteria.getSortField()
-        );
-
-        return notificationRepository.findAll(builder.build(), pageable);
-    }
-
-    public void delete(Long id) {
-        Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Notification not found", HttpStatus.NOT_FOUND));
-
-        Long userId = extractUserId(notification);
-
-        notificationRepository.delete(notification);
-
-        pushUnreadCount(userId);
-    }
-
-    public void readAll(Long userId) {
-        validateUserId(userId);
-        notificationRepository.readAll(userId);
-        pushUnreadCount(userId);
-    }
-
-    public Notification markAsRead(Long id) {
-        Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Notification not found", HttpStatus.NOT_FOUND));
+    public Notification markAsRead(Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new CustomException(
+                        "Không tìm thấy thông báo với id: " + notificationId,
+                        HttpStatus.NOT_FOUND
+                ));
 
         if (!notification.isRead()) {
-            notification.markRead(); // fix: set readAt luôn
+            notification.setRead(true);
             notification = notificationRepository.save(notification);
         }
-
-        pushToWeb(notification);
-        pushUnreadCount(extractUserId(notification));
 
         return notification;
     }
 
-    public Notification markAsUnread(Long id) {
-        Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Notification not found", HttpStatus.NOT_FOUND));
+    public void markAllAsRead(Long userId) {
+        validateUserExists(userId);
 
-        if (notification.isRead()) {
-            notification.markUnread();
-            notification = notificationRepository.save(notification);
-        }
+        List<Notification> unreadNotifications =
+                notificationRepository.findByUser_UserIdAndIsReadFalse(userId);
 
-        pushToWeb(notification);
-        pushUnreadCount(extractUserId(notification));
-
-        return notification;
-    }
-
-    @Transactional(readOnly = true)
-    public long countUnreadByUser(Long userId) {
-        validateUserId(userId);
-        return notificationRepository.countByUser_IdAndReadFalse(userId);
-    }
-
-    private void pushToWeb(Notification notification) {
-        Long userId = extractUserId(notification);
-        if (userId == null) {
+        if (unreadNotifications.isEmpty()) {
             return;
         }
 
-        messagingTemplate.convertAndSend("/topic/notifications/" + userId, notification);
-    }
-
-    private void pushUnreadCount(Long userId) {
-        if (userId == null) {
-            return;
+        for (Notification notification : unreadNotifications) {
+            notification.setRead(true);
         }
 
-        long unreadCount = notificationRepository.countByUser_IdAndReadFalse(userId);
-        messagingTemplate.convertAndSend("/topic/notifications/" + userId + "/unread-count", unreadCount);
+        notificationRepository.saveAll(unreadNotifications);
     }
 
-    private Long extractUserId(Notification notification) {
-        if (notification == null || notification.getUser() == null) {
-            return null;
-        }
-        return notification.getUser().getUserId();
+    public void deleteNotification(Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new CustomException(
+                        "Không tìm thấy thông báo với id: " + notificationId,
+                        HttpStatus.NOT_FOUND
+                ));
+
+        notificationRepository.delete(notification);
     }
 
-    private void validateNotification(Notification notification) {
-        if (notification == null) {
-            throw new CustomException("Notification must not be null", HttpStatus.BAD_REQUEST);
-        }
-
-        boolean hasUser = notification.getUser() != null && notification.getUser().getUserId() != null;
-        boolean hasUsername = notification.getUsername() != null && !notification.getUsername().trim().isBlank();
-        boolean hasRecipientEmail = notification.getRecipientEmail() != null
-                && !notification.getRecipientEmail().trim().isBlank();
-
-        if (!hasUser && !hasUsername && !hasRecipientEmail) {
+    private void validateUserExists(Long userId) {
+        if (!userRepository.existsById(userId)) {
             throw new CustomException(
-                    "Notification must have at least one receiver: user, username or recipientEmail",
-                    HttpStatus.BAD_REQUEST
+                    "Không tìm thấy người dùng với id: " + userId,
+                    HttpStatus.NOT_FOUND
             );
         }
+    }
 
-        if (notification.getTitle() == null || notification.getTitle().trim().isBlank()) {
-            throw new CustomException("Notification title must not be blank", HttpStatus.BAD_REQUEST);
+    private void pushToUser(User user, Notification notification) {
+        if (user == null || notification == null) {
+            return;
         }
 
-        if (notification.getMessage() == null || notification.getMessage().trim().isBlank()) {
-            throw new CustomException("Notification message must not be blank", HttpStatus.BAD_REQUEST);
+        if (messagingTemplate == null) {
+            log.debug("Không có WebSocket bean, bỏ qua realtime notification cho userId={}", user.getId());
+            return;
         }
 
-        if (notification.getType() == null) {
-            throw new CustomException("Notification type must not be null", HttpStatus.BAD_REQUEST);
+        try {
+            messagingTemplate.convertAndSendToUser(
+                    user.getUsername(),
+                    "/queue/notifications",
+                    notification
+            );
+        } catch (Exception ex) {
+            log.warn("Gửi realtime notification thất bại cho userId={}: {}", user.getId(), ex.getMessage());
         }
     }
 
-    private void validateUserId(Long userId) {
-        if (userId == null) {
-            throw new CustomException("User id must not be null", HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    private void normalizeNotification(Notification notification) {
-        if (notification.getUsername() != null) {
-            notification.setUsername(notification.getUsername().trim());
-        }
-
-        if (notification.getRecipientEmail() != null) {
-            notification.setRecipientEmail(notification.getRecipientEmail().trim());
-        }
-
-        if (notification.getCreatedBy() != null) {
-            notification.setCreatedBy(notification.getCreatedBy().trim());
-        }
-
-        if (notification.getTitle() != null) {
-            notification.setTitle(notification.getTitle().trim());
-        }
-
-        if (notification.getMessage() != null) {
-            notification.setMessage(notification.getMessage().trim());
-        }
-
-        if (notification.getSourceType() != null) {
-            notification.setSourceType(notification.getSourceType().trim());
-        }
-
-        if (notification.getActionUrl() != null) {
-            notification.setActionUrl(notification.getActionUrl().trim());
-        }
-
-        if (notification.getPriority() == null) {
-            notification.setPriority(Notification.Priority.MEDIUM);
-        }
-
-        if (notification.getCategory() == null) {
-            notification.setCategory(Notification.Category.ALERT);
-        }
-
-        if (notification.getStatus() == null) {
-            notification.setStatus(Notification.Status.PENDING);
-        }
-
-        if (notification.getRetryCount() == null) {
-            notification.setRetryCount(0);
-        }
-    }
-
-    public void createMultiple(List<Notification> notifications, boolean b, String message) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'createMultiple'");
+    private String trim(String value) {
+        return value == null ? null : value.trim();
     }
 }

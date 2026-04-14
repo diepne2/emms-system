@@ -3,17 +3,8 @@ package com.emms.backend.entity;
 import com.emms.backend.entity.abstracts.WorkOrderBase;
 import com.emms.backend.entity.enums.PermissionEntity;
 import com.emms.backend.entity.enums.Priority;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import java.util.Objects;
 
 @Entity
 @Table(
@@ -41,8 +32,7 @@ public class PreventiveMaintenance extends WorkOrderBase {
     @Column(name = "demo", nullable = false)
     private boolean demo = false;
 
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "schedule_id")
+    @OneToOne(mappedBy = "preventiveMaintenance", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Schedule schedule;
 
     public PreventiveMaintenance() {
@@ -62,24 +52,21 @@ public class PreventiveMaintenance extends WorkOrderBase {
     }
 
     public boolean canBeEditedBy(User user) {
-        if (user == null || user.getRole() == null) {
-            return false;
-        }
-        return user.getRole().hasPermission(PermissionEntity.MAINTENANCE_PLAN_UPDATE);
+        return user != null
+                && user.getRole() != null
+                && user.getRole().hasPermission(PermissionEntity.MAINTENANCE_PLAN_UPDATE);
     }
 
     public boolean canBeViewedBy(User user) {
-        if (user == null || user.getRole() == null) {
-            return false;
-        }
-        return user.getRole().hasPermission(PermissionEntity.MAINTENANCE_PLAN_VIEW);
+        return user != null
+                && user.getRole() != null
+                && user.getRole().hasPermission(PermissionEntity.MAINTENANCE_PLAN_VIEW);
     }
 
     public boolean canGenerateWorkOrder(User user) {
-        if (user == null || user.getRole() == null) {
-            return false;
-        }
-        return user.getRole().hasPermission(PermissionEntity.MAINTENANCE_PLAN_GENERATE_WO);
+        return user != null
+                && user.getRole() != null
+                && user.getRole().hasPermission(PermissionEntity.MAINTENANCE_PLAN_GENERATE_WO);
     }
 
     public boolean hasSchedule() {
@@ -136,6 +123,9 @@ public class PreventiveMaintenance extends WorkOrderBase {
 
     public void setSchedule(Schedule schedule) {
         this.schedule = schedule;
+        if (schedule != null && !Objects.equals(schedule.getPreventiveMaintenance(), this)) {
+            schedule.setPreventiveMaintenance(this);
+        }
     }
 
     public void setTitle(String title) {

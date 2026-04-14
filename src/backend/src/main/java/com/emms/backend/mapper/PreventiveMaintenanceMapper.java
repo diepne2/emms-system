@@ -2,23 +2,31 @@ package com.emms.backend.mapper;
 
 import com.emms.backend.dto.preventiveMaintenance.PreventiveMaintenanceDTO;
 import com.emms.backend.dto.preventiveMaintenance.PreventiveMaintenanceShowDTO;
-import com.emms.backend.dto.preventiveMaintenance.PreventiveMaintenanceSummaryDTO;
 import com.emms.backend.entity.PreventiveMaintenance;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
-)
+@Mapper(componentModel = "spring")
 public interface PreventiveMaintenanceMapper {
 
-    PreventiveMaintenanceDTO toDto(PreventiveMaintenance model);
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "asset", ignore = true)
+    @Mapping(target = "requestedBy", ignore = true)
+    @Mapping(target = "assignedTo", ignore = true)
+    @Mapping(target = "schedule", ignore = true)
+    PreventiveMaintenance fromDto(PreventiveMaintenanceDTO dto);
 
-    @Mapping(source = "id", target = "id")
-    PreventiveMaintenanceShowDTO toShowDto(PreventiveMaintenance model);
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "asset", ignore = true)
+    @Mapping(target = "requestedBy", ignore = true)
+    @Mapping(target = "assignedTo", ignore = true)
+    @Mapping(target = "schedule", ignore = true)
+    void update(@MappingTarget PreventiveMaintenance entity, PreventiveMaintenanceDTO dto);
 
-    @Mapping(source = "id", target = "id")
-    PreventiveMaintenanceSummaryDTO toSummaryDto(PreventiveMaintenance model);
+    @Mapping(target = "assignedTo", ignore = true)
+    PreventiveMaintenanceShowDTO toShowDto(PreventiveMaintenance entity);
 }

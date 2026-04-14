@@ -11,11 +11,11 @@ import java.util.Optional;
 
 public interface PartRepository extends JpaRepository<Part, Long>, JpaSpecificationExecutor<Part> {
 
+    Optional<Part> findById(Long id);
+
+    List<Part> findByIdIn(List<Long> ids);
+
     List<Part> findAllByOrderByNameAsc();
-
-    Optional<Part> findByPartId(Long partId);
-
-    List<Part> findByPartIdIn(List<Long> ids);
 
     Optional<Part> findByNameIgnoreCase(String name);
 
@@ -29,11 +29,11 @@ public interface PartRepository extends JpaRepository<Part, Long>, JpaSpecificat
 
     boolean existsByNameIgnoreCase(String name);
 
-    boolean existsByNameIgnoreCaseAndPartIdNot(String name, Long partId);
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
 
     boolean existsByBarcode(String barcode);
 
-    boolean existsByBarcodeAndPartIdNot(String barcode, Long partId);
+    boolean existsByBarcodeAndIdNot(String barcode, Long id);
 
     @Query("SELECT CASE WHEN COUNT(p) > ?1 THEN true ELSE false END FROM Part p")
     boolean hasMoreThan(Long threshold);

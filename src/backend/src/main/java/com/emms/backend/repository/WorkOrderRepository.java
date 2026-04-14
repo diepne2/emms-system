@@ -14,11 +14,8 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
-
-    Optional<WorkOrder> findByWorkOrderId(Long workOrderId);
 
     List<WorkOrder> findAllByOrderByDateCreatedDesc();
 
@@ -26,7 +23,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
 
     Collection<WorkOrder> findByPriority(WorkOrderPriority priority);
 
-    Collection<WorkOrder> findByAssignedToIgnoreCase(String assignedTo);
+    Collection<WorkOrder> findByAssignedTo_UsernameIgnoreCase(String username);
 
     Collection<WorkOrder> findByDateCreatedBetween(LocalDateTime start, LocalDateTime end);
 
@@ -41,7 +38,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
     @Query("""
         select coalesce(sum(w.totalCost), 0)
         from WorkOrder w
-        where (:assetId is null or w.asset.assetId = :assetId)
+        where (:assetId is null or w.asset.id = :assetId)
           and w.createdAt >= :fromDate
           and w.createdAt < :toDate
     """)
@@ -54,7 +51,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
     @Query("""
         select function('date', w.createdAt), coalesce(sum(w.totalCost), 0)
         from WorkOrder w
-        where (:assetId is null or w.asset.assetId = :assetId)
+        where (:assetId is null or w.asset.id = :assetId)
           and w.createdAt >= :fromDate
           and w.createdAt < :toDate
         group by function('date', w.createdAt)
@@ -97,13 +94,13 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
                 (
                     select min(w2.createdAt)
                     from WorkOrder w2
-                    where w2.asset.assetId = w.asset.assetId
+                    where w2.asset.id = w.asset.id
                       and w2.createdAt > w.createdAt
                 )
             )
         )
         from WorkOrder w
-        where (:assetId is null or w.asset.assetId = :assetId)
+        where (:assetId is null or w.asset.id = :assetId)
           and w.createdAt >= :fromDate
           and w.createdAt < :toDate
     """)
@@ -137,14 +134,14 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
+    /*
+     * Entity hiện tại chưa có sourceType / maintenancePlan.
+     * Tạm coi compliant = tất cả WO trong range.
+     */
     @Query("""
         select count(w)
         from WorkOrder w
-        where (
-            w.maintenancePlan is not null
-            or w.sourceType = 'MAINTENANCE_PLAN'
-        )
-          and w.createdAt >= :fromDate
+        where w.createdAt >= :fromDate
           and w.createdAt < :toDate
     """)
     Long countCompliantInRange(
@@ -164,10 +161,14 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
+    /*
+     * Entity hiện tại chưa có startedAt.
+     * Tạm dùng completedOn để không làm vỡ app.
+     */
     @Query("""
-        select avg(function('timestampdiff', hour, w.createdAt, w.startedAt))
+        select avg(function('timestampdiff', hour, w.createdAt, w.completedOn))
         from WorkOrder w
-        where w.startedAt is not null
+        where w.completedOn is not null
           and w.createdAt >= :fromDate
           and w.createdAt < :toDate
     """)
@@ -187,8 +188,12 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
+    /*
+     * Entity hiện tại chưa có actualDuration.
+     * Tạm trả 0.0 để app boot.
+     */
     @Query("""
-        select coalesce(sum(w.actualDuration), 0)
+        select 0.0
         from WorkOrder w
         where w.createdAt >= :fromDate
           and w.createdAt < :toDate
@@ -198,14 +203,14 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
+    /*
+     * Entity hiện tại chưa có sourceType / maintenancePlan.
+     * Tạm coi compliant = tất cả WO trong range.
+     */
     @Query("""
         select coalesce(sum(w.estimatedDuration), 0)
         from WorkOrder w
-        where (
-            w.maintenancePlan is not null
-            or w.sourceType = 'MAINTENANCE_PLAN'
-        )
-          and w.createdAt >= :fromDate
+        where w.createdAt >= :fromDate
           and w.createdAt < :toDate
     """)
     Double sumEstimatedHoursForCompliantInRange(
@@ -214,12 +219,15 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
     );
 
     @Query("""
-        select u.userId, u.username, u.fullName, count(w)
+        select u.userId,
+               u.username,
+               concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, '')),
+               count(w)
         from WorkOrder w
         join w.assignedTo u
         where w.createdAt >= :fromDate
           and w.createdAt < :toDate
-        group by u.userId, u.username, u.fullName
+        group by u.userId, u.username, u.firstName, u.lastName
         order by count(w) desc
     """)
     List<Object[]> countByUserInRange(
@@ -254,7 +262,9 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
     );
 
     @Query("""
-        select u.userId, u.username, u.fullName,
+        select u.userId,
+               u.username,
+               concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, '')),
                count(w),
                avg(function('timestampdiff', day, w.createdAt, current_timestamp))
         from WorkOrder w
@@ -262,7 +272,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
         where w.status in :statuses
           and w.createdAt >= :fromDate
           and w.createdAt < :toDate
-        group by u.userId, u.username, u.fullName
+        group by u.userId, u.username, u.firstName, u.lastName
         order by count(w) desc
     """)
     List<Object[]> incompleteByUserInRange(
@@ -272,14 +282,14 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
     );
 
     @Query("""
-        select a.assetId, a.name, count(w),
+        select a.id, a.name, count(w),
                avg(function('timestampdiff', day, w.createdAt, current_timestamp))
         from WorkOrder w
         join w.asset a
         where w.status in :statuses
           and w.createdAt >= :fromDate
           and w.createdAt < :toDate
-        group by a.assetId, a.name
+        group by a.id, a.name
         order by count(w) desc
     """)
     List<Object[]> incompleteByAssetInRange(

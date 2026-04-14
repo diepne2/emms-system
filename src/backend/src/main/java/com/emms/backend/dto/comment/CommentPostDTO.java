@@ -4,23 +4,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-@Schema(description = "DTO tạo mới comment")
+@Schema(description = "DTO tạo comment")
 public class CommentPostDTO {
 
-    @NotNull(message = "workOrderId không được để trống")
-    @Schema(description = "ID của work order", example = "1")
+    @NotNull
+    @Schema(description = "ID work order", example = "1")
     private Long workOrderId;
 
-    @NotBlank(message = "Nội dung bình luận không được để trống")
-    @Schema(description = "Nội dung comment", example = "Cần kiểm tra lại thiết bị này")
+    @NotBlank
+    @Schema(description = "Nội dung comment")
     private String content;
 
     public CommentPostDTO() {
-    }
-
-    public CommentPostDTO(Long workOrderId, String content) {
-        this.workOrderId = workOrderId;
-        this.content = trim(content);
     }
 
     public Long getWorkOrderId() {

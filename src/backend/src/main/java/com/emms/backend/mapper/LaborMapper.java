@@ -11,17 +11,24 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 @Mapper(componentModel = "spring")
 public interface LaborMapper {
 
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "laborId", ignore = true)
+    LaborPatchDTO toDto(Labor entity);
+
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "assignedTo", ignore = true)
-    @Mapping(target = "timeCategory", ignore = true)
-    @Mapping(target = "workOrder", ignore = true)
     @Mapping(target = "logged", ignore = true)
     @Mapping(target = "demo", ignore = true)
     @Mapping(target = "status", ignore = true)
-    void updateLabor(@MappingTarget Labor entity, LaborPatchDTO dto);
+    @Mapping(target = "timeCategory", ignore = true)
+    @Mapping(target = "workOrder", ignore = true)
+    Labor fromDto(LaborPatchDTO dto);
 
-    @Mapping(source = "assignedTo.userId", target = "assignedToId")
-    @Mapping(source = "timeCategory.timeCategoryId", target = "timeCategoryId")
-    LaborPatchDTO toPatchDto(Labor model);
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "assignedTo", ignore = true)
+    @Mapping(target = "logged", ignore = true)
+    @Mapping(target = "demo", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    @Mapping(target = "timeCategory", ignore = true)
+    @Mapping(target = "workOrder", ignore = true)
+    void updateLabor(@MappingTarget Labor entity, LaborPatchDTO dto);
 }

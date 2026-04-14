@@ -2,21 +2,14 @@ package com.emms.backend.repository;
 
 import com.emms.backend.entity.Notification;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 
-import java.util.Collection;
+public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-public interface NotificationRepository extends JpaRepository<Notification, Long>,
-        JpaSpecificationExecutor<Notification> {
+    List<Notification> findByUser_UserIdOrderByCreatedAtDesc(Long userId);
 
-    Collection<Notification> findByUser_Id(Long userId);
+    List<Notification> findByUser_UserIdAndIsReadFalse(Long userId);
 
-    long countByUser_IdAndReadFalse(Long userId);
-
-    @Modifying
-    @Query("update Notification n set n.read = true where n.user.id = :userId and n.read = false")
-    void readAll(Long userId);
+    long countByUser_UserIdAndIsReadFalse(Long userId);
 }

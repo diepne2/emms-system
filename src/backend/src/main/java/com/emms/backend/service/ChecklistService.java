@@ -1,242 +1,140 @@
 package com.emms.backend.service;
 
 import com.emms.backend.dto.checklist.ChecklistDTO;
-import com.emms.backend.dto.checklist.ChecklistPostDTO;
 import com.emms.backend.dto.task.TaskBaseDTO;
 import com.emms.backend.entity.Checklist;
 import com.emms.backend.entity.ChecklistTask;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.repository.CheckListRepository;
-import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class ChecklistService {
 
     private final CheckListRepository checklistRepository;
+    private final EntityManager em;
 
-    public Checklist createPost(ChecklistPostDTO request) {
-        validateCreateRequest(request);
+    public ChecklistService(
+            CheckListRepository checklistRepository,
+            EntityManager em
+    ) {
+        this.checklistRepository = checklistRepository;
+        this.em = em;
+    }
+
+    public Checklist create(ChecklistDTO dto) {
+        if (dto == null) {
+            throw new CustomException("ChecklistDTO không được để trống", HttpStatus.BAD_REQUEST);
+        }
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            throw new CustomException("Tên checklist không được để trống", HttpStatus.BAD_REQUEST);
+        }
 
         Checklist checklist = new Checklist();
-        checklist.setName(request.getName());
-        checklist.setDescription(request.getDescription());
-        checklist.setAppliesTo(defaultAppliesTo(request.getAppliesTo()));
-        checklist.setActive(request.getActive() == null || request.getActive());
+        checklist.setName(dto.getName());
+        checklist.setDescription(dto.getDescription());
+        checklist.setAppliesTo(dto.getAppliesTo());
+        checklist.setActive(dto.getActive() == null || dto.getActive());
 
-        checklist.setTasks(buildChecklistTasks(request.getTasks()));
+        List<ChecklistTask> tasks = new ArrayList<>();
+        if (dto.getTasks() != null) {
+            int order = 1;
+            for (TaskBaseDTO taskDto : dto.getTasks()) {
+                ChecklistTask task = new ChecklistTask();
+                task.setTitle(requireLabel(taskDto));
+                task.setDescription(trim(taskDto.getDescription()));
+                task.setTaskType(mapTaskType(taskDto));
+                task.setRequired(true);
+                task.setDisplayOrder(order++);
+                task.setChecklist(checklist);
+                tasks.add(task);
+            }
+        }
 
-        return checklistRepository.save(checklist);
+        checklist.setTasks(tasks);
+
+        Checklist saved = checklistRepository.saveAndFlush(checklist);
+        em.refresh(saved);
+        return saved;
     }
 
-    public Checklist update(Long id, ChecklistDTO request) {
-        Checklist checklist = checklistRepository.findById(id)
+    public Checklist update(Long id, ChecklistDTO dto) {
+        Checklist existing = findEntityById(id);
+
+        if (dto.getName() != null) {
+            existing.setName(dto.getName());
+        }
+        if (dto.getDescription() != null) {
+            existing.setDescription(dto.getDescription());
+        }
+        if (dto.getAppliesTo() != null) {
+            existing.setAppliesTo(dto.getAppliesTo());
+        }
+        if (dto.getActive() != null) {
+            existing.setActive(dto.getActive());
+        }
+
+        if (dto.getTasks() != null) {
+            existing.getTasks().clear();
+            int order = 1;
+            for (TaskBaseDTO taskDto : dto.getTasks()) {
+                ChecklistTask task = new ChecklistTask();
+                task.setTitle(requireLabel(taskDto));
+                task.setDescription(trim(taskDto.getDescription()));
+                task.setTaskType(mapTaskType(taskDto));
+                task.setRequired(true);
+                task.setDisplayOrder(order++);
+                task.setChecklist(existing);
+                existing.getTasks().add(task);
+            }
+        }
+
+        Checklist saved = checklistRepository.saveAndFlush(existing);
+        em.refresh(saved);
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public Checklist findEntityById(Long id) {
+        return checklistRepository.findById(id)
                 .orElseThrow(() -> new CustomException("Checklist không tồn tại", HttpStatus.NOT_FOUND));
-
-        validateUpdateRequest(request);
-
-        if (request.getName() != null) {
-            checklist.setName(request.getName());
-        }
-
-        checklist.setDescription(request.getDescription());
-
-        if (request.getAppliesTo() != null) {
-            checklist.setAppliesTo(defaultAppliesTo(request.getAppliesTo()));
-        }
-
-        if (request.getActive() != null) {
-            checklist.setActive(request.getActive());
-        }
-
-        checklist.setTasks(buildChecklistTasks(request.getTasks()));
-
-        return checklistRepository.save(checklist);
-    }
-
-    @Transactional(readOnly = true)
-    public Collection<Checklist> getAll() {
-        return checklistRepository.findAll();
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<Checklist> findById(Long id) {
-        return checklistRepository.findById(id);
     }
 
     public void delete(Long id) {
-        Checklist checklist = checklistRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Checklist không tồn tại", HttpStatus.NOT_FOUND));
-        checklistRepository.delete(checklist);
+        checklistRepository.delete(findEntityById(id));
     }
 
-    private void validateCreateRequest(ChecklistPostDTO request) {
-        if (request == null) {
-            throw new CustomException("Dữ liệu checklist không được null", HttpStatus.BAD_REQUEST);
+    private String requireLabel(TaskBaseDTO dto) {
+        if (dto == null || dto.getLabel() == null || dto.getLabel().isBlank()) {
+            throw new CustomException("Task title không được để trống", HttpStatus.BAD_REQUEST);
         }
-        if (isBlank(request.getName())) {
-            throw new CustomException("Tên checklist không được để trống", HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    private void validateUpdateRequest(ChecklistDTO request) {
-        if (request == null) {
-            throw new CustomException("Dữ liệu checklist không được null", HttpStatus.BAD_REQUEST);
-        }
-        if (request.getName() != null && request.getName().isBlank()) {
-            throw new CustomException("Tên checklist không hợp lệ", HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    private List<ChecklistTask> buildChecklistTasks(List<TaskBaseDTO> taskDtos) {
-        List<ChecklistTask> result = new ArrayList<>();
-
-        if (taskDtos == null || taskDtos.isEmpty()) {
-            return result;
-        }
-
-        int order = 1;
-        for (TaskBaseDTO dto : taskDtos) {
-            if (dto == null) {
-                continue;
-            }
-
-            ChecklistTask task = new ChecklistTask();
-            task.setTitle(extractLabel(dto));
-            task.setDescription(extractDescription(dto));
-            task.setTaskType(mapTaskType(dto));
-            task.setRequired(extractRequired(dto));
-            task.setDisplayOrder(extractDisplayOrder(dto, order));
-            task.setExpectedValue(extractExpectedValue(dto));
-            task.setMinValue(extractMinValue(dto));
-            task.setMaxValue(extractMaxValue(dto));
-
-            result.add(task);
-            order++;
-        }
-
-        return result;
-    }
-
-    private String defaultAppliesTo(String appliesTo) {
-        return isBlank(appliesTo) ? "GENERAL" : appliesTo.trim().toUpperCase();
+        return dto.getLabel().trim();
     }
 
     private ChecklistTask.ChecklistTaskType mapTaskType(TaskBaseDTO dto) {
-        String rawType = extractTaskType(dto);
-
-        if (rawType == null || rawType.isBlank()) {
+        if (dto == null || dto.getTaskType() == null) {
             return ChecklistTask.ChecklistTaskType.PASS_FAIL;
         }
 
-        String normalized = rawType.trim().toUpperCase();
-
-        return switch (normalized) {
-            case "PASS_FAIL", "CHECK" -> ChecklistTask.ChecklistTaskType.PASS_FAIL;
-            case "YES_NO" -> ChecklistTask.ChecklistTaskType.YES_NO;
-            case "TEXT", "SUBTASK" -> ChecklistTask.ChecklistTaskType.TEXT;
-            case "NUMBER" -> ChecklistTask.ChecklistTaskType.NUMBER;
-            default -> ChecklistTask.ChecklistTaskType.PASS_FAIL;
+        return switch (dto.getTaskType()) {
+            case CHECK, PASS_FAIL -> ChecklistTask.ChecklistTaskType.PASS_FAIL;
+            case NUMBER -> ChecklistTask.ChecklistTaskType.NUMBER;
+            case TEXT, SUBTASK -> ChecklistTask.ChecklistTaskType.TEXT;
         };
     }
 
-    private String extractLabel(TaskBaseDTO dto) {
-        String value = invokeStringGetter(dto, "getLabel");
-        if (isBlank(value)) {
-            throw new CustomException("Task title không được để trống", HttpStatus.BAD_REQUEST);
-        }
-        return value.trim();
-    }
-
-    private String extractDescription(TaskBaseDTO dto) {
-        return trimToNull(invokeStringGetter(dto, "getDescription"));
-    }
-
-    private String extractTaskType(TaskBaseDTO dto) {
-        Object value = invokeGetter(dto, "getTaskType");
-        return value == null ? null : value.toString();
-    }
-
-    private boolean extractRequired(TaskBaseDTO dto) {
-        Object value = invokeGetter(dto, "getRequired");
-        if (value instanceof Boolean b) {
-            return b;
-        }
-
-        value = invokeGetter(dto, "isRequired");
-        if (value instanceof Boolean b) {
-            return b;
-        }
-
-        value = invokeGetter(dto, "getRequiredTask");
-        if (value instanceof Boolean b) {
-            return b;
-        }
-
-        return true;
-    }
-
-    private Integer extractDisplayOrder(TaskBaseDTO dto, int defaultValue) {
-        Object value = invokeGetter(dto, "getDisplayOrder");
-        if (value instanceof Integer i && i > 0) {
-            return i;
-        }
-
-        value = invokeGetter(dto, "getSortOrder");
-        if (value instanceof Integer i && i > 0) {
-            return i;
-        }
-
-        return defaultValue;
-    }
-
-    private String extractExpectedValue(TaskBaseDTO dto) {
-        return trimToNull(invokeStringGetter(dto, "getExpectedValue"));
-    }
-
-    private Double extractMinValue(TaskBaseDTO dto) {
-        Object value = invokeGetter(dto, "getMinValue");
-        return value instanceof Double d ? d : null;
-    }
-
-    private Double extractMaxValue(TaskBaseDTO dto) {
-        Object value = invokeGetter(dto, "getMaxValue");
-        return value instanceof Double d ? d : null;
-    }
-
-    private Object invokeGetter(Object target, String methodName) {
-        try {
-            Method method = target.getClass().getMethod(methodName);
-            return method.invoke(target);
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private String invokeStringGetter(Object target, String methodName) {
-        Object value = invokeGetter(target, methodName);
-        return value == null ? null : value.toString();
-    }
-
-    private String trimToNull(String value) {
+    private String trim(String value) {
         if (value == null) {
             return null;
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
     }
 }

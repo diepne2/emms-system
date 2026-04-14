@@ -132,7 +132,7 @@ public class LaborService {
         if (id == null) {
             throw new CustomException("Work order id must not be null", HttpStatus.BAD_REQUEST);
         }
-        return laborRepository.findByWorkOrder_WorkOrderId(id);
+        return laborRepository.findByWorkOrder_Id(id);
     }
 
     public Labor stop(Labor labor) {
@@ -142,7 +142,7 @@ public class LaborService {
         if (labor.getStartedAt() == null) {
             throw new CustomException("Labor startedAt must not be null", HttpStatus.BAD_REQUEST);
         }
-        if (labor.getDuration() < 0L) {
+        if (labor.getDuration() == null || labor.getDuration() < 0L) {
             throw new CustomException("Labor duration must not be negative", HttpStatus.BAD_REQUEST);
         }
         if (labor.getStatus() == TimeStatus.STOPPED) {

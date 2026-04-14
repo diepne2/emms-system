@@ -23,7 +23,6 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     ) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.oAuth2Properties = oAuth2Properties;
-
         setDefaultTargetUrl("http://localhost:5173/oauth2/redirect");
     }
 
@@ -56,15 +55,17 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             return buildErrorRedirect(targetUrl, "oauth2_user_not_found");
         }
 
-        Long userId = resolveUserId(user);
+        Long userId = user.getUserId();
         if (userId == null) {
             return buildErrorRedirect(targetUrl, "user_id_not_found");
         }
 
-        String token = jwtTokenProvider.generateToken(authentication);
+        String accessToken = jwtTokenProvider.createToken(authentication);
+        String refreshToken = jwtTokenProvider.createRefreshToken(authentication.getName());
 
         return UriComponentsBuilder.fromUriString(targetUrl)
-                .queryParam("token", token)
+                .queryParam("token", accessToken)
+                .queryParam("refreshToken", refreshToken)
                 .queryParam("userId", userId)
                 .build()
                 .toUriString();
@@ -99,22 +100,9 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     }
 
     private User extractUser(Object principal) {
-        if (principal == null) {
-            return null;
-        }
-
         if (principal instanceof CustomUserDetail customUserDetail) {
             return customUserDetail.getUser();
         }
-
         return null;
-    }
-
-    private Long resolveUserId(User user) {
-        if (user == null) {
-            return null;
-        }
-
-        return user.getUserId();
     }
 }

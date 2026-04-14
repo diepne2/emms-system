@@ -1,26 +1,34 @@
 package com.emms.backend.dto.comment;
 
-import com.emms.backend.dto.user.UserSummaryDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
-@Schema(description = "DTO hiển thị chi tiết comment")
+@Schema(description = "DTO hiển thị comment")
 public class CommentShowDTO {
 
-    @Schema(description = "ID của comment", example = "10")
+    @Schema(description = "ID comment", example = "10")
     private Long id;
 
-    @Schema(description = "Thông tin người tạo comment")
-    private UserSummaryDTO user;
+    @Schema(description = "ID work order", example = "1")
+    private Long workOrderId;
 
-    @Schema(description = "Nội dung comment", example = "Cần kiểm tra lại thiết bị này")
+    @Schema(description = "Tiêu đề work order", example = "Bảo trì máy nén khí")
+    private String workOrderTitle;
+
+    @Schema(description = "ID người tạo comment", example = "2")
+    private Long userId;
+
+    @Schema(description = "Tên đầy đủ người tạo", example = "Nguyễn Văn A")
+    private String userFullName;
+
+    @Schema(description = "Username người tạo", example = "nguyenvana")
+    private String username;
+
+    @Schema(description = "Nội dung comment")
     private String content;
 
-    @Schema(description = "Comment hệ thống hay không", example = "false")
-    private boolean system;
-
-    @Schema(description = "Thời gian tạo comment")
+    @Schema(description = "Thời gian tạo")
     private LocalDateTime createdAt;
 
     public CommentShowDTO() {
@@ -34,12 +42,44 @@ public class CommentShowDTO {
         this.id = id;
     }
 
-    public UserSummaryDTO getUser() {
-        return user;
+    public Long getWorkOrderId() {
+        return workOrderId;
     }
 
-    public void setUser(UserSummaryDTO user) {
-        this.user = user;
+    public void setWorkOrderId(Long workOrderId) {
+        this.workOrderId = workOrderId;
+    }
+
+    public String getWorkOrderTitle() {
+        return workOrderTitle;
+    }
+
+    public void setWorkOrderTitle(String workOrderTitle) {
+        this.workOrderTitle = trim(workOrderTitle);
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public String getUserFullName() {
+        return userFullName;
+    }
+
+    public void setUserFullName(String userFullName) {
+        this.userFullName = trim(userFullName);
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = trim(username);
     }
 
     public String getContent() {
@@ -48,14 +88,6 @@ public class CommentShowDTO {
 
     public void setContent(String content) {
         this.content = trim(content);
-    }
-
-    public boolean isSystem() {
-        return system;
-    }
-
-    public void setSystem(boolean system) {
-        this.system = system;
     }
 
     public LocalDateTime getCreatedAt() {

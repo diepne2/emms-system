@@ -30,13 +30,10 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             String token = jwtTokenProvider.resolveToken(request);
 
             if (token != null
-                    && !token.isBlank()
                     && SecurityContextHolder.getContext().getAuthentication() == null
                     && jwtTokenProvider.validateToken(token)) {
 
                 Authentication authentication = jwtTokenProvider.getAuthentication(token);
-
-                SecurityContextHolder.clearContext();
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
 
@@ -45,6 +42,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         } catch (CustomException ex) {
             SecurityContextHolder.clearContext();
             response.sendError(ex.getHttpStatus().value(), ex.getMessage());
+        } catch (Exception ex) {
+            SecurityContextHolder.clearContext();
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired JWT token");
         }
     }
 }

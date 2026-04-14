@@ -3,93 +3,105 @@ package com.emms.backend.controller;
 import com.emms.backend.dto.comment.CommentCriteria;
 import com.emms.backend.dto.comment.CommentPatchDTO;
 import com.emms.backend.dto.comment.CommentPostDTO;
+import com.emms.backend.dto.comment.CommentShowDTO;
 import com.emms.backend.entity.Comment;
 import com.emms.backend.entity.User;
+import com.emms.backend.mapper.CommentMapper;
 import com.emms.backend.service.CommentService;
 import com.emms.backend.service.UserService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/comments")
 @RequiredArgsConstructor
-@Tag(name = "Comment Controller", description = "APIs quản lý comment")
 public class CommentController {
 
     private final CommentService commentService;
+    private final CommentMapper commentMapper;
     private final UserService userService;
 
+    @GetMapping
+    public ResponseEntity<List<CommentShowDTO>> findByCriteria(@RequestParam Long workOrderId,
+                                                               Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+
+        CommentCriteria criteria = new CommentCriteria();
+        criteria.setWorkOrderId(workOrderId);
+
+        List<Comment> comments = commentService.findByCriteria(criteria, currentUser);
+        return ResponseEntity.ok(commentMapper.toShowDtoList(comments));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<CommentShowDTO> findById(@PathVariable Long id,
+                                                   Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+
+        Comment comment = commentService.findEntityById(id);
+
+        if (comment.getWorkOrder() != null && comment.getWorkOrder().getId() != null) {
+            // check access thông qua work order
+            commentService.findByCriteria(buildCriteria(comment.getWorkOrder().getId()), currentUser);
+        }
+
+        return ResponseEntity.ok(commentMapper.toShowDto(comment));
+    }
+
+    @GetMapping("/count")
+    public ResponseEntity<Map<String, Long>> countByWorkOrderId(@RequestParam Long workOrderId,
+                                                                Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+        long count = commentService.countByWorkOrderId(workOrderId, currentUser);
+        return ResponseEntity.ok(Map.of("count", count));
+    }
+
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Tạo comment mới")
-    public ResponseEntity<Comment> create(@Valid @RequestBody CommentPostDTO dto,
-                                          HttpServletRequest request) {
-        User currentUser = userService.whoami(request);
+    public ResponseEntity<CommentShowDTO> create(@Valid @RequestBody CommentPostDTO dto,
+                                                 Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
         Comment created = commentService.create(dto, currentUser);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(commentMapper.toShowDto(created));
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Cập nhật comment")
-    public ResponseEntity<Comment> update(@PathVariable Long id,
-                                          @Valid @RequestBody CommentPatchDTO dto,
-                                          HttpServletRequest request) {
-        User currentUser = userService.whoami(request);
+    public ResponseEntity<CommentShowDTO> update(@PathVariable Long id,
+                                                 @RequestBody CommentPatchDTO dto,
+                                                 Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
         Comment updated = commentService.update(id, dto, currentUser);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(commentMapper.toShowDto(updated));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Xóa comment")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                       Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+
+        Comment comment = commentService.findEntityById(id);
+        if (comment.getUser() == null || !comment.getUser().getUserId().equals(currentUser.getUserId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         commentService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Lấy comment theo id")
-    public ResponseEntity<Comment> getById(@PathVariable Long id) {
-        Optional<Comment> comment = commentService.findById(id);
-        return comment.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    private CommentCriteria buildCriteria(Long workOrderId) {
+        CommentCriteria criteria = new CommentCriteria();
+        criteria.setWorkOrderId(workOrderId);
+        return criteria;
     }
 
-    @GetMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
-    @Operation(summary = "Lấy tất cả comment")
-    public ResponseEntity<List<Comment>> getAll() {
-        return ResponseEntity.ok(commentService.getAll());
-    }
-
-    @PostMapping("/search")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Tìm comment theo điều kiện")
-    public ResponseEntity<List<Comment>> search(@RequestBody CommentCriteria criteria,
-                                                HttpServletRequest request) {
-        User currentUser = userService.whoami(request);
-        return ResponseEntity.ok(commentService.findByCriteria(criteria, currentUser));
-    }
-
-    @GetMapping("/work-orders/{workOrderId}/count")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Đếm số comment theo work order")
-    public ResponseEntity<Long> countByWorkOrder(@PathVariable Long workOrderId,
-                                                 HttpServletRequest request) {
-        User currentUser = userService.whoami(request);
-        long count = commentService.countByWorkOrderId(workOrderId, currentUser);
-        return ResponseEntity.ok(count);
+    private User getCurrentUser(Authentication authentication) {
+        String usernameOrEmail = authentication.getName();
+        return userService.getByUsernameOrEmail(usernameOrEmail);
     }
 }

@@ -23,18 +23,18 @@ public interface RequestMapper {
     Request updateRequest(@MappingTarget Request entity, RequestDTO dto);
 
     @Mapping(target = "requestId", source = "id")
-    @Mapping(target = "locationId", source = "location.locationId")
+    @Mapping(target = "locationId", source = "location.id")
     @Mapping(target = "locationName", source = "location.name")
-    @Mapping(target = "requestPortalId", source = "requestPortal.id")
+    @Mapping(target = "requestPortalId", source = "requestPortal.uuid")
     @Mapping(target = "requestPortalTitle", source = "requestPortal.title")
     @Mapping(target = "workOrderId", source = "workOrder.id")
     @Mapping(target = "workOrderTitle", source = "workOrder.title")
     RequestDTO toDto(Request entity);
 
     @Mapping(target = "requestId", source = "id")
-    @Mapping(target = "locationId", source = "location.locationId")
+    @Mapping(target = "locationId", source = "location.id")
     @Mapping(target = "locationName", source = "location.name")
-    @Mapping(target = "requestPortalId", source = "requestPortal.id")
+    @Mapping(target = "requestPortalId", source = "requestPortal.uuid")
     @Mapping(target = "requestPortalTitle", source = "requestPortal.title")
     @Mapping(target = "workOrderId", source = "workOrder.id")
     @Mapping(target = "workOrderTitle", source = "workOrder.title")

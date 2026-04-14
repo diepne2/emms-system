@@ -1,30 +1,18 @@
 package com.emms.backend.infrastructure;
 
-import com.emms.backend.entity.enums.MailType;
 import com.emms.backend.service.EmailService;
-import com.emms.backend.service.MailService;
-import com.emms.backend.service.SendgridService;
+import org.springframework.stereotype.Component;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
-
-
-@Configuration
-@RequiredArgsConstructor
+@Component
 public class MailServiceFactory {
-    @Value("${mail.type:SMTP}")
-    private MailType mailType;
 
     private final EmailService emailService;
-    private final SendgridService sendgridService;
 
-    public MailService getMailService() {
-        switch (mailType) {
-            case SENDGRID:
-                return sendgridService;
-            default:
-                return emailService;
-        }
+    public MailServiceFactory(EmailService emailService) {
+        this.emailService = emailService;
+    }
+
+    public EmailService getMailService() {
+        return emailService;
     }
 }

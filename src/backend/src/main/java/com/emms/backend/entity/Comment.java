@@ -4,12 +4,11 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 @Entity
 @Table(name = "comments", indexes = {
         @Index(name = "idx_comment_work_order", columnList = "work_order_id"),
@@ -82,6 +81,10 @@ public class Comment {
         return id;
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public WorkOrder getWorkOrder() {
         return workOrder;
     }
@@ -109,4 +112,9 @@ public class Comment {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
 }

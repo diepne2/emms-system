@@ -9,11 +9,9 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface FileMapper {
 
-    @Mapping(source = "fileId", target = "id")
     @Mapping(source = "path", target = "url")
     FileShowDTO toShowDto(File model);
 
-    @Mapping(source = "fileId", target = "id")
     @Mapping(source = "path", target = "url")
     FileSummaryDTO toSummaryDto(File model);
 }
