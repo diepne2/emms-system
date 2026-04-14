@@ -4,7 +4,8 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
+### STS
+
 .apt_generated
 .classpath
 .factorypath
@@ -13,13 +14,15 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
+### IntelliJ IDEA
+
+.idea/
 *.iws
 *.iml
 *.ipr
 
-### NetBeans ###
+### NetBeans
+
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -29,5 +32,79 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
+### VS Code
+
 .vscode/
+
+#  EMMS ADDITION (IMPORTANT)
+
+# Logs (VERY IMPORTANT)
+
+logs/
+*.log
+*.gz
+*.out
+
+# Environment / secrets
+
+.env
+.env.*
+*.env
+
+application-prod.properties
+application-secret.properties
+application-local.properties
+
+# Uploads / storage
+
+uploads/
+tmp/
+temp/
+storage/
+data/
+minio-data/
+
+# Frontend
+
+node_modules/
+dist/
+coverage/
+
+# OS files
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+
+docker-compose.override.yml
+*.tar
+
+# Test reports
+
+surefire-reports/
+failsafe-reports/
+
+# Database dumps
+
+*.sql
+*.dump
+*.bak
+
+# Backup / temp files
+
+*.swp
+*.swo
+*~
+*.tmp
+
+
+
+# KEEP THESE (DO NOT IGNORE)
+
+
+!src/main/resources/application.yml
+!src/main/resources/application.properties
+!src/main/resources/application-dev.properties
+!src/main/resources/application-test.properties
