@@ -1,0 +1,16 @@
+role_type,status,first_name,last_name,phone,job_title,username,password,email,enabled,failed_attempts
+ROLE_ADMIN,ACTIVE,Admin,System,900000001,System Admin,admin,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,admin01@gmail.com,TRUE,0
+ROLE_TECHNICAL_MANAGER,ACTIVE,Diep,Yung,900000002,Technical Manager,qlkt,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,diepyungxx@gmail.com,TRUE,0
+ROLE_TECHNICAL_MANAGER,ACTIVE,Diep,Yang,900000003,Technical Manager,qlkt01,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,diepyangxx@gmail.com,TRUE,0
+ROLE_TECHNICIAN,ACTIVE,Tech,One,900000004,Technician,nvkt,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,tech01@gmail.com,TRUE,0
+ROLE_TECHNICIAN,ACTIVE,Tech,Two,900000005,Technician,nvkt01,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,tech02@gmail.com,TRUE,0
+ROLE_TECHNICIAN,ACTIVE,Tech,Three,900000006,Technician,tech03,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,tech03@gmail.com,TRUE,0
+ROLE_TECHNICIAN,ACTIVE,Tech,Four,900000007,Technician,tech04,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,tech04@gmail.com,TRUE,0
+ROLE_TECHNICIAN,ACTIVE,Tech,Five,900000008,Technician,tech05,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,tech05@gmail.com,TRUE,0
+ROLE_OPERATOR,ACTIVE,Operator,One,900000009,Operator,nvvh,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,op01@gmail.com,TRUE,0
+ROLE_OPERATOR,ACTIVE,Operator,Two,900000010,Operator,nvvh01,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,op02@gmail.com,TRUE,0
+ROLE_OPERATOR,ACTIVE,Operator,Three,900000011,Operator,op03,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,op03@gmail.com,TRUE,0
+ROLE_OPERATOR,ACTIVE,Operator,Four,900000012,Operator,op04,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,op04@gmail.com,TRUE,0
+ROLE_OPERATOR,ACTIVE,Operator,Five,900000013,Operator,op05,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,op05@gmail.com,TRUE,0
+ROLE_OPERATOR,ACTIVE,Operator,Six,900000014,Operator,op06,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,op06@gmail.com,TRUE,0
+ROLE_OPERATOR,ACTIVE,Operator,Seven,900000015,Operator,op07,$2a$10$7EqJtq98hPqEX7fNZaFWoOHiM9h6wGKuGInxjeRGna43EIBgzHuXu,op07@gmail.com,TRUE,0
