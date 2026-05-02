@@ -1,1 +1,1 @@
-export { default } from './HR'
+export { default } from './hr'

@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AssetsPage from './Assets'
 import AssetDowntimes from './AssetDowntimes'
 
-// Tạm thời dùng lại AssetsPage cho đến khi bạn có form riêng
+
 const AssetCreatePage = AssetsPage
 const AssetEditPage = AssetsPage
 
