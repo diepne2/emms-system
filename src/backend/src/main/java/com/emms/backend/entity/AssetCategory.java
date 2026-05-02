@@ -40,7 +40,6 @@ public class AssetCategory {
         }
     }
 
-    // ===== Getter Setter =====
     public Long getId() {
         return id;
     }

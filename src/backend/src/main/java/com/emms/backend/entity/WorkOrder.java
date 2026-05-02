@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "work_orders")
@@ -14,14 +16,17 @@ public class WorkOrder {
         OPEN,
         ON_HOLD,
         IN_PROGRESS,
-        DONE
+        DONE,
+        PENDING,
+        CANCELLED
     }
 
     public enum WorkOrderPriority {
         LOW,
         MEDIUM,
         HIGH,
-        URGENT, NONE
+        URGENT,
+        NONE
     }
 
     @Id
@@ -101,6 +106,14 @@ public class WorkOrder {
 
     @Column(name = "date_created")
     private LocalDateTime dateCreated;
+
+    @OneToMany(mappedBy = "workOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<WorkOrderPart> parts = new ArrayList<>();
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "preventive_maintenance_id")
+    private PreventiveMaintenance preventiveMaintenance;
 
     public WorkOrder() {
     }
@@ -329,6 +342,51 @@ public class WorkOrder {
 
     public void setDateCreated(LocalDateTime dateCreated) {
         this.dateCreated = dateCreated;
+    }
+
+    public PreventiveMaintenance getPreventiveMaintenance() {
+        return preventiveMaintenance;
+    }
+    
+    
+    public void setPreventiveMaintenance(PreventiveMaintenance preventiveMaintenance) {
+        this.preventiveMaintenance = preventiveMaintenance;
+    }
+
+
+    public List<WorkOrderPart> getParts() {
+        return parts;
+    }
+    
+    
+    public void setParts(List<WorkOrderPart> parts) {
+        this.parts.clear();
+        if (parts != null) {
+            for (WorkOrderPart p : parts) {
+                addPart(p);
+            }
+        }
+    }
+
+    public void addPart(WorkOrderPart part) {
+        if (part == null) return;
+
+        parts.add(part);
+        part.setWorkOrder(this);
+    }
+
+    public void removePart(WorkOrderPart part) {
+        if (part == null) return;
+
+        parts.remove(part);
+        part.setWorkOrder(null);
+    }
+
+    public void clearParts() {
+        for (WorkOrderPart p : parts) {
+            p.setWorkOrder(null);
+        }
+        parts.clear();
     }
 
     private String trim(String value) {

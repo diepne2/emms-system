@@ -23,39 +23,25 @@ public class UserAnalysisController {
         this.userAnalysisService = userAnalysisService;
     }
 
-    // =========================
-    // 1. USER KPI
-    // =========================
     @GetMapping("/{userId}/stats")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getUserStats(
             @PathVariable Long userId,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
-
         UserWOStats data = userAnalysisService.getUserStats(userId, fromDate, toDate);
-
-        return ResponseEntity.ok(
-                new SuccessResponse(true, "User stats fetched successfully", data)
-        );
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê người dùng đã được truy xuất thành công.", data));
     }
 
-    // =========================
-    // 2. STATS THEO NGÀY
-    // =========================
     @GetMapping("/{userId}/stats-by-day")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getStatsByDay(
             @PathVariable Long userId,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
-
         List<WOStatsByDay> data = userAnalysisService.getWOStatsByDay(userId, fromDate, toDate);
-
-        return ResponseEntity.ok(
-                new SuccessResponse(true, "User stats by day fetched successfully", data)
-        );
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê người dùng theo ngày đã được truy xuất thành công.", data));
     }
 }

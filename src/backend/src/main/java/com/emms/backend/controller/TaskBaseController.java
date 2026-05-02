@@ -24,7 +24,7 @@ public class TaskBaseController {
     private final TaskBaseService taskBaseService;
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     @Operation(summary = "Create task base")
     public ResponseEntity<TaskBase> create(@Valid @RequestBody TaskBaseDTO dto) {
         TaskBase created = taskBaseService.create(dto);
@@ -32,7 +32,7 @@ public class TaskBaseController {
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     @Operation(summary = "Update task base")
     public ResponseEntity<TaskBase> update(@PathVariable Long id,
                                            @Valid @RequestBody TaskBasePatchDTO dto) {
@@ -55,7 +55,7 @@ public class TaskBaseController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     @Operation(summary = "Delete task base")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         taskBaseService.delete(id);

@@ -16,7 +16,6 @@ public class CategoryPostDTO {
     @Size(max = 1000, message = "Description must be <= 1000 characters")
     private String description;
 
-    // ===== Constructor =====
     public CategoryPostDTO() {
     }
 
@@ -25,7 +24,7 @@ public class CategoryPostDTO {
         this.description = trim(description);
     }
 
-    // ===== Getter =====
+
     public String getName() {
         return name;
     }
@@ -34,7 +33,6 @@ public class CategoryPostDTO {
         return description;
     }
 
-    // ===== Setter =====
     public void setName(String name) {
         this.name = trim(name);
     }
@@ -43,7 +41,7 @@ public class CategoryPostDTO {
         this.description = trim(description);
     }
 
-    // ===== Utils =====
+
     private String trim(String value) {
         return value == null ? null : value.trim();
     }

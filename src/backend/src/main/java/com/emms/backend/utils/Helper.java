@@ -16,7 +16,7 @@ public final class Helper {
     public Helper() {
     }
 
-    // ===== TIME UTILS =====
+
     public static Date addSeconds(Date date, int seconds) {
         if (date == null) {
             return null;
@@ -28,7 +28,7 @@ public final class Helper {
         return calendar.getTime();
     }
 
-    // ===== HASH API KEY =====
+
     public static String hashKey(String key) {
         if (key == null || key.isBlank()) {
             return null;

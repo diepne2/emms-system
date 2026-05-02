@@ -1,13 +1,13 @@
 package com.emms.backend.dto.user;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 public class UserResponseDTO {
 
     private Long id;
     private String username;
     private String email;
+    private String avatar;
     private String role;
     private String status;
     private String firstName;
@@ -40,6 +40,14 @@ public class UserResponseDTO {
         this.username = username;
     }
 
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+    
     public String getEmail() {
         return email;
     }

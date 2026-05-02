@@ -1,11 +1,7 @@
 package com.emms.backend.controller;
 
-import com.emms.backend.dto.SuccessResponse;
 import com.emms.backend.dto.auth.AuthResponse;
-import com.emms.backend.dto.auth.ForgotPasswordRequest;
 import com.emms.backend.dto.auth.LoginRequest;
-import com.emms.backend.dto.auth.ResetPasswordRequest;
-import com.emms.backend.dto.auth.UpdatePasswordRequest;
 import com.emms.backend.dto.user.UserResponseDTO;
 import com.emms.backend.entity.User;
 import com.emms.backend.exception.CustomException;
@@ -18,6 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -25,27 +25,58 @@ public class AuthController {
     private final UserService userService;
     private final UserMapper userMapper;
 
-    public AuthController(UserService userService,
-                          UserMapper userMapper) {
+    public AuthController(UserService userService, UserMapper userMapper) {
         this.userService = userService;
         this.userMapper = userMapper;
     }
 
-    @PostMapping("/signin")
+    @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        if (request == null || request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new CustomException("Email không được để trống", HttpStatus.BAD_REQUEST);
-        }
-        if (request.getPassword() == null || request.getPassword().isBlank()) {
-            throw new CustomException("Mật khẩu không được để trống", HttpStatus.BAD_REQUEST);
+
+        if (request == null
+                || request.getUsernameOrEmail() == null
+                || request.getUsernameOrEmail().isBlank()
+                || request.getPassword() == null
+                || request.getPassword().isBlank()) {
+            throw new CustomException("Dữ liệu đăng nhập không hợp lệ", HttpStatus.BAD_REQUEST);
         }
 
-        String token = userService.signin(
-                request.getEmail().trim().toLowerCase(),
-                request.getPassword()
+        String usernameOrEmail = request.getUsernameOrEmail().trim();
+        String password = request.getPassword();
+
+        String accessToken = userService.signin(usernameOrEmail, password);
+
+        User user = userService.getByUsernameOrEmail(usernameOrEmail);
+        if (user == null) {
+            throw new CustomException("Không tìm thấy người dùng", HttpStatus.UNAUTHORIZED);
+        }
+        if (user.getRole() == null) {
+            throw new CustomException("Người dùng chưa được gán role", HttpStatus.UNAUTHORIZED);
+        }
+        if (user.getRole().getRoleType() == null) {
+            throw new CustomException("RoleType không hợp lệ", HttpStatus.UNAUTHORIZED);
+        }
+
+        String primaryRole = user.getRole().getRoleType().getAuthority();
+        List<String> roles = List.of(primaryRole);
+
+        List<String> permissions = user.getRole().getPermissions() == null
+                ? List.of()
+                : user.getRole().getPermissions().stream()
+                .filter(p -> p != null)
+                .map(Enum::name)
+                .sorted(Comparator.naturalOrder())
+                .collect(Collectors.toList());
+
+        AuthResponse response = new AuthResponse(
+                accessToken,
+                accessToken,
+                primaryRole,
+                roles,
+                permissions
         );
 
-        return ResponseEntity.ok(new AuthResponse(token));
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/me")
@@ -53,65 +84,5 @@ public class AuthController {
     public ResponseEntity<UserResponseDTO> whoami(HttpServletRequest request) {
         User user = userService.whoami(request);
         return ResponseEntity.ok(userMapper.toResponseDTO(user));
-    }
-
-    @PostMapping("/forgot-password")
-    public ResponseEntity<SuccessResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        if (request == null || request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new CustomException("Email không được để trống", HttpStatus.BAD_REQUEST);
-        }
-
-        userService.createForgotPasswordToken(request.getEmail().trim().toLowerCase());
-
-        return ResponseEntity.ok(new SuccessResponse(true, "Password reset email sent"));
-    }
-
-    @PostMapping("/reset-password")
-    public ResponseEntity<SuccessResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        if (request == null || request.getToken() == null || request.getToken().isBlank()) {
-            throw new CustomException("Token không được để trống", HttpStatus.BAD_REQUEST);
-        }
-        if (request.getNewPassword() == null || request.getNewPassword().isBlank()) {
-            throw new CustomException("Mật khẩu mới không được để trống", HttpStatus.BAD_REQUEST);
-        }
-
-        userService.resetPassword(
-                request.getToken().trim(),
-                request.getNewPassword().trim()
-        );
-
-        return ResponseEntity.ok(new SuccessResponse(true, "Password reset successfully"));
-    }
-
-    @PostMapping("/change-password")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<SuccessResponse> changePassword(@Valid @RequestBody UpdatePasswordRequest request,
-                                                          HttpServletRequest httpRequest) {
-        User user = userService.whoami(httpRequest);
-
-        if (user == null || user.getUserId() == null) {
-            throw new CustomException("User not authenticated", HttpStatus.UNAUTHORIZED);
-        }
-
-        userService.changePassword(
-                user,
-                request.getCurrentPassword(),
-                request.getNewPassword()
-        );
-
-        return ResponseEntity.ok(new SuccessResponse(true, "Password changed successfully"));
-    }
-
-    @DeleteMapping("/me")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<SuccessResponse> deleteMyAccount(HttpServletRequest request) {
-        User user = userService.whoami(request);
-
-        if (user == null || user.getUserId() == null) {
-            throw new CustomException("User not authenticated", HttpStatus.UNAUTHORIZED);
-        }
-
-        userService.deleteById(user.getUserId());
-        return ResponseEntity.ok(new SuccessResponse(true, "Account deleted successfully"));
     }
 }

@@ -23,7 +23,7 @@ public class WorkOrderMeterTriggerController {
     private final WorkOrderMeterTriggerService workOrderMeterTriggerService;
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     @Operation(summary = "Tạo meter trigger")
     public ResponseEntity<WorkOrderMeterTrigger> create(@Valid @RequestBody WorkOrderMeterTriggerDTO dto) {
         WorkOrderMeterTrigger created = workOrderMeterTriggerService.create(dto);
@@ -31,7 +31,7 @@ public class WorkOrderMeterTriggerController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     @Operation(summary = "Cập nhật meter trigger")
     public ResponseEntity<WorkOrderMeterTrigger> update(@PathVariable Long id,
                                                         @Valid @RequestBody WorkOrderMeterTriggerDTO dto) {
@@ -54,10 +54,17 @@ public class WorkOrderMeterTriggerController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     @Operation(summary = "Xóa meter trigger")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         workOrderMeterTriggerService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/meter/{meterId}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Lấy meter trigger theo meter id")
+    public ResponseEntity<Collection<WorkOrderMeterTrigger>> getByMeter(@PathVariable Long meterId) {
+        return ResponseEntity.ok(workOrderMeterTriggerService.getByMeter(meterId));
     }
 }

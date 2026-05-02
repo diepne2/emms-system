@@ -22,8 +22,6 @@ public class AssetOverview {
     @Schema(description = "Tổng chi phí liên quan đến tài sản")
     private BigDecimal totalCost;
 
-    // ===== Getter & Setter =====
-
     public Double getMtbf() {
         return mtbf;
     }
@@ -36,7 +34,7 @@ public class AssetOverview {
         return mttr;
     }
 
-    public void setMttr1(Double mttr) {
+    public void setMttr(Double mttr) {
         this.mttr = mttr;
     }
 
@@ -62,10 +60,5 @@ public class AssetOverview {
 
     public void setTotalCost(BigDecimal totalCost) {
         this.totalCost = totalCost;
-    }
-
-    public void setMttr(Double mtbf2) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setMttr'");
     }
 }

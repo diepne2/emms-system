@@ -34,7 +34,7 @@ public class MeterCategoryController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<Collection<MeterCategory>> getAll(HttpServletRequest req) {
         User user = requireUser(req);
         requirePermission(user, PermissionEntity.SETTINGS);
@@ -42,7 +42,7 @@ public class MeterCategoryController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<MeterCategory> getById(@PathVariable Long id, HttpServletRequest req) {
         User user = requireUser(req);
         requirePermission(user, PermissionEntity.SETTINGS);
@@ -54,7 +54,7 @@ public class MeterCategoryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<MeterCategory> create(
             @Parameter(description = "Meter category to create")
             @Valid @RequestBody MeterCategory meterCategoryReq,
@@ -68,7 +68,7 @@ public class MeterCategoryController {
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<MeterCategory> patch(
             @Parameter(description = "Meter category fields to update")
             @Valid @RequestBody CategoryPatchDTO meterCategory,
@@ -83,7 +83,7 @@ public class MeterCategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<SuccessResponse> delete(@PathVariable Long id, HttpServletRequest req) {
         User user = requireUser(req);
         requirePermission(user, PermissionEntity.SETTINGS);

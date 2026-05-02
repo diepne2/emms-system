@@ -24,7 +24,6 @@ public class PushNotificationTokenService {
             throw new CustomException("Token is null", HttpStatus.BAD_REQUEST);
         }
 
-        // Nếu token đã tồn tại → update user/device
         Optional<PushNotificationToken> existing =
                 pushNotificationTokenRepository.findAll()
                         .stream()
@@ -46,7 +45,6 @@ public class PushNotificationTokenService {
         return pushNotificationTokenRepository.save(token);
     }
 
-    // ================= FIND =================
     public Optional<PushNotificationToken> findByUser(Long userId) {
         if (userId == null) {
             return Optional.empty();
@@ -60,7 +58,6 @@ public class PushNotificationTokenService {
                         new CustomException("Push token not found for user", HttpStatus.NOT_FOUND));
     }
 
-    // ================= UPDATE =================
     public PushNotificationToken update(PushNotificationToken token) {
         if (token == null || token.getPushNotificationTokenId() == null) {
             throw new CustomException("Invalid token", HttpStatus.BAD_REQUEST);

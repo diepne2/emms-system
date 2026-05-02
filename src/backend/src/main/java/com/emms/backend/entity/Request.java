@@ -2,6 +2,7 @@ package com.emms.backend.entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -10,13 +11,13 @@ public class Request {
 
     public enum Status {
         PENDING,
+        APPROVED,
+        REJECTED,
+        CANCELLED,
+        RESOLVED,
         OPEN,
         WAITING,
-        APPROVED,
-        ACCEPTED,
-        RESOLVED,
-        CANCELLED,
-        REJECTED
+        ACCEPTED
     }
 
     public enum Priority {
@@ -29,27 +30,35 @@ public class Request {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "asset_id")
+    private Asset asset;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id")
     private Location location;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "request_portal_id")
-    private RequestPortal requestPortal;
-
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "work_order_id")
     private WorkOrder workOrder;
 
+    @Column(name = "title", nullable = false, length = 255)
+    private String title;
+
+    @Column(name = "description", length = 2000)
+    private String description;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 30)
+    @Column(name = "status", nullable = false, length = 30)
     private Status status;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "priority", length = 30)
+    @Column(name = "priority", nullable = false, length = 30)
     private Priority priority;
 
     @Column(name = "cancelled", nullable = false)
@@ -58,10 +67,10 @@ public class Request {
     @Column(name = "cancellation_reason", length = 500)
     private String cancellationReason;
 
-    @Column(name = "created_at", updatable = false)
+    @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     public Request() {
@@ -73,17 +82,55 @@ public class Request {
         this.createdAt = now;
         this.updatedAt = now;
 
+        this.title = normalize(this.title);
+        this.description = normalize(this.description);
+        this.cancellationReason = normalize(this.cancellationReason);
+
         if (this.priority == null) {
             this.priority = Priority.NONE;
         }
         if (this.status == null) {
             this.status = Status.PENDING;
         }
+        if (this.title == null || this.title.isBlank()) {
+            this.title = "Request";
+        }
+
+        syncCancellationState();
     }
 
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+
+        this.title = normalize(this.title);
+        this.description = normalize(this.description);
+        this.cancellationReason = normalize(this.cancellationReason);
+
+        if (this.title == null || this.title.isBlank()) {
+            this.title = "Request";
+        }
+
+        syncCancellationState();
+    }
+
+    private void syncCancellationState() {
+        if (!this.cancelled && this.status != Status.CANCELLED) {
+            this.cancellationReason = null;
+            return;
+        }
+
+        if (this.status == Status.CANCELLED) {
+            this.cancelled = true;
+        }
+
+        if (this.cancelled && (this.cancellationReason == null || this.cancellationReason.isBlank())) {
+            this.cancellationReason = "Request was cancelled";
+        }
+    }
+
+    private String normalize(String value) {
+        return value == null ? null : value.trim();
     }
 
     public Long getId() {
@@ -102,14 +149,6 @@ public class Request {
         this.location = location;
     }
 
-    public RequestPortal getRequestPortal() {
-        return requestPortal;
-    }
-
-    public void setRequestPortal(RequestPortal requestPortal) {
-        this.requestPortal = requestPortal;
-    }
-
     public WorkOrder getWorkOrder() {
         return workOrder;
     }
@@ -118,12 +157,47 @@ public class Request {
         this.workOrder = workOrder;
     }
 
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = normalize(title);
+    }
+
+    public Asset getAsset() {
+        return asset;
+    }
+    
+    public void setAsset(Asset asset) {
+        this.asset = asset;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = normalize(description);
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+    }
+
     public Status getStatus() {
         return status;
     }
 
     public void setStatus(Status status) {
         this.status = status;
+        if (status == Status.CANCELLED) {
+            this.cancelled = true;
+        }
     }
 
     public Priority getPriority() {
@@ -144,10 +218,10 @@ public class Request {
 
     public void setCancelled(boolean cancelled) {
         this.cancelled = cancelled;
-
-        if (!cancelled) {
-            this.cancellationReason = null;
-        } else if (this.cancellationReason == null || this.cancellationReason.isBlank()) {
+        if (!cancelled && this.status == Status.CANCELLED) {
+            this.status = Status.PENDING;
+        }
+        if (cancelled && (this.cancellationReason == null || this.cancellationReason.isBlank())) {
             this.cancellationReason = "Request was cancelled";
         }
     }
@@ -157,22 +231,14 @@ public class Request {
     }
 
     public void setCancellationReason(String cancellationReason) {
-        this.cancellationReason = cancellationReason;
+        this.cancellationReason = normalize(cancellationReason);
     }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 }

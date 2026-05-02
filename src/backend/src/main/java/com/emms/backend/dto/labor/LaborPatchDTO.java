@@ -13,7 +13,7 @@ public class LaborPatchDTO {
     private Boolean includeToTotalTime;
 
     @Schema(description = "Đơn giá theo giờ (không được âm)")
-    private Long hourlyRate;
+    private Double hourlyRate;
 
     @Schema(description = "Thời lượng làm việc (tính bằng giây)")
     private Long duration;
@@ -21,10 +21,8 @@ public class LaborPatchDTO {
     @Schema(description = "Thời điểm bắt đầu làm việc")
     private Date startedAt;
 
-    @Schema(description = "ID của loại thời gian (Time Category)")
     private Long timeCategoryId;
 
-    // ===== Getter & Setter =====
 
     public Long getAssignedToId() {
         return assignedToId;
@@ -42,11 +40,11 @@ public class LaborPatchDTO {
         this.includeToTotalTime = includeToTotalTime;
     }
 
-    public Long getHourlyRate() {
+    public Double getHourlyRate() {
         return hourlyRate;
     }
 
-    public void setHourlyRate(Long hourlyRate) {
+    public void setHourlyRate(Double hourlyRate) {
         this.hourlyRate = hourlyRate;
     }
 

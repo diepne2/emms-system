@@ -16,25 +16,22 @@ import java.time.LocalDateTime;
 })
 public class User {
 
-    // ================= ENUM =================
     public enum UserStatus {
         ACTIVE,
         INACTIVE,
         LOCKED
     }
 
-    // ================= ID =================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     private Long userId;
 
-    // ================= RELATION =================
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    // ================= BASIC =================
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private UserStatus status = UserStatus.ACTIVE;
@@ -61,20 +58,23 @@ public class User {
     @Column(name = "email", unique = true, nullable = false, length = 150)
     private String email;
 
+    @Column(name = "avatar", length = 500)
+    private String avatar;
+
     @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
 
     @Column(name = "failed_attempts", nullable = false)
     private int failedAttempts = 0;
 
-    // ================= RESET PASSWORD =================
+ 
     @Column(name = "reset_password_token", length = 255)
     private String resetPasswordToken;
 
     @Column(name = "reset_password_expiry")
     private LocalDateTime resetPasswordExpiry;
 
-    // ================= AUDIT =================
+    //Audit
     @JsonFormat(pattern = "dd-MM-yyyy HH:mm:ss", timezone = "Asia/Ho_Chi_Minh")
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
@@ -87,11 +87,10 @@ public class User {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // ================= CONSTRUCTOR =================
+
     public User() {
     }
 
-    // ================= LIFECYCLE =================
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -106,7 +105,6 @@ public class User {
         normalize();
     }
 
-    // ================= BUSINESS LOGIC =================
     private void normalize() {
         firstName = trim(firstName);
         lastName = trim(lastName);
@@ -160,7 +158,6 @@ public class User {
         }
     }
 
-    // ================= HELPER =================
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
@@ -173,7 +170,6 @@ public class User {
         return value == null ? null : value.trim().toLowerCase();
     }
 
-    // ================= GETTER SETTER =================
     public Long getUserId() {
         return userId;
     }
@@ -256,6 +252,15 @@ public class User {
 
     public void setEmail(String email) {
         this.email = trimLower(email);
+    }
+
+    
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = trimLower(avatar);
     }
 
     public boolean isEnabled() {

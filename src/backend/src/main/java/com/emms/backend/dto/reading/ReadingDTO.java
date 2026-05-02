@@ -2,29 +2,24 @@ package com.emms.backend.dto.reading;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Schema(description = "DTO tạo/cập nhật chỉ số meter")
+@Schema(description = "DTO tạo Reading")
 public class ReadingDTO {
 
-    @Schema(description = "Giá trị đo", example = "1250.5")
-    private Double value;
-
-    @Schema(description = "ID meter", example = "1")
     private Long meterId;
 
-    @Schema(description = "Thời điểm ghi nhận", example = "2026-04-12T10:30:00")
+    @Schema(description = "Giá trị đọc")
+    private BigDecimal value;
+
+    @Schema(description = "Thời điểm ghi nhận")
     private LocalDateTime recordedAt;
 
+    @Schema(description = "Ghi chú")
+    private String note;
+
     public ReadingDTO() {
-    }
-
-    public Double getValue() {
-        return value;
-    }
-
-    public void setValue(Double value) {
-        this.value = value;
     }
 
     public Long getMeterId() {
@@ -35,11 +30,33 @@ public class ReadingDTO {
         this.meterId = meterId;
     }
 
+    public BigDecimal getValue() {
+        return value;
+    }
+
+    public void setValue(BigDecimal value) {
+        this.value = value;
+    }
+
     public LocalDateTime getRecordedAt() {
         return recordedAt;
     }
 
     public void setRecordedAt(LocalDateTime recordedAt) {
         this.recordedAt = recordedAt;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = trim(note);
+    }
+
+    private String trim(String value) {
+        if (value == null) return null;
+        String t = value.trim();
+        return t.isEmpty() ? null : t;
     }
 }

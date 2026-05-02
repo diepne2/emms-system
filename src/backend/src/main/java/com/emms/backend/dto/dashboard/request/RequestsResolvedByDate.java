@@ -16,7 +16,6 @@ public class RequestsResolvedByDate {
     @Schema(description = "Ngày thống kê (yyyy-MM-dd)")
     private LocalDate date;
 
-    // ===== Constructor =====
 
     public RequestsResolvedByDate() {
     }
@@ -27,7 +26,6 @@ public class RequestsResolvedByDate {
         this.date = date;
     }
 
-    // ===== Getter & Setter =====
 
     public Integer getReceivedCount() {
         return receivedCount;
@@ -53,7 +51,6 @@ public class RequestsResolvedByDate {
         this.date = date;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {

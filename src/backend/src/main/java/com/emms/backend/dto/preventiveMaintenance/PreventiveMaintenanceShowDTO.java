@@ -53,12 +53,4 @@ public class PreventiveMaintenanceShowDTO extends WorkOrderBaseShowDTO {
     public void setSchedule(Schedule schedule) {
         this.schedule = schedule;
     }
-
-    private String trim(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
 }

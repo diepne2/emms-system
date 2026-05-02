@@ -17,7 +17,7 @@ public class RequestStats {
     @Schema(description = "Thời gian xử lý trung bình (giờ)")
     private Double averageCycleTimeHours;
 
-    // ===== Constructor =====
+
 
     public RequestStats() {
     }
@@ -32,7 +32,6 @@ public class RequestStats {
         this.averageCycleTimeHours = averageCycleTimeHours;
     }
 
-    // ===== Getter & Setter =====
 
     public Integer getApprovedCount() {
         return approvedCount;
@@ -66,7 +65,7 @@ public class RequestStats {
         this.averageCycleTimeHours = averageCycleTimeHours;
     }
 
-    // ===== toString =====
+
 
     @Override
     public String toString() {

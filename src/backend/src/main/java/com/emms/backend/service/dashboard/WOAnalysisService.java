@@ -1,5 +1,7 @@
 package com.emms.backend.service.dashboard;
 
+import com.emms.backend.dto.dashboard.WOCompletedByUser;
+import com.emms.backend.dto.dashboard.WOCountByAsset;
 import com.emms.backend.dto.dashboard.workorder.IncompleteWOByAsset;
 import com.emms.backend.dto.dashboard.workorder.IncompleteWOByUser;
 import com.emms.backend.dto.dashboard.workorder.WOCountByUser;
@@ -11,10 +13,11 @@ import com.emms.backend.dto.dashboard.workorder.WOStatsByPriority;
 import com.emms.backend.dto.dashboard.workorder.WOStatuses;
 import com.emms.backend.dto.dashboard.workorder.WOStatusesByDate;
 import com.emms.backend.dto.dashboard.workorder.WOTimeByWeek;
-import com.emms.backend.entity.WorkOrder;
 import com.emms.backend.entity.WorkOrder.WorkOrderPriority;
 import com.emms.backend.entity.WorkOrder.WorkOrderStatus;
 import com.emms.backend.repository.WorkOrderRepository;
+
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,18 +50,14 @@ public class WOAnalysisService {
         LocalDateTime to = atStartOfNextDayOrMax(toDate);
 
         Integer totalCount = safeInt(workOrderRepository.countAllInRange(from, to));
-        Integer completedCount = safeInt(
-                workOrderRepository.countByStatusInRange(WorkOrderStatus.DONE, from, to)
-        );
-
+        Integer completedCount = safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.DONE, from, to));
         Double averageCycleTimeHours = safeDouble(workOrderRepository.getAverageCycleTimeHours(from, to));
 
-        // Entity hiện tại không có startedAt / maintenancePlan / sourceType
+        Integer compliantCount = completedCount;
         Double mttaHours = 0.0;
-        Integer compliantCount = 0;
 
         Double completionRate = totalCount == 0 ? 0.0 : round2((completedCount * 100.0) / totalCount);
-        Double complianceRate = 0.0;
+        Double complianceRate = totalCount == 0 ? 0.0 : round2((compliantCount * 100.0) / totalCount);
 
         return new WOStats(
                 totalCount,
@@ -75,14 +74,19 @@ public class WOAnalysisService {
         LocalDateTime from = atStartOfDayOrMin(fromDate);
         LocalDateTime to = atStartOfNextDayOrMax(toDate);
 
+        Integer openCount = safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.OPEN, from, to));
+        Integer inProgressCount = safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.IN_PROGRESS, from, to));
+        Integer onHoldCount = safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.ON_HOLD, from, to));
+        Integer doneCount = safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.DONE, from, to));
+
         return new WOStatuses(
-                safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.OPEN, from, to)),
-                0, // assignedCount - entity hiện tại không có DA_PHAN_CONG
-                safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.IN_PROGRESS, from, to)),
-                safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.ON_HOLD, from, to)),
-                0, // awaitingConfirmationCount - entity hiện tại không có CHO_XAC_NHAN
-                safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.DONE, from, to)),
-                0  // rejected/tu_choi - entity hiện tại không có
+                openCount,
+                0,
+                inProgressCount,
+                onHoldCount,
+                0,
+                doneCount,
+                0
         );
     }
 
@@ -97,9 +101,8 @@ public class WOAnalysisService {
         }
 
         List<WOStatusesByDate> results = new ArrayList<>();
-        LocalDate cursor = start;
 
-        while (!cursor.isAfter(end)) {
+        for (LocalDate cursor = start; !cursor.isAfter(end); cursor = cursor.plusDays(1)) {
             LocalDateTime dayStart = cursor.atStartOfDay();
             LocalDateTime nextDayStart = cursor.plusDays(1).atStartOfDay();
 
@@ -113,8 +116,6 @@ public class WOAnalysisService {
                     0,
                     cursor
             ));
-
-            cursor = cursor.plusDays(1);
         }
 
         return results;
@@ -133,20 +134,16 @@ public class WOAnalysisService {
         }
 
         List<WOCountByWeek> results = new ArrayList<>();
-        LocalDate weekStart = start;
 
-        while (!weekStart.isAfter(end)) {
+        for (LocalDate weekStart = start; !weekStart.isAfter(end); weekStart = weekStart.plusWeeks(1)) {
             LocalDateTime from = weekStart.atStartOfDay();
             LocalDateTime to = weekStart.plusWeeks(1).atStartOfDay();
 
             Integer totalCount = safeInt(workOrderRepository.countAllInRange(from, to));
-
-            // Entity hiện tại không có compliant/reactive marker
-            Integer compliantCount = 0;
-            Integer reactiveCount = totalCount;
+            Integer compliantCount = safeInt(workOrderRepository.countByStatusInRange(WorkOrderStatus.DONE, from, to));
+            Integer reactiveCount = Math.max(totalCount - compliantCount, 0);
 
             results.add(new WOCountByWeek(totalCount, compliantCount, reactiveCount, weekStart));
-            weekStart = weekStart.plusWeeks(1);
         }
 
         return results;
@@ -165,9 +162,8 @@ public class WOAnalysisService {
         }
 
         List<WOTimeByWeek> results = new ArrayList<>();
-        LocalDate weekStart = start;
 
-        while (!weekStart.isAfter(end)) {
+        for (LocalDate weekStart = start; !weekStart.isAfter(end); weekStart = weekStart.plusWeeks(1)) {
             LocalDateTime from = weekStart.atStartOfDay();
             LocalDateTime to = weekStart.plusWeeks(1).atStartOfDay();
 
@@ -175,7 +171,6 @@ public class WOAnalysisService {
             Double reactiveHours = totalHours;
 
             results.add(new WOTimeByWeek(round2(totalHours), round2(reactiveHours), weekStart));
-            weekStart = weekStart.plusWeeks(1);
         }
 
         return results;
@@ -189,16 +184,11 @@ public class WOAnalysisService {
         List<WOCountByUser> results = new ArrayList<>();
 
         for (Object[] row : rows) {
-            Long userId = row[0] != null ? ((Number) row[0]).longValue() : null;
-            String username = row[1] != null ? row[1].toString() : null;
-            String fullName = row[2] != null ? row[2].toString() : null;
-            Integer totalCount = row[3] != null ? ((Number) row[3]).intValue() : 0;
-
             WOCountByUser dto = new WOCountByUser();
-            dto.setId(userId);
-            dto.setUsername(username);
-            dto.setFullName(fullName);
-            dto.setTotalCount(totalCount);
+            dto.setId(row[0] != null ? ((Number) row[0]).longValue() : null);
+            dto.setUsername(row[1] != null ? row[1].toString() : null);
+            dto.setFullName(row[2] != null ? row[2].toString() : null);
+            dto.setTotalCount(row[3] != null ? ((Number) row[3]).intValue() : 0);
             results.add(dto);
         }
 
@@ -210,9 +200,7 @@ public class WOAnalysisService {
         LocalDateTime to = atStartOfNextDayOrMax(toDate);
 
         Double estimatedHours = safeDouble(workOrderRepository.sumEstimatedHoursInRange(from, to));
-
-        // Entity hiện tại không có actualDuration
-        Double actualHours = 0.0;
+        Double actualHours = safeDouble(workOrderRepository.getAverageCycleTimeHours(from, to));
 
         return new WOHours(round2(estimatedHours), round2(actualHours));
     }
@@ -224,6 +212,7 @@ public class WOAnalysisService {
         Integer totalIncompleteCount = safeInt(
                 workOrderRepository.countByStatusesInRange(INCOMPLETE_STATUSES, from, to)
         );
+
         Double averageAgeDays = safeDouble(
                 workOrderRepository.averageAgeByStatusesInRange(INCOMPLETE_STATUSES, from, to)
         );
@@ -239,19 +228,12 @@ public class WOAnalysisService {
         List<IncompleteWOByUser> results = new ArrayList<>();
 
         for (Object[] row : rows) {
-            Long userId = row[0] != null ? ((Number) row[0]).longValue() : null;
-            String username = row[1] != null ? row[1].toString() : null;
-            String fullName = row[2] != null ? row[2].toString() : null;
-            Integer incompleteCount = row[3] != null ? ((Number) row[3]).intValue() : 0;
-            Double averageAgeDays = row[4] != null ? ((Number) row[4]).doubleValue() : 0.0;
-
             IncompleteWOByUser dto = new IncompleteWOByUser();
-            dto.setId(userId);
-            dto.setUsername(username);
-            dto.setFullName(fullName);
-            dto.setIncompleteCount(incompleteCount);
-            dto.setAverageAgeDays(round2(averageAgeDays));
-
+            dto.setId(row[0] != null ? ((Number) row[0]).longValue() : null);
+            dto.setUsername(row[1] != null ? row[1].toString() : null);
+            dto.setFullName(row[2] != null ? row[2].toString() : null);
+            dto.setIncompleteCount(row[3] != null ? ((Number) row[3]).intValue() : 0);
+            dto.setAverageAgeDays(row[4] != null ? round2(((Number) row[4]).doubleValue()) : 0.0);
             results.add(dto);
         }
 
@@ -266,17 +248,11 @@ public class WOAnalysisService {
         List<IncompleteWOByAsset> results = new ArrayList<>();
 
         for (Object[] row : rows) {
-            Long assetId = row[0] != null ? ((Number) row[0]).longValue() : null;
-            String assetName = row[1] != null ? row[1].toString() : null;
-            Integer incompleteCount = row[2] != null ? ((Number) row[2]).intValue() : 0;
-            Double averageAgeDays = row[3] != null ? ((Number) row[3]).doubleValue() : 0.0;
-
             IncompleteWOByAsset dto = new IncompleteWOByAsset();
-            dto.setId(assetId);
-            dto.setName(assetName);
-            dto.setIncompleteCount(incompleteCount);
-            dto.setAverageAgeDays(round2(averageAgeDays));
-
+            dto.setId(row[0] != null ? ((Number) row[0]).longValue() : null);
+            dto.setName(row[1] != null ? row[1].toString() : null);
+            dto.setIncompleteCount(row[2] != null ? ((Number) row[2]).intValue() : 0);
+            dto.setAverageAgeDays(row[3] != null ? round2(((Number) row[3]).doubleValue()) : 0.0);
             results.add(dto);
         }
 
@@ -327,4 +303,43 @@ public class WOAnalysisService {
         }
         return Math.round(value * 100.0) / 100.0;
     }
+
+    public List<WOCountByAsset> getTop10RepairedAssets(LocalDate fromDate, LocalDate toDate) {
+        LocalDateTime from = atStartOfDayOrMin(fromDate);
+        LocalDateTime to = atStartOfNextDayOrMax(toDate);
+        
+        return workOrderRepository
+            .top10RepairedAssets(from, to, PageRequest.of(0, 10)) 
+            .stream()
+            .map(row -> new WOCountByAsset(
+                    row[0] != null ? ((Number) row[0]).longValue() : null,
+                    row[1] != null ? row[1].toString() : null,
+                    row[2] != null ? ((Number) row[2]).intValue() : 0
+            ))
+            .toList();
+    }
+    
+    
+    public List<WOCompletedByUser> getTop10CompletedUsers(LocalDate fromDate, LocalDate toDate) {
+        LocalDateTime from = atStartOfDayOrMin(fromDate);
+        LocalDateTime to = atStartOfNextDayOrMax(toDate);
+        
+        return workOrderRepository
+            .top10CompletedUsers(
+                    WorkOrderStatus.DONE,
+                    from,
+                    to,
+                    PageRequest.of(0, 10) 
+            )
+            .stream()
+            .map(row -> new WOCompletedByUser(
+                    row[0] != null ? ((Number) row[0]).longValue() : null,
+                    row[1] != null ? row[1].toString() : null,
+                    row[2] != null ? row[2].toString() : null,
+                    row[3] != null ? ((Number) row[3]).intValue() : 0
+            ))
+            .toList();
+    }
+    
+
 }

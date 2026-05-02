@@ -1,6 +1,5 @@
 package com.emms.backend.entity;
 
-import com.emms.backend.entity.User.UserStatus;
 import com.emms.backend.entity.enums.PermissionEntity;
 import com.emms.backend.entity.enums.RoleCode;
 import com.emms.backend.entity.enums.RoleType;
@@ -30,7 +29,7 @@ public class Role {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "code", nullable = false, length = 50)
-    private RoleCode code = RoleCode.USER_DEFINED;
+    private RoleCode code = RoleCode.OPERATOR;
 
     @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
@@ -72,7 +71,7 @@ public class Role {
         }
 
         if (this.name == null || this.name.isBlank()) {
-            throw new IllegalArgumentException("name không được để trống");
+            this.name = this.roleType.getAuthority();
         }
 
         if (this.code == null) {
@@ -86,14 +85,14 @@ public class Role {
 
     private RoleCode mapCodeFromRoleType(RoleType roleType) {
         if (roleType == null) {
-            return RoleCode.USER_DEFINED;
+            return RoleCode.OPERATOR;
         }
 
         return switch (roleType) {
             case ROLE_ADMIN -> RoleCode.ADMIN;
-            case ROLE_QUANLYKYTHUAT -> RoleCode.TECHNICAL_MANAGER;
-            case ROLE_NHANVIENKYTHUAT -> RoleCode.TECHNICIAN;
-            case ROLE_NHANVIENVANHANH -> RoleCode.OPERATOR;
+            case ROLE_TECHNICAL_MANAGER -> RoleCode.TECHNICAL_MANAGER;
+            case ROLE_TECHNICIAN -> RoleCode.TECHNICIAN;
+            case ROLE_OPERATOR -> RoleCode.OPERATOR;
         };
     }
 
@@ -110,15 +109,15 @@ public class Role {
     }
 
     public boolean isTechnicalManagerRole() {
-        return this.roleType == RoleType.ROLE_QUANLYKYTHUAT;
+        return this.roleType == RoleType.ROLE_TECHNICAL_MANAGER;
     }
 
     public boolean isTechnicianRole() {
-        return this.roleType == RoleType.ROLE_NHANVIENKYTHUAT;
+        return this.roleType == RoleType.ROLE_TECHNICIAN;
     }
 
     public boolean isOperatorRole() {
-        return this.roleType == RoleType.ROLE_NHANVIENVANHANH;
+        return this.roleType == RoleType.ROLE_OPERATOR;
     }
 
     public Long getRoleId() {
@@ -135,8 +134,9 @@ public class Role {
 
     public void setRoleType(RoleType roleType) {
         this.roleType = roleType;
-        if (this.code == null || this.code == RoleCode.USER_DEFINED) {
-            this.code = mapCodeFromRoleType(roleType);
+        this.code = mapCodeFromRoleType(roleType);
+        if (this.name == null || this.name.isBlank()) {
+            this.name = roleType != null ? roleType.getAuthority() : null;
         }
     }
 
@@ -145,7 +145,7 @@ public class Role {
     }
 
     public void setCode(RoleCode code) {
-        this.code = (code == null) ? RoleCode.USER_DEFINED : code;
+        this.code = (code == null) ? mapCodeFromRoleType(this.roleType) : code;
     }
 
     public String getName() {
@@ -195,40 +195,5 @@ public class Role {
             return;
         }
         this.permissions.remove(permission);
-    }
-
-    public Object getResetPasswordExpiry() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getResetPasswordExpiry'");
-    }
-
-    public void setPassword(String encode) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setPassword'");
-    }
-
-    public void setResetPasswordToken(Object object) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setResetPasswordToken'");
-    }
-
-    public void setFailedAttempts(int i) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setFailedAttempts'");
-    }
-
-    public void setEnabled(boolean b) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setEnabled'");
-    }
-
-    public void setStatus(UserStatus active2) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setStatus'");
-    }
-
-    public UserStatus getStatus() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getStatus'");
     }
 }

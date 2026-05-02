@@ -5,12 +5,37 @@ import java.time.LocalDateTime;
 public class ChatMessageDTO {
 
     private Long id;
-    private Long conversationId;
+
     private Long senderId;
     private String senderUsername;
+    private String senderAvatar;  
+
+    private Long receiverId;
+    private String receiverAvatar;
+
     private String content;
-    private Long replyToMessageId;
     private LocalDateTime createdAt;
+
+    public ChatMessageDTO() {}
+
+    public ChatMessageDTO(Long id,
+                          Long senderId,
+                          String senderUsername,
+                          String senderAvatar,
+                          Long receiverId,
+                          String receiverAvatar,
+                          String content,
+                          LocalDateTime createdAt) {
+        this.id = id;
+        this.senderId = senderId;
+        this.senderUsername = senderUsername;
+        this.senderAvatar = senderAvatar;
+        this.receiverId = receiverId;
+        this.receiverAvatar = receiverAvatar;
+        this.content = content;
+        this.createdAt = createdAt;
+    }
+
 
     public Long getId() {
         return id;
@@ -18,14 +43,6 @@ public class ChatMessageDTO {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public Long getConversationId() {
-        return conversationId;
-    }
-
-    public void setConversationId(Long conversationId) {
-        this.conversationId = conversationId;
     }
 
     public Long getSenderId() {
@@ -44,20 +61,36 @@ public class ChatMessageDTO {
         this.senderUsername = senderUsername;
     }
 
+    public String getSenderAvatar() {
+        return senderAvatar;
+    }
+
+    public void setSenderAvatar(String senderAvatar) {
+        this.senderAvatar = senderAvatar;
+    }
+
+    public Long getReceiverId() {
+        return receiverId;
+    }
+
+    public void setReceiverId(Long receiverId) {
+        this.receiverId = receiverId;
+    }
+
+    public String getReceiverAvatar() {
+        return receiverAvatar;
+    }
+
+    public void setReceiverAvatar(String receiverAvatar) {
+        this.receiverAvatar = receiverAvatar;
+    }
+
     public String getContent() {
         return content;
     }
 
     public void setContent(String content) {
         this.content = content;
-    }
-
-    public Long getReplyToMessageId() {
-        return replyToMessageId;
-    }
-
-    public void setReplyToMessageId(Long replyToMessageId) {
-        this.replyToMessageId = replyToMessageId;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -5,11 +5,12 @@ import com.emms.backend.entity.enums.AssetStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface AssetRepository extends JpaRepository<Asset, Long> {
+public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecificationExecutor<Asset> {
 
     List<Asset> findByNameContainingIgnoreCase(String name);
 
@@ -28,4 +29,8 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     List<Asset> findByNameIgnoreCaseAndStatus(String name, AssetStatus status);
 
     Optional<Asset> findByNameIgnoreCase(String name);
+
+    Optional<Asset> findByBarcodeIgnoreCase(String barcode);
+    
+    Optional<Asset> findBySerialNumberIgnoreCase(String serialNumber);
 }

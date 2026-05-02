@@ -5,19 +5,20 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
-@Schema(description = "DTO for patching an existing work order")
+@Schema(description = "DTO cho đơn hàng công việc")
 public class WorkOrderDTO extends WorkOrderBaseDTO {
 
-    @Schema(description = "ID of assigned user")
     private Long assignedToId;
 
-    @Schema(description = "Full name of user who completed the work order")
+    private Long assetId;
+
+    @Schema(description = "Tên người hoàn thành công việc")
     private String completedBy;
 
-    @Schema(description = "Date and time when the work order was completed")
+    @Schema(description = "Ngày và giờ khi đơn hàng công việc được hoàn thành")
     private LocalDateTime completedOn;
 
-    @Schema(description = "Whether the work order is archived")
+    @Schema(description = "Xem liệu đơn hàng công việc có được lưu trữ không")
     private Boolean archived;
 
     public WorkOrderDTO() {
@@ -29,6 +30,14 @@ public class WorkOrderDTO extends WorkOrderBaseDTO {
 
     public void setAssignedToId(Long assignedToId) {
         this.assignedToId = assignedToId;
+    }
+
+    public Long getAssetId() {
+        return assetId;
+    }
+
+    public void setAssetId(Long assetId) {
+        this.assetId = assetId;
     }
 
     public String getCompletedBy() {

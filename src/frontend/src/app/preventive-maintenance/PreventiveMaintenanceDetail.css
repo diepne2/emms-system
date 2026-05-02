@@ -1,0 +1,172 @@
+/* ===== WRAPPER (scope riêng) ===== */
+
+.pm-detail-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ===== TOOLBAR ===== */
+
+.pm-detail-page .pm-detail-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pm-detail-page .pm-detail-toolbar .ant-btn {
+  border-radius: 12px;
+  height: 42px;
+  font-weight: 600;
+}
+
+/* ===== GENERATE BUTTON ===== */
+
+.pm-detail-page .pm-detail-toolbar .ant-btn-primary {
+  background: #16a34a;
+  border-color: #16a34a;
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.25);
+}
+
+.pm-detail-page .pm-detail-toolbar .ant-btn-primary:hover {
+  background: #15803d !important;
+  border-color: #15803d !important;
+}
+
+.pm-detail-page .pm-detail-toolbar .ant-btn-primary:disabled {
+  background: #d1d5db !important;
+  border-color: #d1d5db !important;
+  box-shadow: none;
+}
+
+/* ===== HERO ===== */
+
+.pm-detail-page .pm-detail-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px;
+  margin-bottom: 18px;
+
+  border-radius: 24px;
+  background: linear-gradient(135deg, #ffffff, #ecfdf5);
+  border: 1px solid #e5e7eb;
+
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.05);
+}
+
+.pm-detail-page .pm-detail-code {
+  background: #dcfce7;
+  color: #15803d;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pm-detail-page .pm-detail-main-title {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  margin: 8px 0 !important;
+  color: #1f2937 !important;
+}
+
+.pm-detail-page .pm-detail-description {
+  color: #6b7280;
+}
+
+/* ===== TAGS ===== */
+
+.pm-detail-page .pm-detail-hero-tags {
+  display: flex;
+  gap: 8px;
+}
+
+.pm-detail-page .pm-big-tag {
+  border-radius: 999px !important;
+  padding: 4px 12px !important;
+  font-weight: 700 !important;
+}
+
+/* ===== GRID ===== */
+
+.pm-detail-page .pm-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.pm-detail-page .pm-detail-grid-wide {
+  grid-template-columns: 1.2fr 0.8fr;
+}
+
+/* ===== CARD ===== */
+
+.pm-detail-page .pm-detail-card {
+  border-radius: 20px !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ===== SECTION ===== */
+
+.pm-detail-page .pm-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.pm-detail-page .pm-section-title .anticon {
+  color: #22c55e;
+}
+
+/* ===== DESCRIPTION ===== */
+
+.pm-detail-page .pm-clean-desc .ant-descriptions-item-label {
+  color: #6b7280 !important;
+  font-weight: 600 !important;
+  width: 150px;
+}
+
+.pm-detail-page .pm-clean-desc .ant-descriptions-item-content {
+  font-weight: 600 !important;
+  color: #1f2937;
+}
+
+/* ===== CALENDAR ===== */
+
+.pm-detail-page .pm-calendar-card .ant-picker-cell-inner {
+  border-radius: 10px !important;
+}
+
+.pm-detail-page .pm-calendar-dot {
+  width: 6px;
+  height: 6px;
+  background: #22c55e;
+  border-radius: 50%;
+  margin: 2px auto 0;
+}
+
+.pm-detail-page .pm-calendar-note {
+  margin-top: 10px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 10px;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 992px) {
+  .pm-detail-page .pm-detail-grid,
+  .pm-detail-page .pm-detail-grid-wide {
+    grid-template-columns: 1fr;
+  }
+
+  .pm-detail-page .pm-detail-hero {
+    flex-direction: column;
+  }
+}

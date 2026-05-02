@@ -1,23 +1,37 @@
 package com.emms.backend.mapper;
 
-import com.emms.backend.dto.asset.AssetDowntimeDTO;
+import com.emms.backend.dto.asset.AssetDowntimeShowDTO;
 import com.emms.backend.entity.AssetDowntime;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface AssetDowntimeMapper {
+@Component
+public class AssetDowntimeMapper {
 
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "asset", ignore = true)
-    @Mapping(target = "workOrder", ignore = true)
-    @Mapping(target = "durationSeconds", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    void updateAssetDowntimeFromDto(AssetDowntimeDTO dto, @MappingTarget AssetDowntime entity);
+    public AssetDowntimeShowDTO toShowDto(AssetDowntime entity) {
+        if (entity == null) {
+            return null;
+        }
 
-    AssetDowntimeDTO toDto(AssetDowntime entity);
+        AssetDowntimeShowDTO dto = new AssetDowntimeShowDTO();
+        dto.setId(entity.getId());
+
+        if (entity.getAsset() != null) {
+            dto.setAssetId(entity.getAsset().getId());
+            dto.setAssetName(entity.getAsset().getName());
+        }
+
+        if (entity.getWorkOrder() != null) {
+            dto.setWorkOrderId(entity.getWorkOrder().getId());
+        }
+
+        dto.setReason(entity.getReason() != null ? entity.getReason().name() : null);
+        dto.setStartsOn(entity.getStartsOn());
+        dto.setEndsOn(entity.getEndsOn());
+        dto.setDurationSeconds(entity.getDurationSeconds());
+        dto.setOpen(entity.isOpen());
+        dto.setNote(entity.getNote());
+        dto.setCreatedAt(entity.getCreatedAt());
+
+        return dto;
+    }
 }

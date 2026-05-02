@@ -2,14 +2,17 @@
 cd C:\Users\ADMIN\emms-system\src\backend
 
 .\mvnw spring-boot:run
+
+.\mvnw clean spring-boot:run
 .\mvnw clean install
 
 cd C:\Users\ADMIN\emms-system\src\backend
-.\mvnw clean package
+./mvnw clean package
+./mvnw clean compile
 
+mvn clean install
 
 cd C:\Users\ADMIN\emms-system\docker
-
 docker-compose down
 docker-compose up --build
 
@@ -20,9 +23,9 @@ http://localhost:8080/
 
 Chạy SQL 
 docker ps
-docker exec -it emms-mysql mysql -u root -p emms_system
+cd C:\Users\ADMIN\emms-system\docker
 
-
+docker exec -it emms-postgres psql -U postgres -d emms_system
 
 
 USE emms_system;  
@@ -31,7 +34,7 @@ USE emms_system;
 
 
 ## Tìm lỗi 
-cd C:\Users\ADMIN\emms-system\src\backend
+
 
 1. Clean lại  toàn bộ 
 .\mvnw clean install 
@@ -63,3 +66,13 @@ target\surefire-reports
 👉 sẽ thấy:
 
 Tests run: 2, Failures: 0
+
+
+
+
+
+
+SELECT u.id, u.username
+FROM users u
+JOIN roles r ON u.role_id = r.id
+WHERE r.code = 'TECHNICIAN';

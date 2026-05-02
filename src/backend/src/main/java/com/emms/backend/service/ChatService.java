@@ -1,247 +1,152 @@
 package com.emms.backend.service;
 
 import com.emms.backend.dto.chat.ChatMessageDTO;
-import com.emms.backend.dto.chat.ChatMessageRequest;
-import com.emms.backend.entity.ChatConversation;
+import com.emms.backend.dto.chat.SendChatMessageRequestDTO;
+import com.emms.backend.dto.user.UserChatDTO;
 import com.emms.backend.entity.ChatMessage;
-import com.emms.backend.entity.ChatParticipant;
+import com.emms.backend.entity.Conversation;
 import com.emms.backend.entity.User;
-import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.ChatMessageMapper;
-import com.emms.backend.repository.ChatConversationRepository;
 import com.emms.backend.repository.ChatMessageRepository;
-import com.emms.backend.repository.ChatParticipantRepository;
+import com.emms.backend.repository.ConversationRepository;
 import com.emms.backend.repository.UserRepository;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
-@Transactional
 public class ChatService {
 
-    private final ChatConversationRepository conversationRepository;
-    private final ChatParticipantRepository participantRepository;
-    private final ChatMessageRepository messageRepository;
-    private final UserRepository userRepository;
-    private final ChatMessageMapper chatMessageMapper;
-    private final NotificationService notificationService;
-    private final PushNotificationTokenService pushNotificationService;
+    @Autowired
+    private ChatMessageRepository chatMessageRepository;
 
-    public ChatService(ChatConversationRepository conversationRepository,
-                       ChatParticipantRepository participantRepository,
-                       ChatMessageRepository messageRepository,
-                       UserRepository userRepository,
-                       ChatMessageMapper chatMessageMapper,
-                       NotificationService notificationService,
-                       PushNotificationTokenService pushNotificationService) {
-        this.conversationRepository = conversationRepository;
-        this.participantRepository = participantRepository;
-        this.messageRepository = messageRepository;
-        this.userRepository = userRepository;
-        this.chatMessageMapper = chatMessageMapper;
-        this.notificationService = notificationService;
-        this.pushNotificationService = pushNotificationService;
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private ConversationRepository conversationRepository;
+
+    public List<ChatMessageDTO> getMessages(Long myId, Long userId) {
+
+        validateUserExists(myId);
+        validateUserExists(userId);
+
+        chatMessageRepository.markAsRead(userId, myId);
+
+        List<ChatMessage> messages = chatMessageRepository.findConversation(myId, userId);
+        List<ChatMessageDTO> result = new ArrayList<>();
+
+        for (ChatMessage m : messages) {
+            User sender = userRepository.findById(m.getSenderId()).orElse(null);
+            User receiver = userRepository.findById(m.getReceiverId()).orElse(null);
+            result.add(ChatMessageMapper.toDTO(m, sender, receiver));
+        }
+
+        return result;
     }
 
-    public Long createPrivateConversation(Long user1Id, Long user2Id) {
-        if (user1Id == null || user2Id == null) {
-            throw new CustomException("user1Id và user2Id không được null", HttpStatus.BAD_REQUEST);
+    public ChatMessage sendMessage(Long senderId, SendChatMessageRequestDTO dto) {
+
+        if (dto == null) {
+            throw new IllegalArgumentException("Request không hợp lệ");
         }
 
-        if (user1Id.equals(user2Id)) {
-            throw new CustomException("Không thể tạo chat với chính mình", HttpStatus.BAD_REQUEST);
+        if (dto.getReceiverId() == null) {
+            throw new IllegalArgumentException("receiverId không được null");
         }
 
-        User user1 = userRepository.findById(user1Id)
-                .orElseThrow(() -> new CustomException("Không tìm thấy user1: " + user1Id, HttpStatus.NOT_FOUND));
-
-        User user2 = userRepository.findById(user2Id)
-                .orElseThrow(() -> new CustomException("Không tìm thấy user2: " + user2Id, HttpStatus.NOT_FOUND));
-
-        Long existingConversationId = findExistingPrivateConversation(user1Id, user2Id);
-        if (existingConversationId != null) {
-            return existingConversationId;
+        if (dto.getContent() == null || dto.getContent().trim().isEmpty()) {
+            throw new IllegalArgumentException("content không được để trống");
         }
 
-        ChatConversation conversation = new ChatConversation();
-        conversation = conversationRepository.save(conversation);
-
-        ChatParticipant p1 = new ChatParticipant();
-        p1.setConversationId(conversation.getId());
-        p1.setUserId(user1.getUserId());
-
-        ChatParticipant p2 = new ChatParticipant();
-        p2.setConversationId(conversation.getId());
-        p2.setUserId(user2.getUserId());
-
-        participantRepository.save(p1);
-        participantRepository.save(p2);
-
-        return conversation.getId();
-    }
-
-    public ChatMessageDTO sendMessage(Long senderId, ChatMessageRequest request) {
-        if (senderId == null) {
-            throw new CustomException("senderId không được null", HttpStatus.BAD_REQUEST);
-        }
-        if (request == null) {
-            throw new CustomException("request không được null", HttpStatus.BAD_REQUEST);
-        }
-        if (request.getConversationId() == null) {
-            throw new CustomException("conversationId không được null", HttpStatus.BAD_REQUEST);
-        }
-        if (request.getContent() == null || request.getContent().trim().isEmpty()) {
-            throw new CustomException("Nội dung tin nhắn không được để trống", HttpStatus.BAD_REQUEST);
+        if (dto.getContent().trim().length() > 5000) {
+            throw new IllegalArgumentException("content quá dài");
         }
 
-        ChatConversation conversation = conversationRepository.findById(request.getConversationId())
-                .orElseThrow(() -> new CustomException("Không tìm thấy conversation", HttpStatus.NOT_FOUND));
-
-        ChatParticipant senderParticipant = participantRepository
-                .findByConversationIdAndUserId(conversation.getId(), senderId)
-                .orElseThrow(() -> new CustomException("Bạn không thuộc cuộc trò chuyện này", HttpStatus.FORBIDDEN));
+        if (senderId.equals(dto.getReceiverId())) {
+            throw new IllegalArgumentException("Không thể gửi tin nhắn cho chính mình");
+        }
 
         User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new CustomException("Không tìm thấy sender", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new IllegalArgumentException("User không tồn tại, id = " + senderId));
 
-        String content = request.getContent().trim();
+        User receiver = userRepository.findById(dto.getReceiverId())
+                .orElseThrow(() -> new IllegalArgumentException("User không tồn tại, id = " + dto.getReceiverId()));
 
-        if (request.getReplyToMessageId() != null) {
-            ChatMessage replyTo = messageRepository.findById(request.getReplyToMessageId())
-                    .orElseThrow(() -> new CustomException("Không tìm thấy tin nhắn reply", HttpStatus.NOT_FOUND));
+        Conversation conversation = conversationRepository
+                .findConversation(senderId, dto.getReceiverId())
+                .orElseGet(() -> {
+                    Conversation c = new Conversation();
+                    c.setUser1(sender);
+                    c.setUser2(receiver);
+                    return conversationRepository.save(c);
+                });
 
-            if (!conversation.getId().equals(replyTo.getConversationId())) {
-                throw new CustomException("Tin nhắn reply không thuộc conversation này", HttpStatus.BAD_REQUEST);
-            }
-        }
+        ChatMessage message = ChatMessageMapper.toEntity(
+                senderId,
+                dto.getReceiverId(),
+                dto.getContent().trim()
+        );
 
-        ChatMessage message = new ChatMessage();
-        message.setConversationId(conversation.getId());
-        message.setSenderId(senderId);
-        message.setContent(content);
-        message.setReplyToMessageId(request.getReplyToMessageId());
+        message.setConversationId(conversation.getConversationId());
+        message.setIsRead(false);
 
-        ChatMessage saved = messageRepository.save(message);
-
-        senderParticipant.setLastReadMessageId(saved.getId());
-        participantRepository.save(senderParticipant);
-
-        ChatMessageDTO dto = chatMessageMapper.toDTO(saved);
-
-        List<ChatParticipant> participants = participantRepository.findByConversationId(conversation.getId());
-
-        for (ChatParticipant participant : participants) {
-            User targetUser = userRepository.findById(participant.getUserId())
-                    .orElseThrow(() -> new CustomException("Không tìm thấy user tham gia chat", HttpStatus.NOT_FOUND));
-
-            // Realtime update cho UI chat
-            pushNotificationService.pushChatToUser(
-                    targetUser.getUsername(),
-                    conversation.getId(),
-                    dto
-            );
-
-            // Chỉ tạo notification DB cho người nhận
-            if (!participant.getUserId().equals(senderId)) {
-                createChatNotification(targetUser, sender, conversation.getId(), content);
-            }
-        }
-
-        return dto;
+        return chatMessageRepository.save(message);
     }
 
-    public void markConversationAsRead(Long conversationId, Long currentUserId) {
-        if (conversationId == null) {
-            throw new CustomException("conversationId không được null", HttpStatus.BAD_REQUEST);
-        }
-        if (currentUserId == null) {
-            throw new CustomException("currentUserId không được null", HttpStatus.BAD_REQUEST);
-        }
+    public List<UserChatDTO> getUsersForChat(Long myId) {
+        validateUserExists(myId);
 
-        ChatParticipant participant = participantRepository
-                .findByConversationIdAndUserId(conversationId, currentUserId)
-                .orElseThrow(() -> new CustomException("Bạn không thuộc conversation này", HttpStatus.FORBIDDEN));
+        List<User> users = userRepository.findAll();
+        List<UserChatDTO> result = new ArrayList<>();
 
-        List<ChatMessage> messages = messageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId);
-        if (!messages.isEmpty()) {
-            ChatMessage lastMessage = messages.get(messages.size() - 1);
-            participant.setLastReadMessageId(lastMessage.getId());
-            participantRepository.save(participant);
-        }
-    }
+        for (User user : users) {
+            if (user.getUserId() != null && !user.getUserId().equals(myId)) {
 
-    @Transactional(readOnly = true)
-    public long getUnreadChatCount(Long conversationId, Long currentUserId) {
-        if (conversationId == null) {
-            throw new CustomException("conversationId không được null", HttpStatus.BAD_REQUEST);
-        }
-        if (currentUserId == null) {
-            throw new CustomException("currentUserId không được null", HttpStatus.BAD_REQUEST);
-        }
+                List<ChatMessage> lastMessages = chatMessageRepository.findLastMessageList(
+                        myId,
+                        user.getUserId(),
+                        PageRequest.of(0, 1)
+                );
 
-        ChatParticipant participant = participantRepository
-                .findByConversationIdAndUserId(conversationId, currentUserId)
-                .orElseThrow(() -> new CustomException("Bạn không thuộc conversation này", HttpStatus.FORBIDDEN));
+                ChatMessage lastMessage = lastMessages.isEmpty() ? null : lastMessages.get(0);
 
-        Long lastReadMessageId = participant.getLastReadMessageId();
-        if (lastReadMessageId == null) {
-            return messageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId).size();
-        }
+                Long unreadCount = chatMessageRepository.countUnread(
+                        user.getUserId(),
+                        myId
+                );
 
-        return messageRepository.countByConversationIdAndIdGreaterThan(conversationId, lastReadMessageId);
-    }
+                UserChatDTO dto = new UserChatDTO();
+                dto.setUserId(user.getUserId());
+                dto.setUsername(user.getUsername());
+                dto.setFullName(user.getFullName());
+                dto.setAvatar(user.getAvatar());
+                dto.setUnreadCount(unreadCount == null ? 0L : unreadCount);
 
-    private void createChatNotification(User targetUser, User sender, Long conversationId, String content) {
-        if (targetUser == null || sender == null || conversationId == null) {
-            return;
-        }
-
-        String title = "Tin nhắn mới từ " + safeUsername(sender);
-        String message = truncate(safeUsername(sender) + ": " + content, 255);
-
-        notificationService.createNotification(targetUser.getUserId(), title, message);
-    }
-
-    @Transactional(readOnly = true)
-    protected Long findExistingPrivateConversation(Long user1Id, Long user2Id) {
-        List<ChatParticipant> user1Participations = participantRepository.findByUserId(user1Id);
-
-        for (ChatParticipant p1 : user1Participations) {
-            List<ChatParticipant> participants = participantRepository.findByConversationId(p1.getConversationId());
-
-            if (participants.size() == 2) {
-                boolean hasUser1 = participants.stream().anyMatch(p -> user1Id.equals(p.getUserId()));
-                boolean hasUser2 = participants.stream().anyMatch(p -> user2Id.equals(p.getUserId()));
-
-                if (hasUser1 && hasUser2) {
-                    return p1.getConversationId();
+                if (lastMessage != null) {
+                    dto.setLastMessage(lastMessage.getContent());
+                    dto.setLastMessageAt(lastMessage.getCreatedAt());
                 }
+
+                result.add(dto);
             }
         }
 
-        return null;
+        result.sort((a, b) -> {
+            if (a.getLastMessageAt() == null && b.getLastMessageAt() == null) return 0;
+            if (a.getLastMessageAt() == null) return 1;
+            if (b.getLastMessageAt() == null) return -1;
+            return b.getLastMessageAt().compareTo(a.getLastMessageAt());
+        });
+
+        return result;
     }
 
-    private String safeUsername(User user) {
-        if (user == null || user.getUsername() == null || user.getUsername().isBlank()) {
-            return "Unknown";
-        }
-        return user.getUsername().trim();
-    }
-
-    private String truncate(String text, int maxLength) {
-        if (text == null) {
-            return null;
-        }
-        if (maxLength <= 3) {
-            return text.substring(0, Math.min(text.length(), maxLength));
-        }
-        if (text.length() <= maxLength) {
-            return text;
-        }
-        return text.substring(0, maxLength - 3) + "...";
+    private void validateUserExists(Long userId) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User không tồn tại, id = " + userId));
     }
 }

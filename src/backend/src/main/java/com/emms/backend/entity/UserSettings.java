@@ -15,7 +15,6 @@ public class UserSettings {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    // ===== Notification Settings =====
 
     @Column(name = "email_notified", nullable = false)
     private boolean emailNotified = true;
@@ -29,12 +28,11 @@ public class UserSettings {
     @Column(name = "email_updates_purchase_orders", nullable = false)
     private boolean emailUpdatesForPurchaseOrders = true;
 
-    // ===== UI Settings =====
+
 
     @Column(name = "stats_assigned_work_orders", nullable = false)
     private boolean statsForAssignedWorkOrders = true;
 
-    // ===== Constructor =====
 
     public UserSettings() {
     }
@@ -43,7 +41,6 @@ public class UserSettings {
         setUser(user);
     }
 
-    // ===== Getter Setter =====
 
     public Long getUserSettingsId() {
         return userSettingsId;
@@ -100,7 +97,6 @@ public class UserSettings {
         this.statsForAssignedWorkOrders = statsForAssignedWorkOrders;
     }
 
-    // ===== Business Logic (IMPORTANT) =====
 
     public boolean shouldEmailUpdatesForWorkOrders() {
         return emailNotified && emailUpdatesForWorkOrders;

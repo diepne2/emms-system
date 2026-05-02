@@ -26,7 +26,6 @@ public class WOStatuses {
     @Schema(description = "Số work order bị từ chối")
     private Integer rejectedCount; // REJECTED
 
-    // ===== Constructor =====
 
     public WOStatuses() {
     }
@@ -46,8 +45,6 @@ public class WOStatuses {
         this.completedCount = completedCount;
         this.rejectedCount = rejectedCount;
     }
-
-    // ===== Getter & Setter =====
 
     public Integer getPendingCount() {
         return pendingCount;

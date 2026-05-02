@@ -34,7 +34,7 @@ public class EmailService {
             Locale locale
     ) {
         if (mailSender == null || templateEngine == null) {
-            log.debug("Mail sender or template engine not available, skip sending email.");
+            log.debug("Không tìm thấy mail sender hoặc template engine, bỏ qua gửi email.");
             return;
         }
 

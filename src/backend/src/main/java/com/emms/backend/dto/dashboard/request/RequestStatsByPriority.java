@@ -17,8 +17,6 @@ public class RequestStatsByPriority {
     @Schema(description = "Thống kê priority HIGH")
     private BasicStats highPriority;
 
-    // ===== Constructor =====
-
     public RequestStatsByPriority() {
     }
 
@@ -32,7 +30,6 @@ public class RequestStatsByPriority {
         this.highPriority = highPriority;
     }
 
-    // ===== Getter & Setter =====
 
     public BasicStats getNonePriority() {
         return nonePriority;
@@ -66,7 +63,7 @@ public class RequestStatsByPriority {
         this.highPriority = highPriority;
     }
 
-    // ===== toString =====
+
 
     @Override
     public String toString() {
@@ -78,7 +75,7 @@ public class RequestStatsByPriority {
                 '}';
     }
 
-    // ================= INNER CLASS =================
+
 
     @Schema(description = "Thống kê cơ bản theo priority")
     public static class BasicStats {
@@ -86,7 +83,7 @@ public class RequestStatsByPriority {
         @Schema(description = "Số lượng request")
         private Integer requestCount;
 
-        // ===== Constructor =====
+    
 
         public BasicStats() {
         }
@@ -95,7 +92,6 @@ public class RequestStatsByPriority {
             this.requestCount = requestCount;
         }
 
-        // ===== Getter & Setter =====
 
         public Integer getRequestCount() {
             return requestCount;
@@ -105,7 +101,7 @@ public class RequestStatsByPriority {
             this.requestCount = requestCount;
         }
 
-        // ===== toString =====
+  
 
         @Override
         public String toString() {

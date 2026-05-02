@@ -23,45 +23,47 @@ public class LocationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<LocationShowDTO> create(@Valid @RequestBody LocationDTO dto) {
-        LocationShowDTO response = locationService.create(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(locationService.create(dto));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<LocationShowDTO> update(
             @PathVariable Long id,
             @Valid @RequestBody LocationDTO dto
     ) {
-        LocationShowDTO response = locationService.update(id, dto);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<LocationShowDTO> getById(@PathVariable Long id) {
-        LocationShowDTO response = locationService.getById(id);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(locationService.update(id, dto));
     }
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<LocationShowDTO>> getAll() {
-        List<LocationShowDTO> response = locationService.getAll();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(locationService.getAll());
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<LocationShowDTO> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(locationService.getById(id));
     }
 
     @GetMapping("/summary")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<LocationSummaryDTO>> getAllSummary() {
-        List<LocationSummaryDTO> response = locationService.getAllSummary();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(locationService.getAllSummary());
+    }
+
+    @GetMapping("/dropdown")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<LocationSummaryDTO>> getDropdown() {
+        return ResponseEntity.ok(locationService.getAllSummary());
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         locationService.delete(id);
         return ResponseEntity.noContent().build();

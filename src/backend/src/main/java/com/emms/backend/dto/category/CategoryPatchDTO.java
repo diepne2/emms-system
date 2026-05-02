@@ -12,7 +12,6 @@ public class CategoryPatchDTO {
     @Schema(description = "Description")
     private String description;
 
-    // ===== Constructor =====
     public CategoryPatchDTO() {
     }
 
@@ -21,7 +20,6 @@ public class CategoryPatchDTO {
         this.description = trim(description);
     }
 
-    // ===== Getter =====
     public String getName() {
         return name;
     }
@@ -30,7 +28,6 @@ public class CategoryPatchDTO {
         return description;
     }
 
-    // ===== Setter =====
     public void setName(String name) {
         this.name = trim(name);
     }
@@ -39,7 +36,6 @@ public class CategoryPatchDTO {
         this.description = trim(description);
     }
 
-    // ===== Utils =====
     private String trim(String value) {
         return value == null ? null : value.trim();
     }

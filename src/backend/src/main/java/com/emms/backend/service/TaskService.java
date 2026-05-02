@@ -34,7 +34,7 @@ public class TaskService {
 
     public Task update(Long id, TaskDTO dto) {
         Task savedTask = taskRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy tác vụ", HttpStatus.NOT_FOUND));
 
         taskMapper.updateTask(savedTask, dto);
 
@@ -50,7 +50,7 @@ public class TaskService {
 
     public void delete(Long id) {
         if (!taskRepository.existsById(id)) {
-            throw new CustomException("Task not found", HttpStatus.NOT_FOUND);
+            throw new CustomException("Không tìm thấy tác vụ", HttpStatus.NOT_FOUND);
         }
         taskRepository.deleteById(id);
     }
@@ -73,6 +73,6 @@ public class TaskService {
     @Transactional(readOnly = true)
     public Task findEntityById(Long id) {
         return taskRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy tác vụ", HttpStatus.NOT_FOUND));
     }
 }

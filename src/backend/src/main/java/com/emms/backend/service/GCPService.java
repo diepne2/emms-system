@@ -71,7 +71,7 @@ public class GCPService implements StorageService {
         checkIfConfigured();
 
         if (file == null || file.isEmpty()) {
-            throw new CustomException("File must not be empty", HttpStatus.BAD_REQUEST);
+            throw new CustomException("File không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         String safeFolder = sanitizeFolder(folder);
@@ -92,9 +92,9 @@ public class GCPService implements StorageService {
 
             return filePath;
         } catch (IOException e) {
-            throw new CustomException("Cannot read uploaded file", HttpStatus.UNPROCESSABLE_ENTITY);
+            throw new CustomException("Không thể đọc file đã tải lên", HttpStatus.UNPROCESSABLE_ENTITY);
         } catch (StorageException e) {
-            throw new CustomException("Error uploading file: " + e.getMessage(), HttpStatus.UNPROCESSABLE_ENTITY);
+            throw new CustomException("Lỗi khi tải lên file: " + e.getMessage(), HttpStatus.UNPROCESSABLE_ENTITY);
         }
     }
 
@@ -104,7 +104,7 @@ public class GCPService implements StorageService {
 
         Blob blob = storage.get(BlobId.of(gcpBucketName, filePath));
         if (blob == null) {
-            throw new CustomException("File not found", HttpStatus.NOT_FOUND);
+            throw new CustomException("File không tìm thấy", HttpStatus.NOT_FOUND);
         }
 
         try {
@@ -119,7 +119,7 @@ public class GCPService implements StorageService {
         checkIfConfigured();
 
         if (file == null || isBlank(file.getPath())) {
-            throw new CustomException("File path is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Địa chỉ File không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         return download(file.getPath());
@@ -129,7 +129,7 @@ public class GCPService implements StorageService {
         checkIfConfigured();
 
         if (file == null || isBlank(file.getPath())) {
-            throw new CustomException("File path is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Địa chỉ File không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         return generateSignedUrl(file.getPath(), expirationMinutes);
@@ -150,11 +150,11 @@ public class GCPService implements StorageService {
         checkIfConfigured();
 
         if (blobInfo == null) {
-            throw new CustomException("BlobInfo is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("BlobInfo là bắt buộc.", HttpStatus.BAD_REQUEST);
         }
 
         if (expirationMinutes <= 0) {
-            throw new CustomException("Expiration minutes must be greater than 0", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Thời gian hết hạn phải lớn hơn 0", HttpStatus.BAD_REQUEST);
         }
 
         try {
@@ -176,12 +176,12 @@ public class GCPService implements StorageService {
         checkIfConfigured();
 
         if (isBlank(filePath)) {
-            throw new CustomException("File path is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Địa chỉ File không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         Blob blob = storage.get(BlobId.of(gcpBucketName, filePath));
         if (blob == null) {
-            throw new CustomException("File not found", HttpStatus.NOT_FOUND);
+            throw new CustomException("File không tìm thấy", HttpStatus.NOT_FOUND);
         }
 
         return blob;

@@ -25,7 +25,6 @@ public class WOStats {
     @Schema(description = "Tỷ lệ compliant (%)")
     private Double complianceRate;
 
-    // ===== Constructor =====
 
     public WOStats() {
     }
@@ -46,7 +45,6 @@ public class WOStats {
         this.complianceRate = complianceRate;
     }
 
-    // ===== Getter & Setter =====
 
     public Integer getTotalCount() {
         return totalCount;
@@ -104,7 +102,6 @@ public class WOStats {
         this.complianceRate = complianceRate;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {

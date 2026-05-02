@@ -15,7 +15,7 @@ import java.util.Collection;
 
 @RestController
 @RequestMapping("/api/roles")
-@PreAuthorize("hasAnyRole('ADMIN', 'QUANLYKYTHUAT')")
+@PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
 public class RoleController {
 
     private final RoleService roleService;

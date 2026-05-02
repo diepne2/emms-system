@@ -17,7 +17,6 @@ public class WOStatsByPriority {
     @Schema(description = "Thống kê priority HIGH")
     private BasicStats highPriority;
 
-    // ===== Constructor =====
 
     public WOStatsByPriority() {
     }
@@ -32,7 +31,6 @@ public class WOStatsByPriority {
         this.highPriority = highPriority;
     }
 
-    // ===== Getter & Setter =====
 
     public BasicStats getNonePriority() {
         return nonePriority;
@@ -66,7 +64,6 @@ public class WOStatsByPriority {
         this.highPriority = highPriority;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {
@@ -78,7 +75,6 @@ public class WOStatsByPriority {
                 '}';
     }
 
-    // ================= INNER CLASS =================
 
     @Schema(description = "Thống kê cơ bản cho một mức độ ưu tiên")
     public static class BasicStats {
@@ -89,8 +85,6 @@ public class WOStatsByPriority {
         @Schema(description = "Tổng thời gian ước tính (giờ)")
         private Double estimatedHours;
 
-        // ===== Constructor =====
-
         public BasicStats() {
         }
 
@@ -98,8 +92,6 @@ public class WOStatsByPriority {
             this.count = count;
             this.estimatedHours = estimatedHours;
         }
-
-        // ===== Getter & Setter =====
 
         public Integer getCount() {
             return count;
@@ -117,7 +109,6 @@ public class WOStatsByPriority {
             this.estimatedHours = estimatedHours;
         }
 
-        // ===== toString =====
 
         @Override
         public String toString() {

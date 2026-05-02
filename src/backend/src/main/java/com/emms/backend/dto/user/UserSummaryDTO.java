@@ -8,6 +8,9 @@ public class UserSummaryDTO {
     @Schema(description = "User ID")
     private Long id;
 
+    @Schema(description = "Username")
+    private String username;
+
     @Schema(description = "First name")
     private String firstName;
 
@@ -28,12 +31,21 @@ public class UserSummaryDTO {
         this.id = id;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = trim(username);
+    }
+
     public String getFirstName() {
         return firstName;
     }
 
     public void setFirstName(String firstName) {
         this.firstName = trim(firstName);
+        rebuildFullNameIfNeeded();
     }
 
     public String getLastName() {
@@ -42,21 +54,53 @@ public class UserSummaryDTO {
 
     public void setLastName(String lastName) {
         this.lastName = trim(lastName);
+        rebuildFullNameIfNeeded();
     }
 
     public String getFullName() {
-        return fullName;
+        if (fullName != null && !fullName.isBlank()) {
+            return fullName;
+        }
+
+        String generated = buildFullName(firstName, lastName);
+        return generated != null ? generated : username;
     }
 
     public void setFullName(String fullName) {
         this.fullName = trim(fullName);
     }
 
+    private void rebuildFullNameIfNeeded() {
+        if (this.fullName == null || this.fullName.isBlank()) {
+            this.fullName = buildFullName(this.firstName, this.lastName);
+        }
+    }
+
+    private String buildFullName(String firstName, String lastName) {
+        String first = trim(firstName);
+        String last = trim(lastName);
+
+        if (first == null && last == null) {
+            return null;
+        }
+
+        if (first == null) {
+            return last;
+        }
+
+        if (last == null) {
+            return first;
+        }
+
+        return first + " " + last;
+    }
+
     private String trim(String value) {
         if (value == null) {
             return null;
         }
-        String t = value.trim();
-        return t.isEmpty() ? null : t;
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

@@ -1,7 +1,7 @@
 package com.emms.backend.mapper;
 
 import com.emms.backend.dto.preventiveMaintenance.PreventiveMaintenanceDTO;
-import com.emms.backend.dto.preventiveMaintenance.PreventiveMaintenanceShowDTO;
+import com.emms.backend.dto.preventiveMaintenance.PreventiveMaintenancePostDTO;
 import com.emms.backend.entity.PreventiveMaintenance;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
@@ -17,7 +17,7 @@ public interface PreventiveMaintenanceMapper {
     @Mapping(target = "requestedBy", ignore = true)
     @Mapping(target = "assignedTo", ignore = true)
     @Mapping(target = "schedule", ignore = true)
-    PreventiveMaintenance fromDto(PreventiveMaintenanceDTO dto);
+    PreventiveMaintenance fromDto(PreventiveMaintenancePostDTO dto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
@@ -26,7 +26,4 @@ public interface PreventiveMaintenanceMapper {
     @Mapping(target = "assignedTo", ignore = true)
     @Mapping(target = "schedule", ignore = true)
     void update(@MappingTarget PreventiveMaintenance entity, PreventiveMaintenanceDTO dto);
-
-    @Mapping(target = "assignedTo", ignore = true)
-    PreventiveMaintenanceShowDTO toShowDto(PreventiveMaintenance entity);
 }

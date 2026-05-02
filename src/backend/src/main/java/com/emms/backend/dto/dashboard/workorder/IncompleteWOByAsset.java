@@ -12,8 +12,6 @@ public class IncompleteWOByAsset extends AssetSummaryDTO {
     @Schema(description = "Tuổi trung bình của work order (tính bằng ngày)")
     private Double averageAgeDays;
 
-    // ===== Constructor =====
-
     public IncompleteWOByAsset() {
     }
 
@@ -22,7 +20,6 @@ public class IncompleteWOByAsset extends AssetSummaryDTO {
         this.averageAgeDays = averageAgeDays;
     }
 
-    // ===== Getter & Setter =====
 
     public Integer getIncompleteCount() {
         return incompleteCount;
@@ -40,7 +37,6 @@ public class IncompleteWOByAsset extends AssetSummaryDTO {
         this.averageAgeDays = averageAgeDays;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {

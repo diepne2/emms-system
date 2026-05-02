@@ -26,7 +26,7 @@ public class WorkOrderHistory extends Audit {
 
     @NotBlank
     @Column(name = "version_name", nullable = false, length = 255)
-    @Schema(description = "Tên phiên bản lưu", example = "WO-0001 - Bản lưu trước khi duyệt")
+    @Schema(description = "Tên phiên bản lưu")
     private String versionName;
 
     @NotNull
@@ -39,7 +39,7 @@ public class WorkOrderHistory extends Audit {
     private String note;
 
     @Lob
-    @Column(name = "snapshot_json", columnDefinition = "LONGTEXT")
+    @Column(name = "snapshot_json")
     @Schema(description = "Snapshot dữ liệu Work Order tại thời điểm lưu, dạng JSON")
     private String snapshotJson;
 

@@ -48,7 +48,6 @@ public class CommentController {
         Comment comment = commentService.findEntityById(id);
 
         if (comment.getWorkOrder() != null && comment.getWorkOrder().getId() != null) {
-            // check access thông qua work order
             commentService.findByCriteria(buildCriteria(comment.getWorkOrder().getId()), currentUser);
         }
 

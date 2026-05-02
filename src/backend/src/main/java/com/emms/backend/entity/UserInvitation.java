@@ -25,7 +25,6 @@ public class UserInvitation extends Audit {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    // ===== Constructor =====
 
     public UserInvitation() {
     }
@@ -60,19 +59,9 @@ public class UserInvitation extends Audit {
         this.role = role;
     }
 
-    // ===== Utils =====
 
     private String trim(String value) {
         return value == null ? null : value.trim();
     }
 
-    public void setToken(String string) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setToken'");
-    }
-
-    public void setUsed(boolean b) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setUsed'");
-    }
 }

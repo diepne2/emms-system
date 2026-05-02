@@ -9,25 +9,24 @@ import java.util.Collection;
 @Schema(description = "DTO dùng để tạo hoặc cập nhật Meter")
 public class MeterDTO {
 
-    @Schema(description = "Tên đồng hồ", example = "Operating Hours")
+    @Schema(description = "Tên đồng hồ")
     private String name;
 
-    @Schema(description = "Đơn vị đo", example = "hours")
+    @Schema(description = "Đơn vị đo")
     private String unit;
 
-    @Schema(description = "Tần suất cập nhật", example = "30")
+    @Schema(description = "Tần suất cập nhật")
     private Integer updateFrequency;
 
-    @Schema(description = "ID danh mục meter", example = "1")
+    @Schema(description = "ID danh mục meter")
     private Long meterCategoryId;
 
-    @Schema(description = "ID file ảnh", example = "10")
     private Long imageId;
 
-    @Schema(description = "ID vị trí", example = "5")
+ 
     private Long locationId;
 
-    @Schema(description = "ID tài sản", example = "100")
+
     private Long assetId;
 
     @ArraySchema(

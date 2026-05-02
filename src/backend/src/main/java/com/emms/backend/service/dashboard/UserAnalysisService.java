@@ -3,6 +3,7 @@ package com.emms.backend.service.dashboard;
 import com.emms.backend.dto.dashboard.user.UserWOStats;
 import com.emms.backend.dto.dashboard.user.WOStatsByDay;
 import com.emms.backend.entity.WorkOrder;
+import com.emms.backend.entity.WorkOrder.WorkOrderStatus;
 import com.emms.backend.repository.WorkOrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +21,8 @@ public class UserAnalysisService {
         this.workOrderRepository = workOrderRepository;
     }
 
-    // =========================
-    // 1. STATS THEO USER
-    // =========================
     public UserWOStats getUserStats(Long userId, LocalDate fromDate, LocalDate toDate) {
+        validateDateRange(fromDate, toDate);
 
         List<WorkOrder> workOrders = workOrderRepository.findByAssignedTo_UserIdAndCreatedAtBetween(
                 userId,
@@ -35,23 +34,20 @@ public class UserAnalysisService {
         int completedCount = 0;
 
         for (WorkOrder wo : workOrders) {
-            if (wo.getStatus() != null &&
-                    "HOAN_THANH".equalsIgnoreCase(wo.getStatus().name())) {
+            if (wo.getStatus() == WorkOrderStatus.DONE) {
                 completedCount++;
             }
         }
 
         double completionRate = createdCount == 0
                 ? 0.0
-                : ((double) completedCount / createdCount) * 100;
+                : ((double) completedCount / createdCount) * 100.0;
 
         return new UserWOStats(createdCount, completedCount, round(completionRate));
     }
 
-    // =========================
-    // 2. STATS THEO NGÀY
-    // =========================
     public List<WOStatsByDay> getWOStatsByDay(Long userId, LocalDate fromDate, LocalDate toDate) {
+        validateDateRange(fromDate, toDate);
 
         List<WorkOrder> workOrders = workOrderRepository.findByAssignedTo_UserIdAndCreatedAtBetween(
                 userId,
@@ -68,8 +64,6 @@ public class UserAnalysisService {
         }
 
         for (WorkOrder wo : workOrders) {
-
-            // created
             if (wo.getCreatedAt() != null) {
                 LocalDate createdDate = wo.getCreatedAt().toLocalDate();
                 if (createdMap.containsKey(createdDate)) {
@@ -77,11 +71,7 @@ public class UserAnalysisService {
                 }
             }
 
-            // completed
-            if (wo.getUpdatedAt() != null &&
-                    wo.getStatus() != null &&
-                    "HOAN_THANH".equalsIgnoreCase(wo.getStatus().name())) {
-
+            if (wo.getUpdatedAt() != null && wo.getStatus() == WorkOrderStatus.DONE) {
                 LocalDate completedDate = wo.getUpdatedAt().toLocalDate();
                 if (completedMap.containsKey(completedDate)) {
                     completedMap.put(completedDate, completedMap.get(completedDate) + 1);
@@ -102,7 +92,15 @@ public class UserAnalysisService {
         return result;
     }
 
-    // =========================
+    private void validateDateRange(LocalDate fromDate, LocalDate toDate) {
+        if (fromDate == null || toDate == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu và ngày kết thúc không được để trống.");
+        }
+        if (toDate.isBefore(fromDate)) {
+            throw new IllegalArgumentException("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.");
+        }
+    }
+
     private double round(double value) {
         return Math.round(value * 100.0) / 100.0;
     }

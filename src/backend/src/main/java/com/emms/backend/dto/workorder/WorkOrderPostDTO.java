@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
 
-@Schema(description = "DTO for creating a new work order")
+@Schema(description = "DTO cho việc tạo đơn hàng công việc mới")
 public class WorkOrderPostDTO {
 
     private String title;

@@ -63,7 +63,7 @@ public class SendgridService implements MailService {
     @Value("${mail.recipients:}")
     private String[] recipients;
 
-    @Value("${mail.enable:false}")
+    @Value("${mail.enable:true}")
     private Boolean enableEmails;
 
     @Value("${cloud-version:false}")
@@ -102,7 +102,7 @@ public class SendgridService implements MailService {
         }
 
         if (contactListId == null || contactListId.isBlank()) {
-            log.warn("Skip adding contact to SendGrid because contactListId is blank.");
+            log.warn("Bỏ qua bước thêm liên hệ vào SendGrid vì contactListId trống.");
             return;
         }
 
@@ -131,13 +131,13 @@ public class SendgridService implements MailService {
             request.setBody(objectMapper.writeValueAsString(body));
 
             Response response = sendGrid.api(request);
-            ensureSuccess(response, "Failed to add user to SendGrid contacts");
+            ensureSuccess(response, "Thêm người dùng vào danh bạ SendGrid không thành công.");
 
-            log.info("User added to SendGrid contact list successfully: {}", user.getEmail());
+            log.info("Người dùng đã được thêm vào danh sách liên hệ SendGrid thành công : {}", user.getEmail());
         } catch (Exception e) {
-            log.error("Error adding user to SendGrid contacts", e);
+            log.error("Lỗi khi thêm người dùng vào liên hệ SendGrid", e);
             throw new CustomException(
-                    "Failed to add user to SendGrid contacts",
+                    "Thêm người dùng vào danh bạ SendGrid không thành công.",
                     HttpStatus.INTERNAL_SERVER_ERROR
             );
         }

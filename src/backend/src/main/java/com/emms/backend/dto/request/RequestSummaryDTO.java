@@ -1,35 +1,75 @@
 package com.emms.backend.dto.request;
 
-import com.emms.backend.entity.Request;
-
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class RequestSummaryDTO {
 
-    private Long requestId;
+    private Long id;
+    private String title;
+    private String status;
+    private String priority;
+    private LocalDate dueDate;
 
+    private Long locationId;
     private String locationName;
-    private String requestPortalTitle;
-    private String workOrderTitle;
 
-    private Request.Status status;
-    private Request.Priority priority;
+    private Long assetId;
+    private String assetName;
+    private String assetCode;
 
-    private boolean cancelled;
-    private String cancellationReason;
-
+    private Long workOrderId;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
     public RequestSummaryDTO() {
     }
 
-    public Long getRequestId() {
-        return requestId;
+    public Long getId() {
+        return id;
     }
 
-    public void setRequestId(Long requestId) {
-        this.requestId = requestId;
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    public Long getLocationId() {
+        return locationId;
+    }
+
+    public void setLocationId(Long locationId) {
+        this.locationId = locationId;
     }
 
     public String getLocationName() {
@@ -37,59 +77,39 @@ public class RequestSummaryDTO {
     }
 
     public void setLocationName(String locationName) {
-        this.locationName = trim(locationName);
+        this.locationName = locationName;
     }
 
-    public String getRequestPortalTitle() {
-        return requestPortalTitle;
+    public Long getAssetId() {
+        return assetId;
     }
 
-    public void setRequestPortalTitle(String requestPortalTitle) {
-        this.requestPortalTitle = trim(requestPortalTitle);
+    public void setAssetId(Long assetId) {
+        this.assetId = assetId;
     }
 
-    public String getWorkOrderTitle() {
-        return workOrderTitle;
+    public String getAssetName() {
+        return assetName;
     }
 
-    public void setWorkOrderTitle(String workOrderTitle) {
-        this.workOrderTitle = trim(workOrderTitle);
+    public void setAssetName(String assetName) {
+        this.assetName = assetName;
     }
 
-    public Request.Status getStatus() {
-        return status;
+    public String getAssetCode() {
+        return assetCode;
     }
 
-    public void setStatus(Request.Status status) {
-        this.status = status;
+    public void setAssetCode(String assetCode) {
+        this.assetCode = assetCode;
     }
 
-    public Request.Priority getPriority() {
-        return priority;
+    public Long getWorkOrderId() {
+        return workOrderId;
     }
 
-    public void setPriority(Request.Priority priority) {
-        this.priority = priority;
-    }
-
-    public boolean isCancelled() {
-        return cancelled;
-    }
-
-    public boolean getCancelled() {
-        return cancelled;
-    }
-
-    public void setCancelled(boolean cancelled) {
-        this.cancelled = cancelled;
-    }
-
-    public String getCancellationReason() {
-        return cancellationReason;
-    }
-
-    public void setCancellationReason(String cancellationReason) {
-        this.cancellationReason = trim(cancellationReason);
+    public void setWorkOrderId(Long workOrderId) {
+        this.workOrderId = workOrderId;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -98,17 +118,5 @@ public class RequestSummaryDTO {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    private String trim(String value) {
-        return value == null ? null : value.trim();
     }
 }

@@ -5,7 +5,7 @@ public class CategorySummaryDTO {
     private Long id;
     private String name;
 
-    // ===== Constructor =====
+
     public CategorySummaryDTO() {}
 
     public CategorySummaryDTO(Long id, String name) {
@@ -13,7 +13,6 @@ public class CategorySummaryDTO {
         this.name = trim(name);
     }
 
-    // ===== Getter =====
     public Long getId() {
         return id;
     }
@@ -22,7 +21,7 @@ public class CategorySummaryDTO {
         return name;
     }
 
-    // ===== Setter =====
+
     public void setId(Long id) {
         this.id = id;
     }
@@ -31,7 +30,7 @@ public class CategorySummaryDTO {
         this.name = trim(name);
     }
 
-    // ===== Utils =====
+
     private String trim(String value) {
         return value == null ? null : value.trim();
     }

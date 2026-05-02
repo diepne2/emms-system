@@ -21,14 +21,14 @@ public class AssetCategoryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<AssetCategory> create(@Valid @RequestBody AssetCategory assetCategory) {
         AssetCategory created = assetCategoryService.create(assetCategory);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<AssetCategory> update(@PathVariable Long id,
                                                 @Valid @RequestBody AssetCategory assetCategory) {
         AssetCategory updated = assetCategoryService.update(id, assetCategory);
@@ -36,19 +36,19 @@ public class AssetCategoryController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT','ROLE_KYTHUATVIEN','ROLE_OPERATOR','ROLE_REQUESTER','ROLE_VIEWER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<Collection<AssetCategory>> getAll() {
         return ResponseEntity.ok(assetCategoryService.getAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT','ROLE_KYTHUATVIEN','ROLE_OPERATOR','ROLE_REQUESTER','ROLE_VIEWER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<AssetCategory> getById(@PathVariable Long id) {
         return ResponseEntity.ok(assetCategoryService.getById(id));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         assetCategoryService.delete(id);
         return ResponseEntity.noContent().build();

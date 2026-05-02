@@ -36,13 +36,11 @@ public class MeterShowDTO extends AuditShowDTO {
     @Schema(description = "Danh sách user được gán")
     private List<UserSummaryDTO> users = new ArrayList<>();
 
-    @Schema(description = "Vị trí")
     private LocationSummaryDTO location;
 
-    @Schema(description = "Tài sản")
     private AssetSummaryDTO asset;
 
-    @Schema(description = "Là dữ liệu demo hay không", example = "false")
+    @Schema(description = "Là dữ liệu demo hay không")
     private boolean demo;
 
     @Schema(description = "Thời điểm ghi nhận mới nhất")

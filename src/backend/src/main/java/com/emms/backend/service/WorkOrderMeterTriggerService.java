@@ -27,11 +27,11 @@ public class WorkOrderMeterTriggerService {
 
     public WorkOrderMeterTrigger create(WorkOrderMeterTriggerDTO dto) {
         if (dto == null) {
-            throw new CustomException("DTO is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("DTO bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         if (dto.getMeterId() == null) {
-            throw new CustomException("Meter is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Meter là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         WorkOrderMeterTrigger entity = new WorkOrderMeterTrigger();
@@ -50,11 +50,11 @@ public class WorkOrderMeterTriggerService {
 
     public WorkOrderMeterTrigger update(Long id, WorkOrderMeterTriggerDTO dto) {
         if (id == null) {
-            throw new CustomException("Id is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         if (dto == null) {
-            throw new CustomException("DTO is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("DTO là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         WorkOrderMeterTrigger entity = findEntityById(id);
@@ -81,16 +81,16 @@ public class WorkOrderMeterTriggerService {
     @Transactional(readOnly = true)
     public WorkOrderMeterTrigger findEntityById(Long id) {
         if (id == null) {
-            throw new CustomException("Id is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         return repo.findById(id)
-                .orElseThrow(() -> new CustomException("Not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy", HttpStatus.NOT_FOUND));
     }
 
     public void delete(Long id) {
         if (id == null) {
-            throw new CustomException("Id is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         repo.delete(findEntityById(id));
@@ -98,27 +98,27 @@ public class WorkOrderMeterTriggerService {
 
     private void validate(WorkOrderMeterTrigger e) {
         if (e.getName() == null || e.getName().isBlank()) {
-            throw new CustomException("Name required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Tên là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         if (e.getTriggerCondition() == null) {
-            throw new CustomException("Condition required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Điều kiện là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         if (e.getTriggerValue() == null) {
-            throw new CustomException("Trigger value required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Giá trị kích hoạt là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         if (e.getTriggerValue().compareTo(BigDecimal.ZERO) < 0) {
-            throw new CustomException("Trigger value must be >= 0", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Giá trị kích hoạt phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST);
         }
 
         if (e.getCooldownMinutes() == null || e.getCooldownMinutes() < 0) {
-            throw new CustomException("Cooldown must be >= 0", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Thời gian chờ phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST);
         }
 
         if (e.getMeter() == null || e.getMeter().getId() == null) {
-            throw new CustomException("Meter required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Meter là bắt buộc", HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -134,5 +134,12 @@ public class WorkOrderMeterTriggerService {
         if (e.getCooldownMinutes() == null || e.getCooldownMinutes() < 0) {
             e.setCooldownMinutes(0);
         }
+    }
+    @Transactional(readOnly = true)
+    public Collection<WorkOrderMeterTrigger> getByMeter(Long meterId) {
+        if (meterId == null) {
+            throw new CustomException("Meter ID là bắt buộc", HttpStatus.BAD_REQUEST);
+        }
+        return repo.findByMeterIdAndActiveTrue(meterId);
     }
 }

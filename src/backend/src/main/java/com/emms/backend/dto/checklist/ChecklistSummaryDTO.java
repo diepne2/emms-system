@@ -5,7 +5,6 @@ public class ChecklistSummaryDTO {
     private Long id;   
     private String name;
 
-    // ===== Constructor =====
     public ChecklistSummaryDTO() {
     }
 
@@ -14,7 +13,6 @@ public class ChecklistSummaryDTO {
         this.name = trim(name);
     }
 
-    // ===== Getter =====
     public Long getId() {
         return id;
     }
@@ -23,7 +21,6 @@ public class ChecklistSummaryDTO {
         return name;
     }
 
-    // ===== Setter =====
     public void setId(Long id) {
         this.id = id;
     }
@@ -32,7 +29,6 @@ public class ChecklistSummaryDTO {
         this.name = trim(name);
     }
 
-    // ===== Utils =====
     private String trim(String value) {
         return value == null ? null : value.trim();
     }

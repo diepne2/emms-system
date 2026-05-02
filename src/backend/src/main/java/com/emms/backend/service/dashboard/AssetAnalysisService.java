@@ -1,12 +1,6 @@
 package com.emms.backend.service.dashboard;
 
-import com.emms.backend.dto.dashboard.asset.AssetOverview;
-import com.emms.backend.dto.dashboard.asset.AssetStats;
-import com.emms.backend.dto.dashboard.asset.DowntimesByAsset;
-import com.emms.backend.dto.dashboard.asset.DowntimesByDate;
-import com.emms.backend.dto.dashboard.asset.DowntimesMeantimeByDate;
-import com.emms.backend.dto.dashboard.asset.Meantimes;
-import com.emms.backend.dto.dashboard.asset.MTBFByAsset;
+import com.emms.backend.dto.dashboard.asset.*;
 import com.emms.backend.entity.Asset;
 import com.emms.backend.entity.AssetDowntime;
 import com.emms.backend.repository.AssetDowntimeRepository;
@@ -20,15 +14,13 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @Transactional(readOnly = true)
 public class AssetAnalysisService {
+
+    private static final Long ASSET_NOT_FOUND_ID = -1L;
 
     private final AssetRepository assetRepository;
     private final AssetDowntimeRepository assetDowntimeRepository;
@@ -44,121 +36,144 @@ public class AssetAnalysisService {
         this.workOrderRepository = workOrderRepository;
     }
 
-    public AssetOverview getAssetOverview(LocalDate fromDate, LocalDate toDate, Long assetId) {
+    public AssetOverview getAssetOverview(LocalDate fromDate, LocalDate toDate, String assetName) {
         validateDateRange(fromDate, toDate);
+
+        Long assetId = resolveAssetId(assetName);
+        if (isAssetNotFound(assetId)) {
+            return new AssetOverview();
+        }
 
         List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, assetId);
 
-        long totalDowntime = downtimes.stream()
+        long totalDowntimeSeconds = downtimes.stream()
                 .mapToLong(this::getDowntimeDurationSeconds)
                 .sum();
 
-        long totalUptime = calculateTotalUptimeSeconds(fromDate, toDate, totalDowntime);
+        long periodSeconds = getPeriodSeconds(fromDate, toDate);
+        long totalUptimeSeconds = Math.max(periodSeconds - totalDowntimeSeconds, 0L);
 
-        double mttr = calculateMttrSeconds(downtimes);
-        double mtbf = calculateMtbfSeconds(fromDate, toDate, downtimes, totalDowntime);
+        double mttrSeconds = calculateMttrSeconds(downtimes);
+        double mtbfSeconds = calculateMtbfSeconds(periodSeconds, totalDowntimeSeconds, downtimes.size());
 
         BigDecimal totalCost = workOrderRepository.sumActualCostByAssetAndDateRange(
                 assetId,
                 fromDate.atStartOfDay(),
                 toDate.plusDays(1).atStartOfDay()
         );
-        if (totalCost == null) {
-            totalCost = BigDecimal.ZERO;
-        }
 
-        AssetOverview overview = new AssetOverview();
-        overview.setMtbf(round(mtbf));
-        overview.setMttr(round(mttr));
-        overview.setTotalDowntime(totalDowntime);
-        overview.setTotalUptime(totalUptime);
-        overview.setTotalCost(totalCost);
+        AssetOverview dto = new AssetOverview();
+        dto.setMtbf(round(mtbfSeconds));
+        dto.setMttr(round(mttrSeconds));
+        dto.setTotalDowntime(totalDowntimeSeconds);
+        dto.setTotalUptime(totalUptimeSeconds);
+        dto.setTotalCost(totalCost == null ? BigDecimal.ZERO : totalCost);
 
-        return overview;
+        return dto;
     }
 
-    public AssetStats getAssetStats(LocalDate fromDate, LocalDate toDate, Long assetId) {
+    public AssetStats getAssetStats(LocalDate fromDate, LocalDate toDate, String assetName) {
         validateDateRange(fromDate, toDate);
+
+        Long assetId = resolveAssetId(assetName);
+        if (isAssetNotFound(assetId)) {
+            AssetStats dto = new AssetStats();
+            dto.setTotalDowntime(0L);
+            dto.setAvailability(0.0);
+            dto.setDowntimeEvents(0);
+            return dto;
+        }
 
         List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, assetId);
 
-        long totalDowntime = downtimes.stream()
+        long totalDowntimeSeconds = downtimes.stream()
                 .mapToLong(this::getDowntimeDurationSeconds)
                 .sum();
 
         long periodSeconds = getPeriodSeconds(fromDate, toDate);
+        long uptimeSeconds = Math.max(periodSeconds - totalDowntimeSeconds, 0L);
+
         double availability = periodSeconds <= 0
                 ? 100.0
-                : ((double) (periodSeconds - totalDowntime) / (double) periodSeconds) * 100.0;
+                : ((double) uptimeSeconds / periodSeconds) * 100.0;
 
-        AssetStats stats = new AssetStats();
-        stats.setTotalDowntime(totalDowntime);
-        stats.setAvailability(round(availability));
-        stats.setDowntimeEvents(downtimes.size());
+        AssetStats dto = new AssetStats();
+        dto.setTotalDowntime(totalDowntimeSeconds);
+        dto.setAvailability(round(availability));
+        dto.setDowntimeEvents(downtimes.size());
 
-        return stats;
+        return dto;
     }
 
     public List<DowntimesByAsset> getDowntimesByAsset(LocalDate fromDate, LocalDate toDate) {
         validateDateRange(fromDate, toDate);
 
         List<Asset> assets = assetRepository.findAll();
-        List<AssetDowntime> allDowntimes = findDowntimes(fromDate, toDate, null);
-        int totalEvents = allDowntimes.size();
+        List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, null);
 
-        Map<Long, Integer> countByAssetId = new LinkedHashMap<>();
-        for (AssetDowntime downtime : allDowntimes) {
-            Asset asset = downtime.getAsset();
+        Map<Long, Long> countByAssetId = new HashMap<>();
+
+        for (AssetDowntime downtime : downtimes) {
+            if (downtime.getAsset() == null || downtime.getAsset().getId() == null) {
+                continue;
+            }
+
+            Long currentAssetId = downtime.getAsset().getId();
+            countByAssetId.put(currentAssetId, countByAssetId.getOrDefault(currentAssetId, 0L) + 1);
+        }
+
+        long totalEvents = downtimes.size();
+        List<DowntimesByAsset> result = new ArrayList<>();
+
+        for (Asset asset : assets) {
             if (asset == null || asset.getId() == null) {
                 continue;
             }
-            countByAssetId.put(
-                    asset.getId(),
-                    countByAssetId.getOrDefault(asset.getId(), 0) + 1
-            );
-        }
 
-        List<DowntimesByAsset> result = new ArrayList<>();
-        for (Asset asset : assets) {
-            int count = countByAssetId.getOrDefault(asset.getId(), 0);
-            double percentage = totalEvents == 0 ? 0.0 : ((double) count / (double) totalEvents) * 100.0;
+            long count = countByAssetId.getOrDefault(asset.getId(), 0L);
+            double percentage = totalEvents == 0 ? 0.0 : ((double) count / totalEvents) * 100.0;
 
             DowntimesByAsset dto = new DowntimesByAsset();
             dto.setId(asset.getId());
             dto.setName(asset.getName());
-            dto.setDowntimeCount(count);
+            dto.setDowntimeCount((int) count);
             dto.setDowntimePercentage(round(percentage));
+
             result.add(dto);
         }
 
         result.sort(
                 Comparator.comparing(
                         DowntimesByAsset::getDowntimeCount,
-                        Comparator.nullsFirst(Integer::compareTo)
+                        Comparator.nullsLast(Integer::compareTo)
                 ).reversed()
         );
+
         return result;
     }
 
-    public List<DowntimesByDate> getDowntimesByDate(LocalDate fromDate, LocalDate toDate, Long assetId) {
+    public List<DowntimesByDate> getDowntimesByDate(LocalDate fromDate, LocalDate toDate, String assetName) {
         validateDateRange(fromDate, toDate);
 
-        List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, assetId);
-
-        Map<LocalDate, Long> downtimeByDate = new LinkedHashMap<>();
-        for (LocalDate date : enumerateDates(fromDate, toDate)) {
-            downtimeByDate.put(date, 0L);
+        Long assetId = resolveAssetId(assetName);
+        if (isAssetNotFound(assetId)) {
+            return emptyDowntimesByDate(fromDate, toDate);
         }
 
+        List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, assetId);
+        Map<LocalDate, Long> downtimeByDate = initLongDateMap(fromDate, toDate);
+
         for (AssetDowntime downtime : downtimes) {
-            LocalDate date = getDowntimeDate(downtime);
-            if (date == null) {
-                continue;
+            Map<LocalDate, Long> split = splitDowntimeByDate(downtime);
+
+            for (Map.Entry<LocalDate, Long> entry : split.entrySet()) {
+                LocalDate date = entry.getKey();
+                Long seconds = entry.getValue();
+
+                if (downtimeByDate.containsKey(date)) {
+                    downtimeByDate.put(date, downtimeByDate.get(date) + seconds);
+                }
             }
-            downtimeByDate.put(
-                    date,
-                    downtimeByDate.getOrDefault(date, 0L) + getDowntimeDurationSeconds(downtime)
-            );
         }
 
         Map<LocalDate, BigDecimal> costByDate = workOrderRepository.sumActualCostGroupByDateAndAsset(
@@ -167,7 +182,12 @@ public class AssetAnalysisService {
                 assetId
         );
 
+        if (costByDate == null) {
+            costByDate = Map.of();
+        }
+
         List<DowntimesByDate> result = new ArrayList<>();
+
         for (Map.Entry<LocalDate, Long> entry : downtimeByDate.entrySet()) {
             DowntimesByDate dto = new DowntimesByDate();
             dto.setDate(entry.getKey());
@@ -179,34 +199,42 @@ public class AssetAnalysisService {
         return result;
     }
 
-    public List<DowntimesMeantimeByDate> getDowntimesMeantimeByDate(LocalDate fromDate, LocalDate toDate, Long assetId) {
+    public List<DowntimesMeantimeByDate> getDowntimesMeantimeByDate(
+            LocalDate fromDate,
+            LocalDate toDate,
+            String assetName
+    ) {
         validateDateRange(fromDate, toDate);
 
-        List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, assetId);
-
-        Map<LocalDate, List<Long>> grouped = new LinkedHashMap<>();
-        for (LocalDate date : enumerateDates(fromDate, toDate)) {
-            grouped.put(date, new ArrayList<>());
+        Long assetId = resolveAssetId(assetName);
+        if (isAssetNotFound(assetId)) {
+            return emptyDowntimesMeantimeByDate(fromDate, toDate);
         }
 
+        List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, assetId);
+        Map<LocalDate, List<Long>> grouped = initListDateMap(fromDate, toDate);
+
         for (AssetDowntime downtime : downtimes) {
-            LocalDate date = getDowntimeDate(downtime);
-            if (date == null) {
-                continue;
+            Map<LocalDate, Long> split = splitDowntimeByDate(downtime);
+
+            for (Map.Entry<LocalDate, Long> entry : split.entrySet()) {
+                LocalDate date = entry.getKey();
+                Long seconds = entry.getValue();
+
+                if (grouped.containsKey(date)) {
+                    grouped.get(date).add(seconds);
+                }
             }
-            grouped.computeIfAbsent(date, k -> new ArrayList<>())
-                    .add(getDowntimeDurationSeconds(downtime));
         }
 
         List<DowntimesMeantimeByDate> result = new ArrayList<>();
+
         for (Map.Entry<LocalDate, List<Long>> entry : grouped.entrySet()) {
             List<Long> values = entry.getValue();
 
-            double avgHours = 0.0;
-            if (!values.isEmpty()) {
-                long sum = values.stream().mapToLong(Long::longValue).sum();
-                avgHours = (sum / (double) values.size()) / 3600.0;
-            }
+            double avgHours = values.isEmpty()
+                    ? 0.0
+                    : values.stream().mapToLong(Long::longValue).average().orElse(0.0) / 3600.0;
 
             DowntimesMeantimeByDate dto = new DowntimesMeantimeByDate();
             dto.setDate(entry.getKey());
@@ -217,16 +245,25 @@ public class AssetAnalysisService {
         return result;
     }
 
-    public Meantimes getMeantimes(LocalDate fromDate, LocalDate toDate, Long assetId) {
+    public Meantimes getMeantimes(LocalDate fromDate, LocalDate toDate, String assetName) {
         validateDateRange(fromDate, toDate);
+
+        Long assetId = resolveAssetId(assetName);
+        if (isAssetNotFound(assetId)) {
+            Meantimes dto = new Meantimes();
+            dto.setMtbfHours(0.0);
+            dto.setMaintenanceIntervalHours(0.0);
+            return dto;
+        }
 
         List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, assetId);
 
-        long totalDowntime = downtimes.stream()
+        long totalDowntimeSeconds = downtimes.stream()
                 .mapToLong(this::getDowntimeDurationSeconds)
                 .sum();
 
-        double mtbfSeconds = calculateMtbfSeconds(fromDate, toDate, downtimes, totalDowntime);
+        long periodSeconds = getPeriodSeconds(fromDate, toDate);
+        double mtbfSeconds = calculateMtbfSeconds(periodSeconds, totalDowntimeSeconds, downtimes.size());
 
         Double maintenanceIntervalHours = workOrderRepository.calculateAverageMaintenanceIntervalHours(
                 assetId,
@@ -234,13 +271,9 @@ public class AssetAnalysisService {
                 toDate.plusDays(1).atStartOfDay()
         );
 
-        if (maintenanceIntervalHours == null) {
-            maintenanceIntervalHours = 0.0;
-        }
-
         Meantimes dto = new Meantimes();
         dto.setMtbfHours(round(mtbfSeconds / 3600.0));
-        dto.setMaintenanceIntervalHours(round(maintenanceIntervalHours));
+        dto.setMaintenanceIntervalHours(round(maintenanceIntervalHours == null ? 0.0 : maintenanceIntervalHours));
 
         return dto;
     }
@@ -251,43 +284,161 @@ public class AssetAnalysisService {
         List<Asset> assets = assetRepository.findAll();
         List<MTBFByAsset> result = new ArrayList<>();
 
+        long periodSeconds = getPeriodSeconds(fromDate, toDate);
+
         for (Asset asset : assets) {
+            if (asset == null || asset.getId() == null) {
+                continue;
+            }
+
             List<AssetDowntime> downtimes = findDowntimes(fromDate, toDate, asset.getId());
-            long totalDowntime = downtimes.stream()
+
+            long totalDowntimeSeconds = downtimes.stream()
                     .mapToLong(this::getDowntimeDurationSeconds)
                     .sum();
 
-            double mtbfSeconds = calculateMtbfSeconds(fromDate, toDate, downtimes, totalDowntime);
+            double mtbfSeconds = calculateMtbfSeconds(
+                    periodSeconds,
+                    totalDowntimeSeconds,
+                    downtimes.size()
+            );
 
             MTBFByAsset dto = new MTBFByAsset();
             dto.setId(asset.getId());
             dto.setName(asset.getName());
             dto.setMtbfHours(round(mtbfSeconds / 3600.0));
+
             result.add(dto);
         }
 
         result.sort(
                 Comparator.comparing(
                         MTBFByAsset::getMtbfHours,
-                        Comparator.nullsFirst(Double::compareTo)
+                        Comparator.nullsLast(Double::compareTo)
                 ).reversed()
         );
+
         return result;
+    }
+
+    private Long resolveAssetId(String assetName) {
+        if (assetName == null || assetName.trim().isEmpty()) {
+            return null;
+        }
+
+        String keyword = assetName.trim();
+
+        Optional<Asset> exactAsset = assetRepository.findByNameIgnoreCase(keyword);
+        if (exactAsset.isPresent()) {
+            return exactAsset.get().getId();
+        }
+
+        List<Asset> matchedAssets = assetRepository.findByNameContainingIgnoreCase(keyword);
+        if (matchedAssets == null || matchedAssets.isEmpty()) {
+            return ASSET_NOT_FOUND_ID;
+        }
+
+        return matchedAssets.get(0).getId();
+    }
+
+    private boolean isAssetNotFound(Long assetId) {
+        return ASSET_NOT_FOUND_ID.equals(assetId);
     }
 
     private List<AssetDowntime> findDowntimes(LocalDate fromDate, LocalDate toDate, Long assetId) {
         LocalDateTime start = fromDate.atStartOfDay();
         LocalDateTime end = toDate.plusDays(1).atStartOfDay();
 
+        List<AssetDowntime> result;
+
         if (assetId != null) {
-            return assetDowntimeRepository.findByAssetIdAndDateRange(assetId, start, end);
+            result = assetDowntimeRepository.findByAssetIdAndDateRange(assetId, start, end);
+        } else {
+            result = assetDowntimeRepository.findByDateRange(start, end);
         }
-        return assetDowntimeRepository.findByDateRange(start, end);
+
+        return result == null ? List.of() : result;
     }
 
-    private long calculateTotalUptimeSeconds(LocalDate fromDate, LocalDate toDate, long totalDowntime) {
-        long periodSeconds = getPeriodSeconds(fromDate, toDate);
-        return Math.max(periodSeconds - totalDowntime, 0L);
+    private List<DowntimesByDate> emptyDowntimesByDate(LocalDate fromDate, LocalDate toDate) {
+        Map<LocalDate, Long> map = initLongDateMap(fromDate, toDate);
+        List<DowntimesByDate> result = new ArrayList<>();
+
+        for (LocalDate date : map.keySet()) {
+            DowntimesByDate dto = new DowntimesByDate();
+            dto.setDate(date);
+            dto.setTotalDowntime(0L);
+            dto.setTotalWorkOrderCost(BigDecimal.ZERO);
+            result.add(dto);
+        }
+
+        return result;
+    }
+
+    private List<DowntimesMeantimeByDate> emptyDowntimesMeantimeByDate(LocalDate fromDate, LocalDate toDate) {
+        Map<LocalDate, List<Long>> map = initListDateMap(fromDate, toDate);
+        List<DowntimesMeantimeByDate> result = new ArrayList<>();
+
+        for (LocalDate date : map.keySet()) {
+            DowntimesMeantimeByDate dto = new DowntimesMeantimeByDate();
+            dto.setDate(date);
+            dto.setAverageDowntimeHours(0.0);
+            result.add(dto);
+        }
+
+        return result;
+    }
+
+    private long getDowntimeDurationSeconds(AssetDowntime downtime) {
+        if (downtime == null || downtime.getStartsOn() == null) {
+            return 0L;
+        }
+
+        LocalDateTime start = downtime.getStartsOn();
+        LocalDateTime end = downtime.getEndsOn() != null
+                ? downtime.getEndsOn()
+                : LocalDateTime.now();
+
+        if (end.isBefore(start)) {
+            return 0L;
+        }
+
+        return Duration.between(start, end).getSeconds();
+    }
+
+    private Map<LocalDate, Long> splitDowntimeByDate(AssetDowntime downtime) {
+        Map<LocalDate, Long> result = new HashMap<>();
+
+        if (downtime == null || downtime.getStartsOn() == null) {
+            return result;
+        }
+
+        LocalDateTime start = downtime.getStartsOn();
+        LocalDateTime end = downtime.getEndsOn() != null
+                ? downtime.getEndsOn()
+                : LocalDateTime.now();
+
+        if (end.isBefore(start)) {
+            return result;
+        }
+
+        LocalDateTime cursor = start;
+
+        while (!cursor.toLocalDate().isAfter(end.toLocalDate())) {
+            LocalDate currentDate = cursor.toLocalDate();
+            LocalDateTime dayEnd = currentDate.plusDays(1).atStartOfDay();
+            LocalDateTime effectiveEnd = end.isBefore(dayEnd) ? end : dayEnd;
+
+            long seconds = Duration.between(cursor, effectiveEnd).getSeconds();
+
+            if (seconds > 0) {
+                result.put(currentDate, result.getOrDefault(currentDate, 0L) + seconds);
+            }
+
+            cursor = dayEnd;
+        }
+
+        return result;
     }
 
     private double calculateMttrSeconds(List<AssetDowntime> downtimes) {
@@ -295,77 +446,54 @@ public class AssetAnalysisService {
             return 0.0;
         }
 
-        long totalDowntime = downtimes.stream()
+        long totalDowntimeSeconds = downtimes.stream()
                 .mapToLong(this::getDowntimeDurationSeconds)
                 .sum();
 
-        return (double) totalDowntime / downtimes.size();
+        return (double) totalDowntimeSeconds / downtimes.size();
     }
 
-    private double calculateMtbfSeconds(LocalDate fromDate, LocalDate toDate, List<AssetDowntime> downtimes, long totalDowntime) {
-        int failures = downtimes == null ? 0 : downtimes.size();
-        if (failures == 0) {
+    private double calculateMtbfSeconds(long periodSeconds, long totalDowntimeSeconds, int failures) {
+        if (failures <= 0 || periodSeconds <= 0) {
             return 0.0;
         }
 
-        long periodSeconds = getPeriodSeconds(fromDate, toDate);
-        long uptime = Math.max(periodSeconds - totalDowntime, 0L);
-
-        return (double) uptime / failures;
+        long uptimeSeconds = Math.max(periodSeconds - totalDowntimeSeconds, 0L);
+        return (double) uptimeSeconds / failures;
     }
 
     private long getPeriodSeconds(LocalDate fromDate, LocalDate toDate) {
-        LocalDateTime start = fromDate.atStartOfDay();
-        LocalDateTime end = toDate.plusDays(1).atStartOfDay();
-        return Duration.between(start, end).getSeconds();
+        return Duration.between(
+                fromDate.atStartOfDay(),
+                toDate.plusDays(1).atStartOfDay()
+        ).getSeconds();
     }
 
-    private List<LocalDate> enumerateDates(LocalDate fromDate, LocalDate toDate) {
-        List<LocalDate> dates = new ArrayList<>();
-        LocalDate current = fromDate;
-        while (!current.isAfter(toDate)) {
-            dates.add(current);
-            current = current.plusDays(1);
+    private Map<LocalDate, Long> initLongDateMap(LocalDate fromDate, LocalDate toDate) {
+        Map<LocalDate, Long> map = new LinkedHashMap<>();
+
+        for (LocalDate date = fromDate; !date.isAfter(toDate); date = date.plusDays(1)) {
+            map.put(date, 0L);
         }
-        return dates;
+
+        return map;
     }
 
-    private LocalDate getDowntimeDate(AssetDowntime downtime) {
-        if (downtime == null) {
-            return null;
+    private Map<LocalDate, List<Long>> initListDateMap(LocalDate fromDate, LocalDate toDate) {
+        Map<LocalDate, List<Long>> map = new LinkedHashMap<>();
+
+        for (LocalDate date = fromDate; !date.isAfter(toDate); date = date.plusDays(1)) {
+            map.put(date, new ArrayList<>());
         }
 
-        if (downtime.getStartsOn() != null) {
-            return downtime.getStartsOn().toLocalDate();
-        }
-
-        if (downtime.getCreatedAt() != null) {
-            return downtime.getCreatedAt().toLocalDate();
-        }
-
-        return null;
-    }
-
-    private long getDowntimeDurationSeconds(AssetDowntime downtime) {
-        if (downtime == null) {
-            return 0L;
-        }
-
-        if (downtime.getDurationSeconds() != null && downtime.getDurationSeconds() > 0) {
-            return downtime.getDurationSeconds();
-        }
-
-        if (downtime.getStartsOn() != null && downtime.getEndsOn() != null) {
-            return Duration.between(downtime.getStartsOn(), downtime.getEndsOn()).getSeconds();
-        }
-
-        return 0L;
+        return map;
     }
 
     private void validateDateRange(LocalDate fromDate, LocalDate toDate) {
         if (fromDate == null || toDate == null) {
             throw new IllegalArgumentException("fromDate and toDate must not be null");
         }
+
         if (toDate.isBefore(fromDate)) {
             throw new IllegalArgumentException("toDate must be greater than or equal to fromDate");
         }
@@ -375,5 +503,16 @@ public class AssetAnalysisService {
         return BigDecimal.valueOf(value)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
+    }
+
+    public List<AssetOption> getAssetOptions() {
+        return assetRepository.findAll()
+            .stream()
+            .map(asset -> new AssetOption(
+                    asset.getId(),
+                    asset.getName(),
+                    asset.getStatus() == null ? null : asset.getStatus().name()
+            ))
+            .toList();
     }
 }

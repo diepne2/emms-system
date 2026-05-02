@@ -1,31 +1,29 @@
 package com.emms.backend.service;
 
+import com.emms.backend.advancedsearch.SearchCriteria;
 import com.emms.backend.dto.asset.AssetPUTDTO;
 import com.emms.backend.dto.asset.AssetShowDTO;
-import com.emms.backend.dto.asset.AssetSummaryDTO;
-import com.emms.backend.dto.importData.AssetImportDTO;
 import com.emms.backend.entity.Asset;
-import com.emms.backend.entity.User;
+import com.emms.backend.entity.enums.AssetStatus;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.AssetMapper;
 import com.emms.backend.repository.AssetRepository;
+import com.emms.backend.repository.MeterRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -33,373 +31,325 @@ import java.util.Set;
 public class AssetService {
 
     private final AssetRepository assetRepository;
-
-    // Giữ setter injection cho các dependency có thể bị vòng phụ thuộc
-    private LocationService locationService;
-    private LaborService laborService;
-    private WorkOrderService workOrderService;
-
-    private final FileService fileService;
-    private final AssetCategoryService assetCategoryService;
-    private final UserService userService;
-    private final VendorService vendorService;
-    private final NotificationService notificationService;
-    private final PartService partService;
+    private final MeterRepository meterRepository;
     private final AssetMapper assetMapper;
-    private final AssetDowntimeService assetDowntimeService;
-    private final MessageSource messageSource;
+    private final MeterService meterService;
 
-    @Autowired
-    public void setDeps(@Lazy LocationService locationService,
-                        @Lazy LaborService laborService,
-                        @Lazy WorkOrderService workOrderService) {
-        this.locationService = locationService;
-        this.laborService = laborService;
-        this.workOrderService = workOrderService;
-    }
-
-    public Asset create(Asset asset, User currentUser) {
-        validateAssetForCreate(asset);
-        normalize(asset);
-
-        Optional<Asset> existing = findByNameIgnoreCaseSafe(asset.getName());
-        if (existing.isPresent()) {
-            throw new CustomException(
-                    "Asset đã tồn tại với tên: " + asset.getName(),
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-
-        return assetRepository.save(asset);
-    }
-
-    public Asset createFromDto(AssetPUTDTO dto, User currentUser) {
+    public Asset create(AssetPUTDTO dto) {
         if (dto == null) {
-            throw new CustomException("Dữ liệu asset không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu asset không hợp lệ", HttpStatus.BAD_REQUEST);
         }
 
         Asset asset = new Asset();
-        applyDtoToEntity(asset, dto);
+        assetMapper.updateAsset(asset, dto);
 
-        return create(asset, currentUser);
+        normalize(asset);
+        validateForSave(asset);
+        validateDuplicateForCreate(asset);
+
+        Asset saved = assetRepository.save(asset);
+        meterService.createDefaultMetersForAsset(saved);
+
+        return saved;
     }
 
-    public Asset update(Long id, AssetPUTDTO dto, User currentUser) {
+    public Asset update(Long id, AssetPUTDTO dto) {
         if (id == null) {
-            throw new CustomException("Id asset không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Id asset không hợp lệ", HttpStatus.BAD_REQUEST);
         }
+
         if (dto == null) {
-            throw new CustomException("Dữ liệu cập nhật không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu asset không hợp lệ", HttpStatus.BAD_REQUEST);
         }
 
-        Asset existing = getById(id);
-        String oldName = existing.getName();
+        Asset asset = getById(id);
 
-        applyDtoToEntity(existing, dto);
-        validateAssetForUpdate(existing);
+        assetMapper.updateAsset(asset, dto);
+        normalize(asset);
+        validateForSave(asset);
+        validateDuplicateForUpdate(asset);
 
-        if (existing.getName() != null
-                && oldName != null
-                && !existing.getName().equalsIgnoreCase(oldName)) {
-            Optional<Asset> duplicate = findByNameIgnoreCaseSafe(existing.getName());
-            if (duplicate.isPresent() && !duplicate.get().getId().equals(existing.getId())) {
-                throw new CustomException(
-                        "Asset đã tồn tại với tên: " + existing.getName(),
-                        HttpStatus.BAD_REQUEST
-                );
-            }
-        }
-
-        return assetRepository.save(existing);
+        return assetRepository.save(asset);
     }
 
     @Transactional(readOnly = true)
     public Asset getById(Long id) {
         if (id == null) {
-            throw new CustomException("Id asset không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Id asset không hợp lệ", HttpStatus.BAD_REQUEST);
         }
 
         return assetRepository.findById(id)
-                .orElseThrow(() -> new CustomException(
-                        "Không tìm thấy asset với id: " + id,
-                        HttpStatus.NOT_FOUND
-                ));
-    }
-
-    @Transactional(readOnly = true)
-    public Asset findEntityById(Long id) {
-        return getById(id);
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<Asset> findById(Long id) {
-        if (id == null) {
-            return Optional.empty();
-        }
-        return assetRepository.findById(id);
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<Asset> findByName(String name) {
-        if (name == null || name.trim().isEmpty()) {
-            return Optional.empty();
-        }
-        return findByNameIgnoreCaseSafe(name.trim());
-    }
-
-    @Transactional(readOnly = true)
-    public List<Asset> findAll() {
-        return assetRepository.findAll();
-    }
-
-    @Transactional(readOnly = true)
-    public Collection<Asset> getAll() {
-        return assetRepository.findAll();
+                .orElseThrow(() -> new CustomException("Không tìm thấy asset", HttpStatus.NOT_FOUND));
     }
 
     @Transactional(readOnly = true)
     public AssetShowDTO getShowDtoById(Long id) {
-        Asset asset = getById(id);
-        return assetMapper.toShowDto(asset);
+        return assetMapper.toShowDto(getById(id));
     }
 
     @Transactional(readOnly = true)
-    public AssetSummaryDTO getSummaryDtoById(Long id) {
-        Asset asset = getById(id);
-        return assetMapper.toSummaryDto(asset);
-    }
-
-    @Transactional(readOnly = true)
-    public List<AssetShowDTO> getAllShowDtos() {
+    public List<AssetShowDTO> getAll() {
         return assetRepository.findAll()
                 .stream()
+                .filter(Objects::nonNull)
                 .map(assetMapper::toShowDto)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<AssetSummaryDTO> getAllSummaryDtos() {
+    public List<AssetShowDTO> getChildren(Long id) {
+        Asset parent = getById(id);
+        String parentName = trim(parent.getName());
+
+        if (parentName == null || parentName.isBlank()) {
+            return List.of();
+        }
+
         return assetRepository.findAll()
                 .stream()
-                .map(assetMapper::toSummaryDto)
+                .filter(Objects::nonNull)
+                .filter(asset -> asset.getId() != null && !asset.getId().equals(parent.getId()))
+                .filter(asset -> equalsIgnoreCase(trim(asset.getParentAssetName()), parentName))
+                .map(assetMapper::toShowDto)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AssetShowDTO> search(SearchCriteria criteria) {
+        SearchCriteria safeCriteria = criteria == null ? new SearchCriteria() : criteria;
+
+        int pageNum = safePageNum(safeCriteria.getPageNum());
+        int pageSize = safePageSize(safeCriteria.getPageSize());
+
+        String sortField = safeSortField(safeCriteria.getSortField());
+        Sort.Direction direction = safeDirection(safeCriteria.getDirection());
+
+        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(direction, sortField));
+
+        List<Asset> filtered = new ArrayList<>(assetRepository.findAll());
+
+        filtered.removeIf(asset -> {
+            String parentAssetName = trim(asset.getParentAssetName());
+            return parentAssetName != null && !parentAssetName.isBlank();
+        });
+
+        if (safeCriteria.getFilterFields() != null) {
+            safeCriteria.getFilterFields().forEach(filter -> {
+                if (filter == null || filter.getField() == null) {
+                    return;
+                }
+
+                String field = trim(filter.getField());
+                String operation = trim(filter.getOperation());
+                String value = filter.getValue() == null ? null : String.valueOf(filter.getValue()).trim();
+
+                if (field == null || operation == null || value == null || value.isBlank()) {
+                    return;
+                }
+
+                switch (field) {
+                    case "name" -> {
+                        if ("cn".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset ->
+                                    !containsIgnoreCase(asset.getName(), value)
+                                            && !containsIgnoreCase(asset.getDescription(), value));
+                        } else if ("eq".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset -> !equalsIgnoreCase(asset.getName(), value));
+                        }
+                    }
+
+                    case "barcode" -> {
+                        if ("cn".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset -> !containsIgnoreCase(asset.getBarcode(), value));
+                        } else if ("eq".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset -> !equalsIgnoreCase(asset.getBarcode(), value));
+                        }
+                    }
+
+                    case "serialNumber" -> {
+                        if ("cn".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset -> !containsIgnoreCase(asset.getSerialNumber(), value));
+                        } else if ("eq".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset -> !equalsIgnoreCase(asset.getSerialNumber(), value));
+                        }
+                    }
+
+                    case "status" -> {
+                        if ("eq".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset ->
+                                    asset.getStatus() == null
+                                            || !asset.getStatus().name().equalsIgnoreCase(value));
+                        }
+                    }
+
+                    case "locationName" -> {
+                        if ("cn".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset -> !containsIgnoreCase(asset.getLocationName(), value));
+                        } else if ("eq".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset -> !equalsIgnoreCase(asset.getLocationName(), value));
+                        }
+                    }
+
+                    case "warrantyExpiryDate" -> {
+                        LocalDate date = parseDate(value);
+                        if (date == null) {
+                            return;
+                        }
+
+                        if ("eq".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset -> !Objects.equals(asset.getWarrantyExpiryDate(), date));
+                        } else if ("ge".equalsIgnoreCase(operation) || "gte".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset ->
+                                    asset.getWarrantyExpiryDate() == null
+                                            || asset.getWarrantyExpiryDate().isBefore(date));
+                        } else if ("le".equalsIgnoreCase(operation) || "lte".equalsIgnoreCase(operation)) {
+                            filtered.removeIf(asset ->
+                                    asset.getWarrantyExpiryDate() == null
+                                            || asset.getWarrantyExpiryDate().isAfter(date));
+                        }
+                    }
+
+                    default -> {
+                    }
+                }
+            });
+        }
+
+        filtered.sort(buildComparator(sortField, direction));
+
+        int start = Math.min(pageNum * pageSize, filtered.size());
+        int end = Math.min(start + pageSize, filtered.size());
+
+        List<AssetShowDTO> content = filtered.subList(start, end)
+                .stream()
+                .map(assetMapper::toShowDto)
+                .toList();
+
+        return new PageImpl<>(content, pageable, filtered.size());
+    }
+
+    public Asset decommission(Long id) {
+        Asset asset = getById(id);
+
+        if (asset.getStatus() != null && asset.getStatus().isDecommissioned()) {
+            return asset;
+        }
+
+        asset.setStatus(AssetStatus.DECOMMISSIONED);
+        return assetRepository.save(asset);
     }
 
     public void delete(Long id) {
         Asset asset = getById(id);
+
+        if (asset.getStatus() == null || !asset.getStatus().isDecommissioned()) {
+            throw new CustomException("Phải NGỪNG trước khi xóa", HttpStatus.CONFLICT);
+        }
+
+        boolean hasChildren = assetRepository.findAll()
+                .stream()
+                .filter(Objects::nonNull)
+                .anyMatch(item ->
+                        item.getId() != null
+                                && !item.getId().equals(asset.getId())
+                                && equalsIgnoreCase(trim(item.getParentAssetName()), trim(asset.getName()))
+                );
+
+        if (hasChildren) {
+            throw new CustomException("Không thể xóa vì asset vẫn còn thiết bị con", HttpStatus.CONFLICT);
+        }
+
+        if (meterRepository.existsByAsset_Id(id)) {
+            throw new CustomException("Không thể xóa vì có meter", HttpStatus.CONFLICT);
+        }
+
         assetRepository.delete(asset);
     }
 
-    /**
-     * Entity Asset hiện tại là text-only, không còn parentAsset relation,
-     * nên tạm thời không kiểm tra asset con bằng foreign key.
-     */
-    @Transactional(readOnly = true)
-    public boolean hasChildren(Long assetId) {
-        return false;
-    }
-
-    @Transactional(readOnly = true)
-    public List<User> findAllUsers() {
-        return userService.findAll();
-    }
-
-    // =========================================================
-    // IMPORT SUPPORT
-    // =========================================================
-
-    public AssetImportDTO[] orderAssets(List<AssetImportDTO> list) {
-        if (list == null || list.isEmpty()) {
-            return new AssetImportDTO[0];
-        }
-
-        Map<String, AssetImportDTO> assetsByName = new HashMap<>();
-        for (AssetImportDTO dto : list) {
-            if (dto == null) {
-                continue;
-            }
-
-            String key = normalizeKey(dto.getName());
-            if (key != null) {
-                assetsByName.put(key, dto);
-            }
-        }
-
-        List<AssetImportDTO> ordered = new ArrayList<>();
-        Set<String> visiting = new HashSet<>();
-        Set<String> visited = new HashSet<>();
-
-        for (AssetImportDTO dto : list) {
-            visitAsset(dto, assetsByName, visiting, visited, ordered);
-        }
-
-        return ordered.toArray(new AssetImportDTO[0]);
-    }
-
-    private void visitAsset(AssetImportDTO dto,
-                            Map<String, AssetImportDTO> assetsByName,
-                            Set<String> visiting,
-                            Set<String> visited,
-                            List<AssetImportDTO> ordered) {
-        if (dto == null) {
-            return;
-        }
-
-        String currentKey = normalizeKey(dto.getName());
-
-        // Nếu asset không có name thì cứ add cuối theo thứ tự gốc
-        if (currentKey == null) {
-            ordered.add(dto);
-            return;
-        }
-
-        if (visited.contains(currentKey)) {
-            return;
-        }
-
-        if (visiting.contains(currentKey)) {
-            throw new CustomException(
-                    "Phát hiện vòng lặp parent asset tại asset: " + dto.getName(),
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-
-        visiting.add(currentKey);
-
-        String parentKey = normalizeKey(dto.getParentAssetName());
-        if (parentKey != null) {
-            AssetImportDTO parentDto = assetsByName.get(parentKey);
-            if (parentDto != null) {
-                visitAsset(parentDto, assetsByName, visiting, visited, ordered);
-            }
-        }
-
-        visiting.remove(currentKey);
-        visited.add(currentKey);
-        ordered.add(dto);
-    }
-
-    public void setAssetFieldsFromImportDto(Asset entity,
-                                            AssetImportDTO dto,
-                                            Map<String, Asset> assetsByName) {
-        if (entity == null) {
-            throw new CustomException("Asset entity không được để trống", HttpStatus.BAD_REQUEST);
-        }
-        if (dto == null) {
-            throw new CustomException("Asset import dto không được để trống", HttpStatus.BAD_REQUEST);
-        }
-
-        dto.validate();
-
-        entity.setStatus(dto.getStatus());
-        entity.setName(dto.getName());
-        entity.setDescription(dto.getDescription());
-        entity.setArea(dto.getArea());
-        entity.setLocationName(dto.getLocationName());
-        entity.setBarcode(dto.getBarCode());
-        entity.setCategory(dto.getCategory());
-        entity.setWarrantyExpiryDate(dto.getWarrantyExpirationDate());
-        entity.setSerialNumber(dto.getSerialNumber());
-
-        if (dto.getAssignedToEmails() != null && !dto.getAssignedToEmails().isEmpty()) {
-            entity.setAssignedTo(dto.getAssignedToEmails().get(0));
-        } else {
-            entity.setAssignedTo(dto.getPrimaryUserEmail());
-        }
-
-        entity.setTeamNames(joinList(dto.getTeamsNames()));
-        entity.setAssociatedParts(joinList(dto.getPartsNames()));
-        entity.setVendor(joinList(dto.getVendorsNames()));
-        entity.setContractor(joinList(dto.getCustomersNames()));
-        entity.setAdditionalInfo(mapToString(dto.getAdditionalInfos()));
-
-        String parentKey = normalizeKey(dto.getParentAssetName());
-        if (parentKey != null && assetsByName != null) {
-            Asset parent = assetsByName.get(parentKey);
-            if (parent != null && parent.getName() != null) {
-                entity.setParentAssetName(parent.getName());
-            } else {
-                entity.setParentAssetName(dto.getParentAssetName());
-            }
-        } else {
-            entity.setParentAssetName(dto.getParentAssetName());
-        }
-
-        normalize(entity);
-    }
-
-    public List<Asset> saveAll(List<Asset> entities) {
-        if (entities == null || entities.isEmpty()) {
-            throw new CustomException("Danh sách asset không được để trống", HttpStatus.BAD_REQUEST);
-        }
-
-        Set<String> importNames = new HashSet<>();
-        Set<String> importBarcodes = new HashSet<>();
-
-        for (Asset entity : entities) {
-            validateAssetForCreate(entity);
-            normalize(entity);
-
-            String nameKey = normalizeKey(entity.getName());
-            if (nameKey != null && !importNames.add(nameKey)) {
-                throw new CustomException(
-                        "Trùng tên asset trong file import: " + entity.getName(),
-                        HttpStatus.BAD_REQUEST
-                );
-            }
-
-            String barcodeKey = normalizeKey(entity.getBarcode());
-            if (barcodeKey != null && !importBarcodes.add(barcodeKey)) {
-                throw new CustomException(
-                        "Trùng barcode asset trong file import: " + entity.getBarcode(),
-                        HttpStatus.BAD_REQUEST
-                );
-            }
-
-            Optional<Asset> existingByName = findByNameIgnoreCaseSafe(entity.getName());
-            if (existingByName.isPresent()) {
-                throw new CustomException(
-                        "Asset đã tồn tại với tên: " + entity.getName(),
-                        HttpStatus.BAD_REQUEST
-                );
-            }
-        }
-
-        return assetRepository.saveAll(entities);
-    }
-
-    // =========================================================
-    // INTERNAL HELPERS
-    // =========================================================
-
-    private void validateAssetForCreate(Asset asset) {
-        if (asset == null) {
-            throw new CustomException("Asset không được để trống", HttpStatus.BAD_REQUEST);
-        }
-        if (asset.getName() == null || asset.getName().trim().isEmpty()) {
+    private void validateForSave(Asset asset) {
+        if (isBlank(asset.getName())) {
             throw new CustomException("Tên asset không được để trống", HttpStatus.BAD_REQUEST);
         }
+
+        if (isBlank(asset.getBarcode())) {
+            throw new CustomException("Mã code không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        if (isBlank(asset.getSerialNumber())) {
+            throw new CustomException("Serial number không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        if (asset.getWarrantyExpiryDate() == null) {
+            throw new CustomException("Ngày không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        if (isBlank(asset.getLocationName())) {
+            throw new CustomException("Location không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        if (asset.getStatus() == null) {
+            asset.setStatus(AssetStatus.OPERATIONAL);
+        }
     }
 
-    private void validateAssetForUpdate(Asset asset) {
-        if (asset == null) {
-            throw new CustomException("Asset không hợp lệ", HttpStatus.BAD_REQUEST);
-        }
-        if (asset.getName() == null || asset.getName().trim().isEmpty()) {
-            throw new CustomException("Tên asset không được để trống", HttpStatus.BAD_REQUEST);
-        }
+    private void validateDuplicateForCreate(Asset asset) {
+        validateDuplicateName(asset, null);
+        validateDuplicateBarcode(asset, null);
+        validateDuplicateSerialNumber(asset, null);
     }
 
-    private void applyDtoToEntity(Asset asset, AssetPUTDTO dto) {
-        assetMapper.updateAsset(asset, dto);
-        normalize(asset);
+    private void validateDuplicateForUpdate(Asset asset) {
+        validateDuplicateName(asset, asset.getId());
+        validateDuplicateBarcode(asset, asset.getId());
+        validateDuplicateSerialNumber(asset, asset.getId());
+    }
+
+    private void validateDuplicateName(Asset asset, Long currentId) {
+        String name = trim(asset.getName());
+
+        if (isBlank(name)) {
+            return;
+        }
+
+        assetRepository.findByNameIgnoreCase(name)
+                .ifPresent(existing -> {
+                    if (currentId == null || !existing.getId().equals(currentId)) {
+                        throw new CustomException("Tên asset đã tồn tại: " + name, HttpStatus.BAD_REQUEST);
+                    }
+                });
+    }
+
+    private void validateDuplicateBarcode(Asset asset, Long currentId) {
+        String barcode = trim(asset.getBarcode());
+
+        if (isBlank(barcode)) {
+            return;
+        }
+
+        assetRepository.findByBarcodeIgnoreCase(barcode)
+                .ifPresent(existing -> {
+                    if (currentId == null || !existing.getId().equals(currentId)) {
+                        throw new CustomException("Mã code đã tồn tại: " + barcode, HttpStatus.BAD_REQUEST);
+                    }
+                });
+    }
+
+    private void validateDuplicateSerialNumber(Asset asset, Long currentId) {
+        String serialNumber = trim(asset.getSerialNumber());
+
+        if (isBlank(serialNumber)) {
+            return;
+        }
+
+        assetRepository.findBySerialNumberIgnoreCase(serialNumber)
+                .ifPresent(existing -> {
+                    if (currentId == null || !existing.getId().equals(currentId)) {
+                        throw new CustomException("Serial number đã tồn tại: " + serialNumber, HttpStatus.BAD_REQUEST);
+                    }
+                });
     }
 
     private void normalize(Asset asset) {
-        if (asset == null) {
-            return;
-        }
-
         if (asset.getName() != null) asset.setName(asset.getName().trim());
         if (asset.getDescription() != null) asset.setDescription(asset.getDescription().trim());
         if (asset.getArea() != null) asset.setArea(asset.getArea().trim());
@@ -416,51 +366,80 @@ public class AssetService {
         if (asset.getContractor() != null) asset.setContractor(asset.getContractor().trim());
     }
 
-    private Optional<Asset> findByNameIgnoreCaseSafe(String name) {
+    private int safePageNum(int pageNum) {
+        return Math.max(pageNum, 0);
+    }
+
+    private int safePageSize(int pageSize) {
+        if (pageSize <= 0) {
+            return 5;
+        }
+
+        return Math.min(pageSize, 100);
+    }
+
+    private String safeSortField(String sortField) {
+        if (sortField == null || sortField.isBlank()) {
+            return "id";
+        }
+
+        return switch (sortField) {
+            case "id", "name", "barcode", "serialNumber", "status", "locationName", "category", "warrantyExpiryDate" -> sortField;
+            default -> "id";
+        };
+    }
+
+    private Sort.Direction safeDirection(Sort.Direction direction) {
+        return direction == null ? Sort.Direction.DESC : direction;
+    }
+
+    private Comparator<Asset> buildComparator(String sortField, Sort.Direction direction) {
+        Comparator<Asset> comparator = switch (sortField) {
+            case "name" -> Comparator.comparing(Asset::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "barcode" -> Comparator.comparing(Asset::getBarcode, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "serialNumber" -> Comparator.comparing(Asset::getSerialNumber, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "status" -> Comparator.comparing(
+                    asset -> asset.getStatus() == null ? null : asset.getStatus().name(),
+                    Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)
+            );
+            case "locationName" -> Comparator.comparing(Asset::getLocationName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "category" -> Comparator.comparing(Asset::getCategory, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "warrantyExpiryDate" -> Comparator.comparing(Asset::getWarrantyExpiryDate, Comparator.nullsLast(LocalDate::compareTo));
+            default -> Comparator.comparing(Asset::getId, Comparator.nullsLast(Long::compareTo));
+        };
+
+        return direction == Sort.Direction.ASC ? comparator : comparator.reversed();
+    }
+
+    private boolean containsIgnoreCase(String source, String keyword) {
+        if (source == null || keyword == null) {
+            return false;
+        }
+
+        return source.toLowerCase().contains(keyword.toLowerCase());
+    }
+
+    private boolean equalsIgnoreCase(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+
+        return a.equalsIgnoreCase(b);
+    }
+
+    private String trim(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isBlank();
+    }
+
+    private LocalDate parseDate(String value) {
         try {
-            return assetRepository.findByNameIgnoreCase(name);
-        } catch (Exception ex) {
-            return assetRepository.findAll()
-                    .stream()
-                    .filter(a -> a.getName() != null && a.getName().equalsIgnoreCase(name))
-                    .findFirst();
-        }
-    }
-
-    private String joinList(List<String> values) {
-        if (values == null || values.isEmpty()) {
+            return LocalDate.parse(value);
+        } catch (Exception e) {
             return null;
         }
-
-        List<String> normalized = values.stream()
-                .filter(v -> v != null && !v.trim().isEmpty())
-                .map(String::trim)
-                .distinct()
-                .toList();
-
-        if (normalized.isEmpty()) {
-            return null;
-        }
-
-        return String.join(", ", normalized);
-    }
-
-    private String mapToString(Map<String, Object> values) {
-        if (values == null || values.isEmpty()) {
-            return null;
-        }
-        return values.toString();
-    }
-
-    private String normalizeKey(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed.toLowerCase();
-    }
-
-    public String getMessage(String key, Object... args) {
-        return messageSource.getMessage(key, args, Locale.getDefault());
     }
 }

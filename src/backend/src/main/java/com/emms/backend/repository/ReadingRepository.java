@@ -3,14 +3,21 @@ package com.emms.backend.repository;
 import com.emms.backend.entity.Reading;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Collection;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface ReadingRepository extends JpaRepository<Reading, Long> {
 
-    Collection<Reading> findByMeter_Id(Long meterId);
+    Optional<Reading> findTopByMeterIdOrderByRecordedAtDescIdDesc(Long meterId);
 
-    Optional<Reading> findTopByMeter_IdOrderByRecordedAtDesc(Long meterId);
+    Optional<Reading> findTopByMeterIdAndRecordedAtBeforeOrderByRecordedAtDescIdDesc(Long meterId, LocalDateTime recordedAt);
 
-    Collection<Reading> findByMeter_IdOrderByRecordedAtDesc(Long meterId);
+    List<Reading> findByMeterIdOrderByRecordedAtDescIdDesc(Long meterId);
+
+    List<Reading> findByMeterIdAndRecordedAtBetweenOrderByRecordedAtAscIdAsc(
+            Long meterId,
+            LocalDateTime from,
+            LocalDateTime to
+    );
 }

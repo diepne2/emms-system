@@ -27,18 +27,18 @@ public class TimeCategoryService {
 
     public TimeCategory create(TimeCategory timeCategory) {
         if (timeCategory == null) {
-            throw new CustomException("TimeCategory must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu thời gian danh mục không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         if (timeCategory.getName() == null || timeCategory.getName().isBlank()) {
-            throw new CustomException("TimeCategory name must not be blank", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Tên thời gian danh mục không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         Optional<TimeCategory> categoryWithSameName =
                 timeCategoryRepository.findByNameIgnoreCase(timeCategory.getName());
 
         if (categoryWithSameName.isPresent()) {
-            throw new CustomException("TimeCategory with same name already exists", HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomException("Thời gian danh mục với tên tương tự đã tồn tại", HttpStatus.NOT_ACCEPTABLE);
         }
 
         return timeCategoryRepository.save(timeCategory);
@@ -46,7 +46,7 @@ public class TimeCategoryService {
 
     public TimeCategory update(Long id, CategoryPatchDTO dto) {
         TimeCategory savedTimeCategory = timeCategoryRepository.findById(id)
-                .orElseThrow(() -> new CustomException("TimeCategory not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy danh mục thời gian", HttpStatus.NOT_FOUND));
 
         if (dto != null && dto.getName() != null) {
             Optional<TimeCategory> categoryWithSameName =
@@ -54,7 +54,7 @@ public class TimeCategoryService {
 
             if (categoryWithSameName.isPresent()
                     && !categoryWithSameName.get().getTimeCategoryId().equals(id)) {
-                throw new CustomException("TimeCategory with same name already exists", HttpStatus.NOT_ACCEPTABLE);
+                throw new CustomException("Thời gian danh mục với tên tương tự đã tồn tại", HttpStatus.NOT_ACCEPTABLE);
             }
         }
 
@@ -69,7 +69,7 @@ public class TimeCategoryService {
 
     public void delete(Long id) {
         if (!timeCategoryRepository.existsById(id)) {
-            throw new CustomException("TimeCategory not found", HttpStatus.NOT_FOUND);
+            throw new CustomException("Không tìm thấy danh mục thời gian", HttpStatus.NOT_FOUND);
         }
         timeCategoryRepository.deleteById(id);
     }
@@ -82,15 +82,15 @@ public class TimeCategoryService {
     @Transactional(readOnly = true)
     public TimeCategory getById(Long id) {
         return timeCategoryRepository.findById(id)
-                .orElseThrow(() -> new CustomException("TimeCategory not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy danh mục thời gian", HttpStatus.NOT_FOUND));
     }
 
     public TimeCategory findEntityById(Long id) {
     if (id == null) {
-        throw new CustomException("Time category id must not be null", HttpStatus.BAD_REQUEST);
+        throw new CustomException("ID danh mục thời gian không được để trống", HttpStatus.BAD_REQUEST);
     }
 
     return timeCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("Time category not found", HttpStatus.NOT_FOUND));
+            .orElseThrow(() -> new CustomException("Không tìm thấy danh mục thời gian", HttpStatus.NOT_FOUND));
 }
 }

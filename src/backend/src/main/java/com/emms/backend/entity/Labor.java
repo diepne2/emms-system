@@ -39,7 +39,7 @@ public class Labor extends Time {
     private boolean logged = false;
 
     @Column(name = "hourly_rate", nullable = false)
-    private Long hourlyRate = 0L;
+    private Double hourlyRate = 0.0;
 
     @Column(name = "is_demo", nullable = false)
     private boolean demo = false;
@@ -65,7 +65,7 @@ public class Labor extends Time {
     }
 
     public Labor(User assignedTo,
-                 Long hourlyRate,
+                 Double hourlyRate,
                  Date startedAt,
                  WorkOrder workOrder,
                  boolean logged,
@@ -82,7 +82,7 @@ public class Labor extends Time {
     @PreUpdate
     protected void validateAndNormalize() {
         if (this.hourlyRate == null) {
-            this.hourlyRate = 0L;
+            this.hourlyRate = 0.0;
         }
 
         if (this.hourlyRate < 0) {
@@ -113,7 +113,7 @@ public class Labor extends Time {
             return 0L;
         }
 
-        return (this.hourlyRate * duration) / 3600;
+        return (long) (this.hourlyRate * duration) / 3600;
     }
 
     public Date getEndedAt() {
@@ -228,11 +228,11 @@ public class Labor extends Time {
         this.logged = logged;
     }
 
-    public Long getHourlyRate() {
+    public Double getHourlyRate() {
         return hourlyRate;
     }
 
-    public void setHourlyRate(Long hourlyRate) {
+    public void setHourlyRate(Double hourlyRate) {
         this.hourlyRate = hourlyRate;
     }
 

@@ -11,11 +11,11 @@ public class ChecklistTaskService {
 
     public ChecklistTask createFromTaskBaseDTO(TaskBaseDTO dto) {
         if (dto == null) {
-            throw new CustomException("Task data must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu task không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         if (dto.getLabel() == null || dto.getLabel().isBlank()) {
-            throw new CustomException("Task label must not be blank", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Label task không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         ChecklistTask task = new ChecklistTask();

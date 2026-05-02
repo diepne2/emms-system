@@ -6,6 +6,7 @@ import com.emms.backend.entity.WorkOrder.WorkOrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,7 +18,17 @@ import java.util.Map;
 
 public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
 
-    List<WorkOrder> findAllByOrderByDateCreatedDesc();
+    // =========================
+    // EXISTING APP METHODS
+    // =========================
+
+    List<WorkOrder> findAllByOrderByCreatedAtDesc();
+
+    List<WorkOrder> findByAssignedTo_UserIdOrderByCreatedAtDesc(Long userId);
+
+    Collection<WorkOrder> findByDateCreatedBetween(LocalDateTime start, LocalDateTime end);
+
+    Collection<WorkOrder> findByCompletedOnBetween(LocalDateTime start, LocalDateTime end);
 
     Collection<WorkOrder> findByStatus(WorkOrderStatus status);
 
@@ -25,15 +36,53 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
 
     Collection<WorkOrder> findByAssignedTo_UsernameIgnoreCase(String username);
 
-    Collection<WorkOrder> findByDateCreatedBetween(LocalDateTime start, LocalDateTime end);
-
-    Collection<WorkOrder> findByCompletedOnBetween(LocalDateTime start, LocalDateTime end);
+    List<WorkOrder> findByAssignedTo_UserId(Long userId);
 
     List<WorkOrder> findByAssignedTo_UserIdAndCreatedAtBetween(
             Long userId,
             LocalDateTime start,
             LocalDateTime end
     );
+
+    List<WorkOrder> findByArchivedFalseAndStatusInOrderByCreatedAtDesc(
+            List<WorkOrderStatus> statuses
+    );
+
+    List<WorkOrder> findByArchivedFalseAndStatusAndCompletedOnAfterOrderByCreatedAtDesc(
+            WorkOrderStatus status,
+            LocalDateTime completedOn
+    );
+
+    List<WorkOrder> findByAssignedTo_UserIdAndArchivedFalseAndStatusInOrderByCreatedAtDesc(
+            Long userId,
+            List<WorkOrderStatus> statuses
+    );
+
+    List<WorkOrder> findByAssignedTo_UserIdAndArchivedFalseAndStatusAndCompletedOnAfterOrderByCreatedAtDesc(
+            Long userId,
+            WorkOrderStatus status,
+            LocalDateTime completedOn
+    );
+
+    List<WorkOrder> findByArchivedFalseAndStatusAndCompletedOnBefore(
+            WorkOrderStatus status,
+            LocalDateTime completedOn
+    );
+
+    List<WorkOrder> findTop20ByOrderByIdDesc();
+
+    List<WorkOrder> findTop20ByTitleContainingIgnoreCaseOrderByIdDesc(String title);
+
+    List<WorkOrder> findByPreventiveMaintenance_IdOrderByCreatedAtDesc(Long pmId);
+
+    boolean existsByPreventiveMaintenance_IdAndDueDate(
+            Long pmId,
+            LocalDate dueDate
+    );
+
+    // =========================
+    // DASHBOARD - ASSET COST
+    // =========================
 
     @Query("""
         select coalesce(sum(w.totalCost), 0)
@@ -73,6 +122,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
 
         for (Object[] row : rows) {
             LocalDate date;
+
             if (row[0] instanceof java.sql.Date sqlDate) {
                 date = sqlDate.toLocalDate();
             } else if (row[0] instanceof LocalDate localDate) {
@@ -81,8 +131,11 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
                 date = LocalDate.parse(row[0].toString());
             }
 
-            BigDecimal cost = (BigDecimal) row[1];
-            result.put(date, cost == null ? BigDecimal.ZERO : cost);
+            BigDecimal cost = row[1] == null
+                    ? BigDecimal.ZERO
+                    : new BigDecimal(row[1].toString());
+
+            result.put(date, cost);
         }
 
         return result;
@@ -110,6 +163,10 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
+    // =========================
+    // DASHBOARD - WORK ORDER KPI
+    // =========================
+
     @Query("""
         select count(w)
         from WorkOrder w
@@ -134,17 +191,15 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
-    /*
-     * Entity hiện tại chưa có sourceType / maintenancePlan.
-     * Tạm coi compliant = tất cả WO trong range.
-     */
     @Query("""
         select count(w)
         from WorkOrder w
-        where w.createdAt >= :fromDate
+        where w.status in :statuses
+          and w.createdAt >= :fromDate
           and w.createdAt < :toDate
     """)
-    Long countCompliantInRange(
+    Long countByStatusesInRange(
+            @Param("statuses") Collection<WorkOrderStatus> statuses,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
@@ -161,22 +216,6 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
-    /*
-     * Entity hiện tại chưa có startedAt.
-     * Tạm dùng completedOn để không làm vỡ app.
-     */
-    @Query("""
-        select avg(function('timestampdiff', hour, w.createdAt, w.completedOn))
-        from WorkOrder w
-        where w.completedOn is not null
-          and w.createdAt >= :fromDate
-          and w.createdAt < :toDate
-    """)
-    Double getAverageResponseTimeHours(
-            @Param("fromDate") LocalDateTime fromDate,
-            @Param("toDate") LocalDateTime toDate
-    );
-
     @Query("""
         select coalesce(sum(w.estimatedDuration), 0)
         from WorkOrder w
@@ -188,35 +227,29 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
-    /*
-     * Entity hiện tại chưa có actualDuration.
-     * Tạm trả 0.0 để app boot.
-     */
+    default Double sumActualHoursInRange(
+            LocalDateTime fromDate,
+            LocalDateTime toDate
+    ) {
+        return 0.0;
+    }
+
     @Query("""
-        select 0.0
+        select avg(function('timestampdiff', day, w.createdAt, current_timestamp))
         from WorkOrder w
-        where w.createdAt >= :fromDate
+        where w.status in :statuses
+          and w.createdAt >= :fromDate
           and w.createdAt < :toDate
     """)
-    Double sumActualHoursInRange(
+    Double averageAgeByStatusesInRange(
+            @Param("statuses") Collection<WorkOrderStatus> statuses,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
 
-    /*
-     * Entity hiện tại chưa có sourceType / maintenancePlan.
-     * Tạm coi compliant = tất cả WO trong range.
-     */
-    @Query("""
-        select coalesce(sum(w.estimatedDuration), 0)
-        from WorkOrder w
-        where w.createdAt >= :fromDate
-          and w.createdAt < :toDate
-    """)
-    Double sumEstimatedHoursForCompliantInRange(
-            @Param("fromDate") LocalDateTime fromDate,
-            @Param("toDate") LocalDateTime toDate
-    );
+    // =========================
+    // DASHBOARD - USER / ASSET GROUP
+    // =========================
 
     @Query("""
         select u.userId,
@@ -231,32 +264,6 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
         order by count(w) desc
     """)
     List<Object[]> countByUserInRange(
-            @Param("fromDate") LocalDateTime fromDate,
-            @Param("toDate") LocalDateTime toDate
-    );
-
-    @Query("""
-        select count(w)
-        from WorkOrder w
-        where w.status in :statuses
-          and w.createdAt >= :fromDate
-          and w.createdAt < :toDate
-    """)
-    Long countByStatusesInRange(
-            @Param("statuses") Collection<WorkOrderStatus> statuses,
-            @Param("fromDate") LocalDateTime fromDate,
-            @Param("toDate") LocalDateTime toDate
-    );
-
-    @Query("""
-        select avg(function('timestampdiff', day, w.createdAt, current_timestamp))
-        from WorkOrder w
-        where w.status in :statuses
-          and w.createdAt >= :fromDate
-          and w.createdAt < :toDate
-    """)
-    Double averageAgeByStatusesInRange(
-            @Param("statuses") Collection<WorkOrderStatus> statuses,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
@@ -282,7 +289,9 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
     );
 
     @Query("""
-        select a.id, a.name, count(w),
+        select a.id,
+               a.name,
+               count(w),
                avg(function('timestampdiff', day, w.createdAt, current_timestamp))
         from WorkOrder w
         join w.asset a
@@ -297,6 +306,10 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
+
+    // =========================
+    // DASHBOARD - PRIORITY
+    // =========================
 
     @Query("""
         select count(w)
@@ -323,4 +336,38 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
+
+    
+    @Query("""
+    select a.id, a.name, count(wo.id)
+    from WorkOrder wo
+    join wo.asset a
+    where wo.createdAt >= :from and wo.createdAt < :to
+    group by a.id, a.name
+    order by count(wo.id) desc
+""")
+List<Object[]> top10RepairedAssets(
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to,
+        Pageable pageable
+);
+
+@Query("""
+    select u.userId,
+           u.username,
+           concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, '')),
+           count(wo.id)
+    from WorkOrder wo
+    join wo.assignedTo u
+    where wo.status = :status
+      and wo.completedOn >= :from and wo.completedOn < :to
+    group by u.userId, u.username, u.firstName, u.lastName
+    order by count(wo.id) desc
+""")
+List<Object[]> top10CompletedUsers(
+        @Param("status") WorkOrderStatus status,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to,
+        Pageable pageable
+);
 }

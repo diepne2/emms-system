@@ -13,7 +13,6 @@ public class AssetStats {
     @Schema(description = "Số lần xảy ra downtime")
     private Integer downtimeEvents;
 
-    // ===== Getter & Setter =====
 
     public Long getTotalDowntime() {
         return totalDowntime;

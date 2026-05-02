@@ -23,21 +23,21 @@ public class FileService {
 
     public File create(File file) {
         if (file == null) {
-            throw new CustomException("File must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("File không được để trống", HttpStatus.BAD_REQUEST);
         }
         return fileRepository.save(file);
     }
 
     public File update(File file) {
         if (file == null) {
-            throw new CustomException("File must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("File không được để trống", HttpStatus.BAD_REQUEST);
         }
         if (file.getId() == null) {
-            throw new CustomException("File id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID file không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         File existing = fileRepository.findById(file.getId())
-                .orElseThrow(() -> new CustomException("File not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("File không tìm thấy", HttpStatus.NOT_FOUND));
 
         existing.setName(file.getName());
         existing.setStoredFileName(file.getStoredFileName());
@@ -76,11 +76,11 @@ public class FileService {
 
     public void delete(Long id) {
         if (id == null) {
-            throw new CustomException("File id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID file không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         File existing = fileRepository.findById(id)
-                .orElseThrow(() -> new CustomException("File not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("File không tìm thấy", HttpStatus.NOT_FOUND));
 
         fileRepository.delete(existing);
     }
@@ -88,11 +88,11 @@ public class FileService {
     @Transactional(readOnly = true)
     public File findEntityById(Long id) {
         if (id == null) {
-            throw new CustomException("File id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID file không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         return fileRepository.findById(id)
-                .orElseThrow(() -> new CustomException("File not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("File không tìm thấy", HttpStatus.NOT_FOUND));
     }
 
     @Transactional(readOnly = true)

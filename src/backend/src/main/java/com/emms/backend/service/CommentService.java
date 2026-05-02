@@ -55,13 +55,13 @@ public class CommentService {
 
     public Comment create(@Valid CommentPostDTO commentReq, User user) {
         if (commentReq == null) {
-            throw new CustomException("Comment data must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu bình luận không được để trống", HttpStatus.BAD_REQUEST);
         }
         if (user == null) {
-            throw new CustomException("Current user must not be null", HttpStatus.UNAUTHORIZED);
+            throw new CustomException("Người dùng hiện tại không được để trống", HttpStatus.UNAUTHORIZED);
         }
         if (commentReq.getWorkOrderId() == null) {
-            throw new CustomException("Work order id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID đơn công việc không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(commentReq.getWorkOrderId(), user);
@@ -97,34 +97,34 @@ public class CommentService {
     @Transactional(readOnly = true)
     public Comment findEntityById(Long id) {
         if (id == null) {
-            throw new CustomException("Comment id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID bình luận không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         return commentRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Comment not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Bình luận không tìm thấy", HttpStatus.NOT_FOUND));
     }
 
     public Comment update(Long id, CommentPatchDTO commentPatchDTO, User user) {
         if (id == null) {
-            throw new CustomException("Comment id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID bình luận không được để trống", HttpStatus.BAD_REQUEST);
         }
         if (commentPatchDTO == null) {
-            throw new CustomException("Comment update data must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu cập nhật bình luận không được để trống", HttpStatus.BAD_REQUEST);
         }
         if (user == null) {
-            throw new CustomException("Current user must not be null", HttpStatus.UNAUTHORIZED);
+            throw new CustomException("Người dùng hiện tại không được để trống", HttpStatus.UNAUTHORIZED);
         }
 
         Comment savedComment = findEntityById(id);
 
         if (savedComment.getUser() == null
                 || !Objects.equals(extractUserId(savedComment.getUser()), extractUserId(user))) {
-            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+            throw new CustomException("Truy cập bị từ chối", HttpStatus.FORBIDDEN);
         }
 
         Long workOrderId = extractWorkOrderId(savedComment.getWorkOrder());
         if (workOrderId == null) {
-            throw new CustomException("Comment is not linked to a work order", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Bình luận không được liên kết với đơn công việc", HttpStatus.BAD_REQUEST);
         }
 
         WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(workOrderId, user);
@@ -143,10 +143,10 @@ public class CommentService {
     @Transactional(readOnly = true)
     public List<Comment> findByCriteria(CommentCriteria criteria, User user) {
         if (criteria == null || criteria.getWorkOrderId() == null) {
-            throw new CustomException("Work order id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID đơn công việc không được để trống", HttpStatus.BAD_REQUEST);
         }
         if (user == null) {
-            throw new CustomException("Current user must not be null", HttpStatus.UNAUTHORIZED);
+            throw new CustomException("Người dùng hiện tại không được để trống", HttpStatus.UNAUTHORIZED);
         }
 
         workOrderService.checkAccessToWorkOrderId(criteria.getWorkOrderId(), user);
@@ -163,10 +163,10 @@ public class CommentService {
     @Transactional(readOnly = true)
     public long countByWorkOrderId(Long workOrderId, User user) {
         if (workOrderId == null) {
-            throw new CustomException("Work order id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID đơn công việc không được để trống", HttpStatus.BAD_REQUEST);
         }
         if (user == null) {
-            throw new CustomException("Current user must not be null", HttpStatus.UNAUTHORIZED);
+            throw new CustomException("Người dùng hiện tại không được để trống", HttpStatus.UNAUTHORIZED);
         }
 
         workOrderService.checkAccessToWorkOrderId(workOrderId, user);

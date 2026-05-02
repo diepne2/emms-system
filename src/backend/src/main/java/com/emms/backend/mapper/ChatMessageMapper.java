@@ -3,35 +3,38 @@ package com.emms.backend.mapper;
 import com.emms.backend.dto.chat.ChatMessageDTO;
 import com.emms.backend.entity.ChatMessage;
 import com.emms.backend.entity.User;
-import com.emms.backend.repository.UserRepository;
-import org.springframework.stereotype.Component;
 
-@Component
 public class ChatMessageMapper {
 
-    private final UserRepository userRepository;
+    public static ChatMessageDTO toDTO(ChatMessage m, User sender, User receiver) {
 
-    public ChatMessageMapper(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
-
-    public ChatMessageDTO toDTO(ChatMessage entity) {
-        if (entity == null) {
-            return null;
-        }
+        String senderUsername = sender != null ? sender.getUsername() : "Unknown";
 
         ChatMessageDTO dto = new ChatMessageDTO();
-        dto.setId(entity.getId());
-        dto.setConversationId(entity.getConversationId());
-        dto.setSenderId(entity.getSenderId());
-        dto.setContent(entity.getContent());
-        dto.setReplyToMessageId(entity.getReplyToMessageId());
-        dto.setCreatedAt(entity.getCreatedAt());
 
-        userRepository.findById(entity.getSenderId())
-                .map(User::getUsername)
-                .ifPresent(dto::setSenderUsername);
+        dto.setId(m.getId());
+        dto.setSenderId(m.getSenderId());
+        dto.setSenderUsername(senderUsername);
+
+        dto.setSenderAvatar(sender != null ? sender.getAvatar() : null);
+
+        dto.setReceiverId(m.getReceiverId());
+        dto.setReceiverAvatar(receiver != null ? receiver.getAvatar() : null);
+
+        dto.setContent(m.getContent());
+        dto.setCreatedAt(m.getCreatedAt());
 
         return dto;
+    }
+
+    public static ChatMessage toEntity(Long senderId, Long receiverId, String content) {
+
+        ChatMessage m = new ChatMessage();
+
+        m.setSenderId(senderId);
+        m.setReceiverId(receiverId);
+        m.setContent(content);
+
+        return m;
     }
 }

@@ -6,15 +6,15 @@ import com.emms.backend.dto.asset.AssetSummaryDTO;
 import com.emms.backend.entity.Asset;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
-@Mapper(
-        componentModel = "spring"
-)
+@Mapper(componentModel = "spring")
 public interface AssetMapper {
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
     void updateAsset(@MappingTarget Asset entity, AssetPUTDTO dto);
 
     AssetPUTDTO toPatchDto(Asset model);

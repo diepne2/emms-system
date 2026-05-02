@@ -1,117 +1,137 @@
 package com.emms.backend.entity;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.emms.backend.entity.abstracts.Audit;
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "readings", indexes = {
         @Index(name = "idx_reading_meter", columnList = "meter_id"),
-        @Index(name = "idx_reading_recorded_at", columnList = "recorded_at")
+        @Index(name = "idx_reading_recorded_at", columnList = "recorded_at"),
+        @Index(name = "idx_reading_triggered", columnList = "triggered_work_order_id")
 })
-public class Reading {
+public class Reading extends Audit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "reading_id")
-    private Long readingId;
-
-    @Column(name = "value", nullable = false)
-    private Double value;
+    @Column(name = "id")
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "meter_id", nullable = false)
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Meter meter;
+
+    @Column(name = "value", nullable = false, precision = 19, scale = 2)
+    private BigDecimal value;
+
+    @Column(name = "delta_value", precision = 19, scale = 2)
+    private BigDecimal deltaValue;
 
     @Column(name = "recorded_at", nullable = false)
     private LocalDateTime recordedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "note", length = 1000)
+    private String note;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Column(name = "triggered_work_order_id")
+    private Long triggeredWorkOrderId;
+
+    @Column(name = "triggered", nullable = false)
+    private boolean triggered = false;
 
     public Reading() {
     }
 
-    public Reading(Double value, Meter meter, LocalDateTime recordedAt) {
-        this.value = value;
-        this.meter = meter;
-        this.recordedAt = recordedAt;
-    }
-
     @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        if (this.recordedAt == null) {
-            this.recordedAt = now;
-        }
-        this.createdAt = now;
-        this.updatedAt = now;
-        validateData();
-    }
-
     @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-        validateData();
-    }
-
-    private void validateData() {
-        if (this.value == null) {
-            throw new IllegalArgumentException("Giá trị đo không được null");
+    public void normalize() {
+        if (note != null) {
+            note = note.trim();
+            if (note.isEmpty()) {
+                note = null;
+            }
         }
-        if (this.value < 0) {
-            throw new IllegalArgumentException("Giá trị đo không được âm");
+
+        if (recordedAt == null) {
+            recordedAt = LocalDateTime.now();
         }
-        if (this.meter == null) {
-            throw new IllegalArgumentException("Reading phải thuộc một Meter");
+
+        if (value == null) {
+            throw new IllegalArgumentException("Reading value must not be null");
         }
-        if (this.recordedAt == null) {
-            throw new IllegalArgumentException("recordedAt không được null");
+
+        if (meter == null) {
+            throw new IllegalArgumentException("Meter must not be null");
+        }
+
+        if (deltaValue == null) {
+            deltaValue = BigDecimal.ZERO;
         }
     }
 
-    public Long getReadingId() {
-        return readingId;
-    }
-
-    public void setReadingId(Long readingId) {
-        this.readingId = readingId;
-    }
-
-    public Double getValue() {
-        return value;
-    }
-
-    public void setValue(Double value) {
-        this.value = value;
+    public Long getId() {
+        return id;
     }
 
     public Meter getMeter() {
         return meter;
     }
 
-    public void setMeter(Meter meter) {
-        this.meter = meter;
+    public BigDecimal getValue() {
+        return value;
+    }
+
+    public BigDecimal getDeltaValue() {
+        return deltaValue;
     }
 
     public LocalDateTime getRecordedAt() {
         return recordedAt;
     }
 
+    public String getNote() {
+        return note;
+    }
+
+    public Long getTriggeredWorkOrderId() {
+        return triggeredWorkOrderId;
+    }
+
+    public boolean isTriggered() {
+        return triggered;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setMeter(Meter meter) {
+        this.meter = meter;
+    }
+
+    public void setValue(BigDecimal value) {
+        this.value = value;
+    }
+
+    public void setDeltaValue(BigDecimal deltaValue) {
+        this.deltaValue = deltaValue;
+    }
+
     public void setRecordedAt(LocalDateTime recordedAt) {
         this.recordedAt = recordedAt;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
+    public void setNote(String note) {
+        this.note = note;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
+    public void setTriggeredWorkOrderId(Long triggeredWorkOrderId) {
+        this.triggeredWorkOrderId = triggeredWorkOrderId;
+    }
+
+    public void setTriggered(boolean triggered) {
+        this.triggered = triggered;
     }
 }

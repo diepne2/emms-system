@@ -1,32 +1,18 @@
 package com.emms.backend.dto.wo_history;
 
-import com.emms.backend.dto.audit.AuditShowDTO;
-import com.emms.backend.dto.user.UserSummaryDTO;
-import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.LocalDateTime;
 
-@Schema(description = "DTO hiển thị lịch sử phiên bản Work Order")
-public class WorkOrderHistoryShowDTO extends AuditShowDTO {
+public class WorkOrderHistoryShowDTO {
 
-    @Schema(description = "ID lịch sử", example = "1")
     private Long id;
-
-    @Schema(description = "Tên phiên bản", example = "WO-0001 - Bản lưu trước khi duyệt")
-    private String versionName;
-
-    @Schema(description = "Số phiên bản", example = "1")
-    private Integer versionNo;
-
-    @Schema(description = "Ghi chú")
-    private String note;
-
-    @Schema(description = "Snapshot JSON")
-    private String snapshotJson;
-
-    @Schema(description = "Người lưu phiên bản")
-    private UserSummaryDTO savedBy;
-
-    @Schema(description = "ID của Work Order", example = "10")
     private Long workOrderId;
+    private Integer versionNo;
+    private String versionName;
+    private String note;
+    private String snapshotJson;
+    private Long savedById;
+    private String savedByName;
+    private LocalDateTime createdAt;
 
     public WorkOrderHistoryShowDTO() {
     }
@@ -35,55 +21,71 @@ public class WorkOrderHistoryShowDTO extends AuditShowDTO {
         return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getVersionName() {
-        return versionName;
-    }
-
-    public void setVersionName(String versionName) {
-        this.versionName = versionName == null ? null : versionName.trim();
+    public Long getWorkOrderId() {
+        return workOrderId;
     }
 
     public Integer getVersionNo() {
         return versionNo;
     }
 
-    public void setVersionNo(Integer versionNo) {
-        this.versionNo = versionNo;
+    public String getVersionName() {
+        return versionName;
     }
 
     public String getNote() {
         return note;
     }
 
-    public void setNote(String note) {
-        this.note = note == null ? null : note.trim();
-    }
-
     public String getSnapshotJson() {
         return snapshotJson;
+    }
+
+    public Long getSavedById() {
+        return savedById;
+    }
+
+    public String getSavedByName() {
+        return savedByName;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setWorkOrderId(Long workOrderId) {
+        this.workOrderId = workOrderId;
+    }
+
+    public void setVersionNo(Integer versionNo) {
+        this.versionNo = versionNo;
+    }
+
+    public void setVersionName(String versionName) {
+        this.versionName = versionName;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
     }
 
     public void setSnapshotJson(String snapshotJson) {
         this.snapshotJson = snapshotJson;
     }
 
-    public UserSummaryDTO getSavedBy() {
-        return savedBy;
+    public void setSavedById(Long savedById) {
+        this.savedById = savedById;
     }
 
-    public void setSavedBy(UserSummaryDTO savedBy) {
-        this.savedBy = savedBy;
+    public void setSavedByName(String savedByName) {
+        this.savedByName = savedByName;
     }
 
-    public Long getWorkOrderId() {
-        return workOrderId;
-    }
-
-    public void setWorkOrderId(Long workOrderId) {
-        this.workOrderId = workOrderId;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

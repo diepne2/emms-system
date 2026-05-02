@@ -86,8 +86,6 @@ public abstract class WorkOrderBase {
         return value == null ? null : value.trim();
     }
 
-    // ===== BUSINESS =====
-
     public boolean isOverdue() {
         return dueDate != null && dueDate.isBefore(LocalDateTime.now());
     }
@@ -95,8 +93,6 @@ public abstract class WorkOrderBase {
     public boolean hasAssignment() {
         return assignedTo != null;
     }
-
-    // ===== GETTER =====
 
     public String getTitle() { return title; }
     public String getDescription() { return description; }

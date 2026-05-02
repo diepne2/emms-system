@@ -10,7 +10,6 @@ public class CountByCategory extends CategorySummaryDTO {
     @Schema(description = "Số lượng request")
     private Integer requestCount;
 
-    // ===== Constructor =====
 
     public CountByCategory() {
     }
@@ -19,7 +18,6 @@ public class CountByCategory extends CategorySummaryDTO {
         this.requestCount = requestCount;
     }
 
-    // ===== Getter & Setter =====
 
     public Integer getRequestCount() {
         return requestCount;
@@ -29,7 +27,6 @@ public class CountByCategory extends CategorySummaryDTO {
         this.requestCount = requestCount;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {

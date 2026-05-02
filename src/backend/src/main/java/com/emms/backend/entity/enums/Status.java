@@ -5,8 +5,9 @@ public enum Status {
     OPEN,
     IN_PROGRESS,
     ON_HOLD,
-    COMPLETED,
-    CANCELLED; // nên thêm cho hệ thống thật
+    PENDING,
+    DONE,
+    CANCELLED;
 
     public static Status fromString(String value) {
         if (value == null || value.isBlank()) {
@@ -21,10 +22,20 @@ public enum Status {
     }
 
     public boolean isDone() {
-        return this == COMPLETED || this == CANCELLED;
+        return this == DONE || this == CANCELLED;
     }
 
     public boolean isActive() {
         return this == OPEN || this == IN_PROGRESS || this == ON_HOLD;
+    }
+
+
+    public boolean isPending() {
+        return this == PENDING;
+    }
+
+
+    public boolean isEditable() {
+        return !isDone();
     }
 }

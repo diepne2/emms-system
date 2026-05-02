@@ -1,6 +1,5 @@
 package com.emms.backend.service;
 
-import com.emms.backend.dto.importData.PartImportDTO;
 import com.emms.backend.dto.part.PartPatchDTO;
 import com.emms.backend.dto.part.PartShowDTO;
 import com.emms.backend.dto.part.PartSummaryDTO;
@@ -32,6 +31,11 @@ public class PartService {
     }
 
     public Part create(Part part) {
+        if (part == null) {
+            throw new CustomException("Part không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        normalizePart(part);
         validatePart(part);
 
         if (part.getQuantity() == null) {
@@ -60,6 +64,7 @@ public class PartService {
                 ));
 
         partMapper.updatePartFromDto(dto, savedPart);
+        normalizePart(savedPart);
         validatePart(savedPart);
 
         return partRepository.save(savedPart);
@@ -120,6 +125,8 @@ public class PartService {
         }
 
         for (Part entity : entities) {
+            normalizePart(entity);
+
             if (entity.getQuantity() == null) {
                 entity.setQuantity(0);
             }
@@ -130,6 +137,9 @@ public class PartService {
     }
 
     public Part increaseStock(Long partId, Integer amount) {
+        if (partId == null) {
+            throw new CustomException("partId không được để trống", HttpStatus.BAD_REQUEST);
+        }
         if (amount == null || amount <= 0) {
             throw new CustomException("Số lượng tăng phải > 0", HttpStatus.BAD_REQUEST);
         }
@@ -142,6 +152,9 @@ public class PartService {
     }
 
     public Part decreaseStock(Long partId, Integer amount) {
+        if (partId == null) {
+            throw new CustomException("partId không được để trống", HttpStatus.BAD_REQUEST);
+        }
         if (amount == null || amount <= 0) {
             throw new CustomException("Số lượng giảm phải > 0", HttpStatus.BAD_REQUEST);
         }
@@ -157,38 +170,7 @@ public class PartService {
         return partRepository.save(part);
     }
 
-    public void importPart(Part entity, PartImportDTO dto) {
-        if (entity == null) {
-            throw new CustomException("Part entity không được để trống", HttpStatus.BAD_REQUEST);
-        }
-        if (dto == null) {
-            throw new CustomException("PartImportDTO không được để trống", HttpStatus.BAD_REQUEST);
-        }
-
-        dto.validate();
-
-        entity.setName(dto.getName());
-        entity.setCost(dto.getCost());
-        entity.setCategory(dto.getCategory());
-        entity.setConsumable(dto.getNonStock());
-        entity.setBarcode(dto.getBarcode());
-        entity.setDescription(dto.getDescription());
-        entity.setLocationName(dto.getLocationName());
-
-        if (dto.getQuantity() != null) {
-            if (dto.getQuantity().compareTo(BigDecimal.ZERO) < 0) {
-                throw new CustomException("quantity không được âm", HttpStatus.BAD_REQUEST);
-            }
-            entity.setQuantity(dto.getQuantity().intValue());
-        } else if (entity.getQuantity() == null) {
-            entity.setQuantity(0);
-        }
-
-        entity.setAssignedTo(joinDistinctLower(dto.getAssignedToEmails()));
-        entity.setVendor(joinDistinct(dto.getVendorsNames()));
-
-        validatePart(entity);
-    }
+   
 
     private void validatePart(Part part) {
         if (part == null) {
@@ -209,6 +191,34 @@ public class PartService {
 
         if (part.getQuantity() != null && part.getQuantity() < 0) {
             throw new CustomException("quantity không được âm", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void normalizePart(Part part) {
+        if (part == null) {
+            return;
+        }
+
+        if (part.getName() != null) {
+            part.setName(part.getName().trim());
+        }
+        if (part.getCategory() != null) {
+            part.setCategory(part.getCategory().trim());
+        }
+        if (part.getBarcode() != null) {
+            part.setBarcode(part.getBarcode().trim());
+        }
+        if (part.getDescription() != null) {
+            part.setDescription(part.getDescription().trim());
+        }
+        if (part.getLocationName() != null) {
+            part.setLocationName(part.getLocationName().trim());
+        }
+        if (part.getVendor() != null) {
+            part.setVendor(part.getVendor().trim());
+        }
+        if (part.getAssignedTo() != null) {
+            part.setAssignedTo(part.getAssignedTo().trim().toLowerCase());
         }
     }
 

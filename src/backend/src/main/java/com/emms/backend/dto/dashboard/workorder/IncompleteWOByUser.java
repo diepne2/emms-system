@@ -1,7 +1,6 @@
 package com.emms.backend.dto.dashboard.workorder;
 
 import com.emms.backend.dto.user.UserSummaryDTO;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "Thống kê work order chưa hoàn thành theo người dùng")
@@ -13,8 +12,6 @@ public class IncompleteWOByUser extends UserSummaryDTO {
     @Schema(description = "Tuổi trung bình của work order (tính bằng ngày)")
     private Double averageAgeDays;
 
-    // ===== Constructor =====
-
     public IncompleteWOByUser() {
     }
 
@@ -22,8 +19,6 @@ public class IncompleteWOByUser extends UserSummaryDTO {
         this.incompleteCount = incompleteCount;
         this.averageAgeDays = averageAgeDays;
     }
-
-    // ===== Getter & Setter =====
 
     public Integer getIncompleteCount() {
         return incompleteCount;
@@ -41,18 +36,14 @@ public class IncompleteWOByUser extends UserSummaryDTO {
         this.averageAgeDays = averageAgeDays;
     }
 
-    // ===== toString =====
-
     @Override
     public String toString() {
         return "IncompleteWOByUser{" +
-                "incompleteCount=" + incompleteCount +
+                "id=" + getId() +
+                ", username='" + getUsername() + '\'' +
+                ", fullName='" + getFullName() + '\'' +
+                ", incompleteCount=" + incompleteCount +
                 ", averageAgeDays=" + averageAgeDays +
                 '}';
-    }
-
-    public void setUsername(String username) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setUsername'");
     }
 }

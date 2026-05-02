@@ -23,11 +23,11 @@ public class WorkOrderCategoryService {
 
     public WorkOrderCategory create(WorkOrderCategory workOrderCategory) {
         if (workOrderCategory == null) {
-            throw new CustomException("Work order category is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Danh mục đơn công việc không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         if (workOrderCategory.getName() == null || workOrderCategory.getName().trim().isEmpty()) {
-            throw new CustomException("Work order category name is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Tên danh mục đơn công việc là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         String normalizedName = workOrderCategory.getName().trim();
@@ -38,7 +38,7 @@ public class WorkOrderCategoryService {
 
         if (categoryWithSameName.isPresent()) {
             throw new CustomException(
-                    "WorkOrderCategory with same name already exists",
+                    "Danh mục đơn công việc với tên tương tự đã tồn tại",
                     HttpStatus.NOT_ACCEPTABLE
             );
         }
@@ -60,7 +60,7 @@ public class WorkOrderCategoryService {
 
             if (newName.isEmpty()) {
                 throw new CustomException(
-                        "Work order category name must not be blank",
+                        "Tên danh mục đơn công việc không được để trống",
                         HttpStatus.BAD_REQUEST
                 );
             }
@@ -73,7 +73,7 @@ public class WorkOrderCategoryService {
 
                 if (duplicated.isPresent() && !duplicated.get().getId().equals(id)) {
                     throw new CustomException(
-                            "WorkOrderCategory with same name already exists",
+                            "Danh mục đơn công việc với tên tương tự đã tồn tại",
                             HttpStatus.NOT_ACCEPTABLE
                     );
                 }
@@ -104,11 +104,10 @@ public class WorkOrderCategoryService {
     @Transactional(readOnly = true)
     public WorkOrderCategory findEntityById(Long id) {
         return workOrderCategoryRepository.findById(id)
-                .orElseThrow(() -> new CustomException("WorkOrderCategory not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Danh mục đơn công việc không tìm thấy", HttpStatus.NOT_FOUND));
     }
 
     public Collection<WorkOrderCategory> findAll() {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'findAll'");
     }
 }

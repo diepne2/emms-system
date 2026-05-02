@@ -66,4 +66,9 @@ public class MeterCategory {
     public void setDescription(String description) {
         this.description = trim(description);
     }
+
+    public void setAssetId(Long id) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setAssetId'");
+    }
 }

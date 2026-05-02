@@ -11,7 +11,6 @@ public class WOIncompleteStats {
     @Schema(description = "Tuổi trung bình của work order (tính bằng ngày)")
     private Double averageAgeDays;
 
-    // ===== Constructor =====
 
     public WOIncompleteStats() {
     }
@@ -20,8 +19,6 @@ public class WOIncompleteStats {
         this.totalIncompleteCount = totalIncompleteCount;
         this.averageAgeDays = averageAgeDays;
     }
-
-    // ===== Getter & Setter =====
 
     public Integer getTotalIncompleteCount() {
         return totalIncompleteCount;
@@ -39,7 +36,6 @@ public class WOIncompleteStats {
         this.averageAgeDays = averageAgeDays;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {

@@ -7,13 +7,12 @@ import java.util.Date;
 @Schema(description = "Khoảng thời gian dùng để filter dữ liệu")
 public class DateRange {
 
-    @Schema(description = "Ngày bắt đầu", example = "2026-01-01T00:00:00")
+    @Schema(description = "Ngày bắt đầu")
     private Date start;
 
-    @Schema(description = "Ngày kết thúc", example = "2026-01-31T23:59:59")
+    @Schema(description = "Ngày kết thúc")
     private Date end;
 
-    // ===== Constructor =====
 
     public DateRange() {
     }
@@ -23,7 +22,7 @@ public class DateRange {
         this.end = end;
     }
 
-    // ===== Getter & Setter =====
+
 
     public Date getStart() {
         return start;
@@ -41,7 +40,6 @@ public class DateRange {
         this.end = end;
     }
 
-    // ===== Validate (QUAN TRỌNG) =====
 
     public void validate() {
         if (start == null || end == null) {

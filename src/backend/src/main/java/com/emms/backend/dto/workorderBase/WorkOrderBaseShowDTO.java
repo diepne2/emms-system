@@ -9,66 +9,60 @@ import com.emms.backend.dto.user.UserSummaryDTO;
 import com.emms.backend.entity.enums.Priority;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Schema(description = "Base work order display data transfer object")
+@Schema(description = "Hiển thị thông tin cơ bản của đơn hàng công việc")
 public class WorkOrderBaseShowDTO extends AuditShowDTO {
+    @Schema(description = "Ngày đáo hạn của đơn hàng công việc")
+    private LocalDate dueDate;
 
-    @Schema(description = "Due date of the work order")
-    private LocalDateTime dueDate;
-
-    @Schema(description = "Priority level of the work order")
+    @Schema(description = "Mức độ ưu tiên của đơn hàng công việc")
     private Priority priority;
 
-    @Schema(description = "Estimated duration in hours")
+    @Schema(description = "Thời lượng ước tính trong giờ")
     private Double estimatedDuration;
 
-    @Schema(description = "Estimated start date for the work order")
+    @Schema(description = "Ngày bắt đầu ước tính cho đơn hàng công việc")
     private LocalDateTime estimatedStartDate;
 
-    @Schema(description = "Detailed description of the work order")
+    @Schema(description = "Mô tả chi tiết của đơn hàng công việc")
     private String description;
 
-    @Schema(description = "Title of the work order")
+    @Schema(description = "Tiêu đề của đơn hàng công việc")
     private String title;
 
-    @Schema(description = "Indicates if a signature is required")
+    @Schema(description = "Cho biết liệu một chữ ký có được yêu cầu không")
     private Boolean requiredSignature;
 
-    @Schema(description = "Category associated with the work order")
+    @Schema(description = "Danh mục liên quan đến đơn hàng công việc")
     private CategorySummaryDTO category;
 
-    @Schema(description = "Location where the work will be performed")
     private LocationSummaryDTO location;
 
-
-    @Schema(description = "Primary user responsible for the work order")
+    @Schema(description = "Người dùng chính chịu trách nhiệm cho đơn hàng công việc")
     private UserSummaryDTO primaryUser;
 
-    @Schema(description = "List of users assigned to the work order")
-    private List<UserSummaryDTO> assignedTo;
+    @Schema(description = "Kỹ thuật viên/người dùng được chỉ định")
+    private UserSummaryDTO assignedTo;
 
-    @Schema(description = "Asset related to the work order")
     private AssetSummaryDTO asset;
 
-    @Schema(description = "List of files attached to the work order")
+
     private List<FileSummaryDTO> files;
 
-    @Schema(description = "Image associated with the work order")
+ 
     private FileSummaryDTO image;
 
-    // ===== Constructor =====
     public WorkOrderBaseShowDTO() {
     }
 
-    // ===== Getter / Setter =====
-
-    public LocalDateTime getDueDate() {
+    public LocalDate getDueDate() {
         return dueDate;
     }
 
-    public void setDueDate(LocalDateTime dueDate) {
+    public void setDueDate(LocalDate dueDate) {
         this.dueDate = dueDate;
     }
 
@@ -144,11 +138,11 @@ public class WorkOrderBaseShowDTO extends AuditShowDTO {
         this.primaryUser = primaryUser;
     }
 
-    public List<UserSummaryDTO> getAssignedTo() {
+    public UserSummaryDTO getAssignedTo() {
         return assignedTo;
     }
 
-    public void setAssignedTo(List<UserSummaryDTO> assignedTo) {
+    public void setAssignedTo(UserSummaryDTO assignedTo) {
         this.assignedTo = assignedTo;
     }
 
@@ -176,9 +170,10 @@ public class WorkOrderBaseShowDTO extends AuditShowDTO {
         this.image = image;
     }
 
-    // ===== helper =====
-    private String trim(String value) {
-        if (value == null) return null;
+    protected String trim(String value) {
+        if (value == null) {
+            return null;
+        }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }

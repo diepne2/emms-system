@@ -1,13 +1,11 @@
 package com.emms.backend.dto.auth;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public class LoginRequest {
 
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không hợp lệ")
-    private String email;
+    @NotBlank(message = "Username hoặc email không được để trống")
+    private String usernameOrEmail;
 
     @NotBlank(message = "Mật khẩu không được để trống")
     private String password;
@@ -15,12 +13,12 @@ public class LoginRequest {
     public LoginRequest() {
     }
 
-    public String getEmail() {
-        return email;
+    public String getUsernameOrEmail() {
+        return usernameOrEmail;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
+    public void setUsernameOrEmail(String usernameOrEmail) {
+        this.usernameOrEmail = usernameOrEmail;
     }
 
     public String getPassword() {

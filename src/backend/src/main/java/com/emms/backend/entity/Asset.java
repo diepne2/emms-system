@@ -27,34 +27,36 @@ public class Asset {
     @Column(name = "Area")
     private String area;
 
-    @Column(name = "Parent Asset")
+    @Column(name = "parent_asset")
     private String parentAssetName;
 
-    @Column(name = "Location Name")
+    
+
+    @Column(name = "location_name",nullable = false, unique = true)
     private String locationName;
 
-    @Column(name = "Barcode")
+    @Column(name = "Barcode",nullable = false, unique = true)
     private String barcode;
 
     @Column(name = "Category")
     private String category;
 
-    @Column(name = "Assigned To")
+    @Column(name = "assigned_to")
     private String assignedTo;
 
-    @Column(name = "Warranty Expiry Date")
+    @Column(name = "warranty_expiry_date")
     private LocalDate warrantyExpiryDate;
 
-    @Column(name = "Additional Info")
+    @Column(name = "additional_info")
     private String additionalInfo;
 
-    @Column(name = "Serial Number")
+    @Column(name = "serial_number",nullable = false, unique = true)
     private String serialNumber;
 
-    @Column(name = "Teams names")
+    @Column(name = "teams_names")
     private String teamNames;
 
-    @Column(name = "Associated Parts")
+    @Column(name = "associated_parts")
     private String associatedParts;
 
     @Column(name = "Vendor")

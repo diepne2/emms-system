@@ -44,7 +44,6 @@ public class ApiKey {
         }
     }
 
-    // ===== Getter Setter =====
     public Long getApiKeyId() {
         return apiKeyId;
     }

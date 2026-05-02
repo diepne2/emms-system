@@ -3,12 +3,16 @@ package com.emms.backend.entity.enums;
 public enum AssetStatus {
 
     OPERATIONAL(RealStatus.UP),
-    DOWN(RealStatus.DOWN),
-    MAINTENANCE(RealStatus.DOWN),
     STANDBY(RealStatus.UP),
     INSPECTION(RealStatus.UP),
     COMMISSIONING(RealStatus.UP),
-    EMERGENCY_SHUTDOWN(RealStatus.DOWN);
+
+
+    DOWN(RealStatus.DOWN),
+    MAINTENANCE(RealStatus.DOWN),
+    EMERGENCY_SHUTDOWN(RealStatus.DOWN),
+
+    DECOMMISSIONED(RealStatus.DOWN); // NGỪNG SỬ DỤNG
 
     private final RealStatus realStatus;
 
@@ -29,7 +33,14 @@ public enum AssetStatus {
         return this.realStatus == RealStatus.UP;
     }
 
-    // parse từ string (đơn giản hơn bản gốc)
+    public boolean isDecommissioned() {
+        return this == DECOMMISSIONED;
+    }
+
+    public boolean isActive() {
+        return this != DECOMMISSIONED;
+    }
+
     public static AssetStatus fromString(String value) {
         if (value == null) {
             return OPERATIONAL;

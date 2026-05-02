@@ -1,0 +1,68 @@
+
+.checklist-task-card {
+  border: 1px solid #e6edf0;
+  border-radius: 16px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.checklist-task-card + .checklist-task-card {
+  margin-top: 12px;
+}
+
+.checklist-task-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.checklist-task-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #20313b;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.checklist-task-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checklist-form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.checklist-empty-state {
+  background: #ffffff;
+  border: 1px dashed #dbe5ea;
+  border-radius: 16px;
+  padding: 18px;
+  color: #6b7d87;
+}
+
+.checklist-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 992px) {
+  .checklist-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .checklist-form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

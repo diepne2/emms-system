@@ -18,7 +18,6 @@ public class WOCountByWeek {
     @Schema(description = "Ngày bắt đầu tuần (yyyy-MM-dd)")
     private LocalDate weekStart;
 
-    // ===== Constructor =====
 
     public WOCountByWeek() {
     }
@@ -30,7 +29,6 @@ public class WOCountByWeek {
         this.weekStart = weekStart;
     }
 
-    // ===== Getter & Setter =====
 
     public Integer getTotalCount() {
         return totalCount;
@@ -64,7 +62,6 @@ public class WOCountByWeek {
         this.weekStart = weekStart;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {

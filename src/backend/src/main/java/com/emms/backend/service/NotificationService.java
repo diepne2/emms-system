@@ -24,15 +24,21 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final SimpMessageSendingOperations messagingTemplate;
 
-    public NotificationService(NotificationRepository notificationRepository,
-                               UserRepository userRepository,
-                               @Nullable SimpMessageSendingOperations messagingTemplate) {
+    public NotificationService(
+            NotificationRepository notificationRepository,
+            UserRepository userRepository,
+            @Nullable SimpMessageSendingOperations messagingTemplate
+    ) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.messagingTemplate = messagingTemplate;
     }
 
     public Notification createNotification(Long userId, String title, String message) {
+        if (userId == null) {
+            throw new CustomException("User id không được null", HttpStatus.BAD_REQUEST);
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(
                         "Không tìm thấy người dùng với id: " + userId,
@@ -47,8 +53,17 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
 
         Notification saved = notificationRepository.save(notification);
+
         pushToUser(user, saved);
+
         return saved;
+    }
+
+    public void createNotificationIfUserExists(Long userId, String title, String message) {
+        if (userId == null) return;
+        if (!userRepository.existsById(userId)) return;
+
+        createNotification(userId, title, message);
     }
 
     @Transactional(readOnly = true)
@@ -84,9 +99,7 @@ public class NotificationService {
         List<Notification> unreadNotifications =
                 notificationRepository.findByUser_UserIdAndIsReadFalse(userId);
 
-        if (unreadNotifications.isEmpty()) {
-            return;
-        }
+        if (unreadNotifications.isEmpty()) return;
 
         for (Notification notification : unreadNotifications) {
             notification.setRead(true);
@@ -106,7 +119,7 @@ public class NotificationService {
     }
 
     private void validateUserExists(Long userId) {
-        if (!userRepository.existsById(userId)) {
+        if (userId == null || !userRepository.existsById(userId)) {
             throw new CustomException(
                     "Không tìm thấy người dùng với id: " + userId,
                     HttpStatus.NOT_FOUND
@@ -115,12 +128,10 @@ public class NotificationService {
     }
 
     private void pushToUser(User user, Notification notification) {
-        if (user == null || notification == null) {
-            return;
-        }
+        if (user == null || notification == null) return;
 
         if (messagingTemplate == null) {
-            log.debug("Không có WebSocket bean, bỏ qua realtime notification cho userId={}", user.getId());
+            log.debug("Không có WebSocket bean, bỏ qua realtime notification cho userId={}", user.getUserId());
             return;
         }
 
@@ -131,7 +142,7 @@ public class NotificationService {
                     notification
             );
         } catch (Exception ex) {
-            log.warn("Gửi realtime notification thất bại cho userId={}: {}", user.getId(), ex.getMessage());
+            log.warn("Gửi realtime notification thất bại cho userId={}: {}", user.getUserId(), ex.getMessage());
         }
     }
 

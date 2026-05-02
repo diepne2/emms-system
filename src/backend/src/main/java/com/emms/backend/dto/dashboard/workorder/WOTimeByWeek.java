@@ -16,7 +16,6 @@ public class WOTimeByWeek {
     @Schema(description = "Ngày bắt đầu tuần (yyyy-MM-dd)")
     private LocalDate weekStart;
 
-    // ===== Constructor =====
 
     public WOTimeByWeek() {
     }
@@ -27,7 +26,6 @@ public class WOTimeByWeek {
         this.weekStart = weekStart;
     }
 
-    // ===== Getter & Setter =====
 
     public Double getTotalHours() {
         return totalHours;
@@ -53,7 +51,6 @@ public class WOTimeByWeek {
         this.weekStart = weekStart;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {

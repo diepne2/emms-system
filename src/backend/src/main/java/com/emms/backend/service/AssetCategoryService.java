@@ -1,6 +1,5 @@
 package com.emms.backend.service;
 
-import com.emms.backend.dto.asset.AssetPUTDTO;
 import com.emms.backend.entity.AssetCategory;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.AssetCategoryMapper;
@@ -9,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.lang.StackWalker.Option;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -33,7 +31,7 @@ public class AssetCategoryService {
         if (assetCategoryRepository.existsById(id)) {
             AssetCategory saveAssetCategory = assetCategoryRepository.findById(id).get();
             return assetCategoryRepository.save(assetCategoryMapper.updateAssetCategory(saveAssetCategory,assetCategory));
-        } else throw new CustomException("Not Found" ,HttpStatus.NOT_FOUND );
+        } else throw new CustomException("Không tìm thấy loại thiết bị", HttpStatus.NOT_FOUND );
     }
 
     public Collection<AssetCategory> getAll() {

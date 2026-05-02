@@ -1,21 +1,24 @@
 package com.emms.backend.repository;
 
 import com.emms.backend.entity.Request;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Repository
 public interface RequestRepository extends JpaRepository<Request, Long> {
+
+    @Override
+    @EntityGraph(attributePaths = {"location", "workOrder"})
+    List<Request> findAll();
 
     List<Request> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 
     List<Request> findByCreatedAtBetweenOrUpdatedAtBetween(
-            LocalDateTime createdStart,
-            LocalDateTime createdEnd,
-            LocalDateTime updatedStart,
-            LocalDateTime updatedEnd
+            LocalDateTime start1,
+            LocalDateTime end1,
+            LocalDateTime start2,
+            LocalDateTime end2
     );
 }

@@ -19,7 +19,6 @@ public abstract class BasicInfo {
     @Column(name = "email", length = 150)
     private String email;
 
-    // ===== Getter & Setter =====
     public String getName() {
         return name;
     }
@@ -53,7 +52,6 @@ public abstract class BasicInfo {
         this.email = trim(email);
     }
 
-    // ===== Utils =====
     protected String trim(String value) {
         if (value == null) return null;
         String t = value.trim();

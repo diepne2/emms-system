@@ -8,7 +8,6 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,50 +35,56 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        if (!enableCors) {
-            return;
-        }
 
-        List<String> allowedOrigins = new ArrayList<>();
+        if (!enableCors) return;
+
+        List<String> origins = new ArrayList<>();
 
         if (StringUtils.hasText(frontendUrl)) {
-            allowedOrigins.add(frontendUrl.trim());
-        }
-        if (StringUtils.hasText(frontendHomeUrl)
-                && !frontendHomeUrl.trim().equals(frontendUrl.trim())) {
-            allowedOrigins.add(frontendHomeUrl.trim());
+            origins.add(frontendUrl.trim());
         }
 
-        registry.addMapping("/api/**")
-                .allowedOrigins(allowedOrigins.toArray(new String[0]))
+        if (StringUtils.hasText(frontendHomeUrl)
+                && !frontendHomeUrl.trim().equals(frontendUrl.trim())) {
+            origins.add(frontendHomeUrl.trim());
+        }
+
+        if (origins.isEmpty()) {
+            origins.add("http://localhost:5173");
+        }
+
+        registry.addMapping("/**")
+                .allowedOrigins(origins.toArray(new String[0]))
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .exposedHeaders("Authorization")
                 .allowCredentials(true)
                 .maxAge(MAX_AGE_SECS);
 
-        registry.addMapping("/ws/**")
-                .allowedOrigins(allowedOrigins.toArray(new String[0]))
-                .allowedMethods("GET", "POST", "OPTIONS")
+
+        registry.addMapping("/uploads/**")
+                .allowedOrigins(origins.toArray(new String[0]))
+                .allowedMethods("GET")
                 .allowedHeaders("*")
-                .allowCredentials(true)
-                .maxAge(MAX_AGE_SECS);
+                .allowCredentials(true);
     }
 
     @Override
-    public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
-        argumentResolvers.add(currentUserResolver);
+    public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+        resolvers.add(currentUserResolver);
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/images/**")
-                .addResourceLocations(
-                        "classpath:/static/images/",
-                        "file:/app/static/images/"
-                );
+        String uploadPath = java.nio.file.Paths.get("uploads")
+            .toAbsolutePath()
+            .normalize()
+            .toUri()
+            .toString();
 
-        registry.addResourceHandler("/config/**")
-                .addResourceLocations("file:/app/static/config/");
+    System.out.println("UPLOAD PATH = " + uploadPath);
+
+    registry.addResourceHandler("/uploads/**")
+            .addResourceLocations(uploadPath);
     }
 }

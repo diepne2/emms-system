@@ -2,19 +2,41 @@ package com.emms.backend.mapper;
 
 import com.emms.backend.dto.wo_history.WorkOrderHistoryShowDTO;
 import com.emms.backend.entity.User;
+import com.emms.backend.entity.WorkOrder;
 import com.emms.backend.entity.WorkOrderHistory;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface WorkOrderHistoryMapper {
+@Component
+public class WorkOrderHistoryMapper {
 
-    @Mapping(target = "workOrderId", source = "workOrder.id")
-    @Mapping(target = "createdBy", source = "createdBy")
-    @Mapping(target = "updatedBy", source = "updatedBy")
-    WorkOrderHistoryShowDTO toShowDto(WorkOrderHistory model);
+    public WorkOrderHistoryShowDTO toShowDto(WorkOrderHistory entity) {
+        if (entity == null) {
+            return null;
+        }
 
-    default String map(User user) {
-        return user == null ? null : user.getUsername();
+        WorkOrderHistoryShowDTO dto = new WorkOrderHistoryShowDTO();
+        dto.setId(entity.getId());
+        dto.setVersionNo(entity.getVersionNo());
+        dto.setVersionName(entity.getVersionName());
+        dto.setNote(entity.getNote());
+        dto.setSnapshotJson(entity.getSnapshotJson());
+        dto.setCreatedAt(entity.getCreatedAt());
+
+        WorkOrder workOrder = entity.getWorkOrder();
+        if (workOrder != null) {
+            dto.setWorkOrderId(workOrder.getId());
+        }
+
+        User savedBy = entity.getSavedBy();
+        if (savedBy != null) {
+            dto.setSavedById(savedBy.getUserId());
+            dto.setSavedByName(
+                    savedBy.getFullName() != null && !savedBy.getFullName().isBlank()
+                            ? savedBy.getFullName().trim()
+                            : savedBy.getUsername()
+            );
+        }
+
+        return dto;
     }
 }

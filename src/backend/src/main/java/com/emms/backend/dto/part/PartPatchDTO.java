@@ -7,13 +7,11 @@ import java.math.BigDecimal;
 @Schema(description = "DTO dùng để cập nhật một phần thông tin vật tư (Part)")
 public class PartPatchDTO {
 
-    @Schema(description = "Tên vật tư")
     private String name;
 
-    @Schema(description = "Giá vật tư")
+
     private BigDecimal cost;
 
-    @Schema(description = "Danh mục vật tư")
     private String category;
 
     @Schema(description = "Có phải vật tư tiêu hao hay không")
@@ -31,10 +29,8 @@ public class PartPatchDTO {
     @Schema(description = "Giá nhập gần nhất")
     private BigDecimal lastPrice;
 
-    @Schema(description = "Tên tài sản liên quan")
     private String assetName;
 
-    @Schema(description = "Tên vị trí lưu trữ")
     private String locationName;
 
     @Schema(description = "Số lượng tồn kho")

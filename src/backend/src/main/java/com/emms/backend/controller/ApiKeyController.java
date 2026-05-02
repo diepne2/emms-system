@@ -34,7 +34,7 @@ public class ApiKeyController {
     }
 
     @PostMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<Page<ApiKeyResponse>> search(
             @Parameter(description = "API key search criteria")
             @RequestBody(required = false) ApiKeyCriteria criteria,
@@ -46,7 +46,7 @@ public class ApiKeyController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<List<ApiKeyResponse>> getAll(
             @Parameter(hidden = true) @CurrentUser User user
     ) {
@@ -54,7 +54,7 @@ public class ApiKeyController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<ApiKeyCreateResponse> create(
             @Parameter(description = "API key to create")
             @Valid @RequestBody ApiKeyCreateRequest request,
@@ -65,7 +65,7 @@ public class ApiKeyController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<ApiKeyResponse> getById(
             @PathVariable Long id,
             @Parameter(hidden = true) @CurrentUser User user
@@ -76,7 +76,7 @@ public class ApiKeyController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<ApiKeyResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody ApiKeyUpdateRequest request,
@@ -87,7 +87,7 @@ public class ApiKeyController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<SuccessResponse> delete(
             @PathVariable Long id,
             @Parameter(hidden = true) @CurrentUser User user

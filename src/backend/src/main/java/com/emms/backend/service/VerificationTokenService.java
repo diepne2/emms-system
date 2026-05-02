@@ -47,26 +47,26 @@ public class VerificationTokenService {
     @Transactional(readOnly = true)
     private VerificationToken verifyToken(String token) {
         if (token == null || token.trim().isEmpty()) {
-            throw new CustomException("Token is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Token thì bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         VerificationToken verificationToken =
                 verificationTokenRepository.findVerificationTokenEntityByToken(token.trim());
 
         if (verificationToken == null) {
-            throw new CustomException("Invalid activation link", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Liên kết kích hoạt không hợp lệ", HttpStatus.BAD_REQUEST);
         }
 
         if (verificationToken.getExpiryDate() == null) {
-            throw new CustomException("Token expiry date is missing", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Ngày hết hạn của token bị thiếu", HttpStatus.BAD_REQUEST);
         }
 
         if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new CustomException("Expired activation link", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Liên kết kích hoạt đã hết hạn", HttpStatus.BAD_REQUEST);
         }
 
         if (verificationToken.getUser() == null) {
-            throw new CustomException("Token does not belong to any user", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Token không thuộc về bất kỳ người dùng nào", HttpStatus.BAD_REQUEST);
         }
 
         return verificationToken;
@@ -88,7 +88,7 @@ public class VerificationTokenService {
         User user = verificationToken.getUser();
 
         if (verificationToken.getPayload() == null || verificationToken.getPayload().trim().isEmpty()) {
-            throw new CustomException("Reset password payload is missing", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Payload để đặt lại mật khẩu không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         user.setPassword(passwordEncoder.encode(verificationToken.getPayload()));

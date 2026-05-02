@@ -8,26 +8,20 @@ import jakarta.validation.constraints.PositiveOrZero;
 @Schema(description = "DTO for email attachment data")
 public class EmailAttachmentDTO {
 
-    @NotBlank(message = "File name must not be blank")
-    @Schema(description = "Original attachment file name", example = "maintenance-report.pdf")
+    @NotBlank
     private String fileName;
 
-    @NotNull(message = "Attachment data must not be null")
-    @Schema(description = "Attachment binary content")
+    @NotNull
     private byte[] data;
 
-    @NotBlank(message = "Content type must not be blank")
-    @Schema(description = "Attachment MIME type", example = "application/pdf")
+    @NotBlank
     private String contentType;
 
-    @PositiveOrZero(message = "File size must be greater than or equal to 0")
-    @Schema(description = "Attachment size in bytes", example = "245760")
     private Long size;
 
-    @Schema(description = "Whether attachment is inline in email body", example = "false")
+
     private boolean inline = false;
 
-    @Schema(description = "Content ID used for inline attachments", example = "logo_cid")
     private String contentId;
 
     public EmailAttachmentDTO() {

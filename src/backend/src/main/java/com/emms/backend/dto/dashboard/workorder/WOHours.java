@@ -11,7 +11,6 @@ public class WOHours {
     @Schema(description = "Thời gian thực tế (giờ)")
     private Double actualHours;
 
-    // ===== Constructor =====
 
     public WOHours() {
     }
@@ -21,7 +20,6 @@ public class WOHours {
         this.actualHours = actualHours;
     }
 
-    // ===== Getter & Setter =====
 
     public Double getEstimatedHours() {
         return estimatedHours;
@@ -39,7 +37,6 @@ public class WOHours {
         this.actualHours = actualHours;
     }
 
-    // ===== toString =====
 
     @Override
     public String toString() {

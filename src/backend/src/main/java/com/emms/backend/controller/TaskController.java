@@ -23,20 +23,14 @@ public class TaskController {
         this.taskService = taskService;
     }
 
-    /**
-     * Lấy tất cả task
-     */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'QUANLYKYTHUAT', 'NHANVIENKYTHUAT', 'NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<Collection<Task>> getAll() {
         return ResponseEntity.ok(taskService.getAll());
     }
 
-    /**
-     * Lấy task theo id
-     */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'QUANLYKYTHUAT', 'NHANVIENKYTHUAT', 'NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<Task> getById(@PathVariable("id") Long id) {
         return taskService.findById(id)
                 .map(ResponseEntity::ok)
@@ -45,29 +39,21 @@ public class TaskController {
                 ));
     }
 
-    /**
-     * Lấy danh sách task theo work order
-     */
     @GetMapping("/work-order/{workOrderId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'QUANLYKYTHUAT', 'NHANVIENKYTHUAT', 'NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<List<Task>> getByWorkOrder(@PathVariable Long workOrderId) {
         return ResponseEntity.ok(taskService.findByWorkOrder(workOrderId));
     }
 
-    /**
-     * Lấy danh sách task theo preventive maintenance
-     */
+
     @GetMapping("/preventive-maintenance/{preventiveMaintenanceId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'QUANLYKYTHUAT', 'NHANVIENKYTHUAT', 'NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<List<Task>> getByPreventiveMaintenance(@PathVariable Long preventiveMaintenanceId) {
         return ResponseEntity.ok(taskService.findByPreventiveMaintenance(preventiveMaintenanceId));
     }
 
-    /**
-     * Cập nhật task
-     */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<Task> update(
             @PathVariable("id") Long id,
             @Valid @RequestBody TaskDTO dto
@@ -75,11 +61,8 @@ public class TaskController {
         return ResponseEntity.ok(taskService.update(id, dto));
     }
 
-    /**
-     * Xóa task
-     */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<SuccessResponse> delete(@PathVariable("id") Long id) {
         taskService.delete(id);
         return ResponseEntity.ok(new SuccessResponse(true, "Deleted successfully"));

@@ -13,8 +13,6 @@ public class DowntimesByAsset extends AssetSummaryDTO {
     @Schema(description = "Tỷ lệ downtime (%)")
     private Double downtimePercentage;
 
-    // ===== Constructor =====
-
     public DowntimesByAsset() {
     }
 
@@ -22,8 +20,6 @@ public class DowntimesByAsset extends AssetSummaryDTO {
         this.downtimeCount = downtimeCount;
         this.downtimePercentage = downtimePercentage;
     }
-
-    // ===== Getter & Setter =====
 
     public Integer getDowntimeCount() {
         return downtimeCount;

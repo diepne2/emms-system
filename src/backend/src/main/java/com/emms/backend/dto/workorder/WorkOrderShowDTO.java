@@ -6,38 +6,24 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
-@Schema(description = "Work order DTO for displaying work order details in API responses")
+@Schema(description = "DTO cho việc hiển thị chi tiết đơn hàng công việc trong phản hồi API")
 public class WorkOrderShowDTO extends WorkOrderBaseShowDTO {
 
-    @Schema(description = "ID công việc")
     private Long id;
-
-    @Schema(description = "Trạng thái công việc")
     private WorkOrderStatus status;
-
-    @Schema(description = "Người hoàn thành")
     private String completedBy;
-
-    @Schema(description = "Thời điểm hoàn thành")
     private LocalDateTime completedOn;
-
-    @Schema(description = "Đã lưu trữ hay chưa")
     private Boolean archived;
-
-    @Schema(description = "Phản hồi")
     private String feedback;
-
-    @Schema(description = "Ngày tạo nghiệp vụ")
     private LocalDateTime dateCreated;
-
-    @Schema(description = "Ngày tạo bản ghi")
     private LocalDateTime createdAt;
-
-    @Schema(description = "Ngày cập nhật gần nhất")
     private LocalDateTime updatedAt;
 
-    public WorkOrderShowDTO() {
-    }
+    private Long assignedToId;
+    private Long assetId;
+    private String assetName;
+
+    public WorkOrderShowDTO() {}
 
     public Long getId() {
         return id;
@@ -111,11 +97,27 @@ public class WorkOrderShowDTO extends WorkOrderBaseShowDTO {
         this.updatedAt = updatedAt;
     }
 
-    private String trim(String value) {
-        if (value == null) {
-            return null;
-        }
-        String t = value.trim();
-        return t.isEmpty() ? null : t;
+    public Long getAssignedToId() {
+        return assignedToId;
+    }
+
+    public void setAssignedToId(Long assignedToId) {
+        this.assignedToId = assignedToId;
+    }
+
+    public Long getAssetId() {
+        return assetId;
+    }
+
+    public void setAssetId(Long assetId) {
+        this.assetId = assetId;
+    }
+
+    public String getAssetName() {
+        return assetName;
+    }
+
+    public void setAssetName(String assetName) {
+        this.assetName = trim(assetName);
     }
 }

@@ -37,13 +37,13 @@ public class TaskBaseService {
     public TaskBase create(TaskBaseDTO dto) {
 
         if (dto == null) {
-            throw new CustomException("DTO must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("DTO bắt buộc không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         TaskBase entity = mapper.fromDto(dto);
 
         if (dto.getAssetId() != null) {
-            entity.setAsset(assetService.findEntityById(dto.getAssetId()));
+            entity.setAsset(assetService.getById(dto.getAssetId()));
         }
 
         if (dto.getCreatedById() != null) {
@@ -63,12 +63,12 @@ public class TaskBaseService {
     public TaskBase update(Long id, TaskBasePatchDTO dto) {
 
         TaskBase existing = repo.findById(id)
-                .orElseThrow(() -> new CustomException("Not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy tác vụ", HttpStatus.NOT_FOUND));
 
         mapper.update(existing, dto);
 
         if (dto.getAssetId() != null) {
-            existing.setAsset(assetService.findEntityById(dto.getAssetId()));
+            existing.setAsset(assetService.getById(dto.getAssetId()));
         }
 
         TaskBase saved = repo.saveAndFlush(existing);
@@ -79,7 +79,7 @@ public class TaskBaseService {
 
     public TaskBase findById(Long id) {
         return repo.findById(id)
-                .orElseThrow(() -> new CustomException("Not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy tác vụ", HttpStatus.NOT_FOUND));
     }
 
     public Collection<TaskBase> getAll() {

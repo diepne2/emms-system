@@ -1,22 +1,13 @@
 package com.emms.backend.controller.dashboard;
 
 import com.emms.backend.dto.SuccessResponse;
-import com.emms.backend.dto.dashboard.asset.AssetOverview;
-import com.emms.backend.dto.dashboard.asset.AssetStats;
-import com.emms.backend.dto.dashboard.asset.DowntimesByAsset;
-import com.emms.backend.dto.dashboard.asset.DowntimesByDate;
-import com.emms.backend.dto.dashboard.asset.DowntimesMeantimeByDate;
-import com.emms.backend.dto.dashboard.asset.Meantimes;
-import com.emms.backend.dto.dashboard.asset.MTBFByAsset;
+import com.emms.backend.dto.dashboard.asset.*;
 import com.emms.backend.service.dashboard.AssetAnalysisService;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -32,77 +23,92 @@ public class AssetAnalysisController {
     }
 
     @GetMapping("/overview")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getOverview(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(required = false) Long assetId
+            @RequestParam(required = false) String assetName
     ) {
-        AssetOverview data = assetAnalysisService.getAssetOverview(fromDate, toDate, assetId);
-        return ResponseEntity.ok(new SuccessResponse(true, "Asset overview fetched successfully", data));
+        AssetOverview data = assetAnalysisService.getAssetOverview(fromDate, toDate, assetName);
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê thiết bị đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getStats(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(required = false) Long assetId
+            @RequestParam(required = false) String assetName
     ) {
-        AssetStats data = assetAnalysisService.getAssetStats(fromDate, toDate, assetId);
-        return ResponseEntity.ok(new SuccessResponse(true, "Asset stats fetched successfully", data));
+        AssetStats data = assetAnalysisService.getAssetStats(fromDate, toDate, assetName);
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê thiết bị đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/downtimes/by-asset")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getDowntimesByAsset(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
         List<DowntimesByAsset> data = assetAnalysisService.getDowntimesByAsset(fromDate, toDate);
-        return ResponseEntity.ok(new SuccessResponse(true, "Downtimes by asset fetched successfully", data));
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê thời gian ngừng hoạt động theo thiết bị đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/downtimes/by-date")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getDowntimesByDate(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(required = false) Long assetId
+            @RequestParam(required = false) String assetName
     ) {
-        List<DowntimesByDate> data = assetAnalysisService.getDowntimesByDate(fromDate, toDate, assetId);
-        return ResponseEntity.ok(new SuccessResponse(true, "Downtimes by date fetched successfully", data));
+        List<DowntimesByDate> data = assetAnalysisService.getDowntimesByDate(fromDate, toDate, assetName);
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê thời gian ngừng hoạt động theo ngày đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/downtimes/meantime-by-date")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getDowntimesMeantimeByDate(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(required = false) Long assetId
+            @RequestParam(required = false) String assetName
     ) {
-        List<DowntimesMeantimeByDate> data = assetAnalysisService.getDowntimesMeantimeByDate(fromDate, toDate, assetId);
-        return ResponseEntity.ok(new SuccessResponse(true, "Downtime meantime by date fetched successfully", data));
+        List<DowntimesMeantimeByDate> data =
+                assetAnalysisService.getDowntimesMeantimeByDate(fromDate, toDate, assetName);
+
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê thời gian ngừng hoạt động trung bình theo ngày đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/meantimes")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getMeantimes(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(required = false) Long assetId
+            @RequestParam(required = false) String assetName
     ) {
-        Meantimes data = assetAnalysisService.getMeantimes(fromDate, toDate, assetId);
-        return ResponseEntity.ok(new SuccessResponse(true, "Asset meantimes fetched successfully", data));
+        Meantimes data = assetAnalysisService.getMeantimes(fromDate, toDate, assetName);
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê thời gian hoạt động trung bình của thiết bị đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/mtbf/by-asset")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getMtbfByAsset(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
         List<MTBFByAsset> data = assetAnalysisService.getMtbfByAsset(fromDate, toDate);
-        return ResponseEntity.ok(new SuccessResponse(true, "MTBF by asset fetched successfully", data));
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê MTBF theo thiết bị đã được truy xuất thành công.", data));
     }
+
+
+
+    @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<SuccessResponse> getAssetOptions() {
+        return ResponseEntity.ok(
+            new SuccessResponse(
+            true,
+            "Asset options fetched successfully",
+            assetAnalysisService.getAssetOptions()
+        )
+    );}
 }

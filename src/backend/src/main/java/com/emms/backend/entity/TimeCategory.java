@@ -20,7 +20,7 @@ public class TimeCategory {
     private String name;
 
     @Column(name = "hourly_rate", nullable = false)
-    private Long hourlyRate = 0L;
+    private Double hourlyRate = 0.0;
 
     public TimeCategory() {
     }
@@ -41,11 +41,11 @@ public class TimeCategory {
         this.name = name;
     }
 
-    public Long getHourlyRate() {
+    public Double getHourlyRate() {
         return hourlyRate;
     }
 
-    public void setHourlyRate(Long hourlyRate) {
-        this.hourlyRate = hourlyRate == null ? 0L : hourlyRate;
+    public void setHourlyRate(Double hourlyRate) {
+        this.hourlyRate = hourlyRate == null ? 0.0 : hourlyRate;
     }
 }

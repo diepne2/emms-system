@@ -30,7 +30,7 @@ public class TaskOptionService {
         validatePatchPayload(id, dto);
 
         TaskOption savedTaskOption = taskOptionRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Task option not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy tùy chọn tác vụ", HttpStatus.NOT_FOUND));
 
         taskOptionMapper.updateTaskOption(savedTaskOption, dto);
         return taskOptionRepository.save(savedTaskOption);
@@ -43,7 +43,7 @@ public class TaskOptionService {
 
     public void delete(Long id) {
         TaskOption existing = taskOptionRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Task option not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy tùy chọn tác vụ", HttpStatus.NOT_FOUND));
 
         taskOptionRepository.delete(existing);
     }
@@ -56,22 +56,22 @@ public class TaskOptionService {
     @Transactional(readOnly = true)
     public TaskOption findEntityById(Long id) {
         return taskOptionRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Task option not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Không tìm thấy tùy chọn tác vụ", HttpStatus.NOT_FOUND));
     }
 
     private void validateCreatePayload(TaskOption taskOption) {
         if (taskOption == null) {
-            throw new CustomException("Task option payload must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu tùy chọn tác vụ không được để trống", HttpStatus.BAD_REQUEST);
         }
     }
 
     private void validatePatchPayload(Long pathId, TaskOptionPatchDTO dto) {
         if (dto == null) {
-            throw new CustomException("Task option payload must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu tùy chọn tác vụ không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         if (dto.getId() != null && !dto.getId().equals(pathId)) {
-            throw new CustomException("Task option ID mismatch", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID tùy chọn tác vụ không khớp", HttpStatus.BAD_REQUEST);
         }
     }
 }

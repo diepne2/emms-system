@@ -136,7 +136,7 @@ public class MinioService implements StorageService {
         checkIfConfigured();
 
         if (file == null || isBlank(file.getPath())) {
-            throw new CustomException("File path is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Địa chỉ file là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         return generateSignedUrl(file.getPath(), expirationMinutes);
@@ -146,11 +146,11 @@ public class MinioService implements StorageService {
         checkIfConfigured();
 
         if (isBlank(filePath)) {
-            throw new CustomException("File path is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Địa chỉ file là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         if (expirationMinutes <= 0) {
-            throw new CustomException("Expiration minutes must be greater than 0", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Thời gian hết hạn phải lớn hơn 0", HttpStatus.BAD_REQUEST);
         }
 
         try {
@@ -173,7 +173,7 @@ public class MinioService implements StorageService {
         checkIfConfigured();
 
         if (isBlank(filePath)) {
-            throw new CustomException("File path is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Địa chỉ file là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         try (InputStream inputStream = minioClient.getObject(
@@ -201,7 +201,7 @@ public class MinioService implements StorageService {
         checkIfConfigured();
 
         if (file == null || isBlank(file.getPath())) {
-            throw new CustomException("File path is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Địa chỉ file là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         return download(file.getPath());

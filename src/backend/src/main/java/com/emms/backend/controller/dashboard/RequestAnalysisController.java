@@ -11,10 +11,7 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,52 +27,52 @@ public class RequestAnalysisController {
     }
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getRequestStats(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
         RequestStats data = requestAnalysisService.getRequestStats(fromDate, toDate);
-        return ResponseEntity.ok(new SuccessResponse(true, "Request stats fetched successfully", data));
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê yêu cầu đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/by-category")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getCountByCategory(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
         List<CountByCategory> data = requestAnalysisService.getCountByCategory(fromDate, toDate);
-        return ResponseEntity.ok(new SuccessResponse(true, "Request count by category fetched successfully", data));
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê yêu cầu theo danh mục đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/resolved-by-date")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getRequestsResolvedByDate(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
         List<RequestsResolvedByDate> data = requestAnalysisService.getRequestsResolvedByDate(fromDate, toDate);
-        return ResponseEntity.ok(new SuccessResponse(true, "Requests resolved by date fetched successfully", data));
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê yêu cầu đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/by-month")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getRequestsByMonth(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
         List<RequestsByMonth> data = requestAnalysisService.getRequestsByMonth(fromDate, toDate);
-        return ResponseEntity.ok(new SuccessResponse(true, "Requests by month fetched successfully", data));
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê yêu cầu theo tháng đã được truy xuất thành công.", data));
     }
 
     @GetMapping("/by-priority")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SuccessResponse> getRequestStatsByPriority(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
         RequestStatsByPriority data = requestAnalysisService.getRequestStatsByPriority(fromDate, toDate);
-        return ResponseEntity.ok(new SuccessResponse(true, "Request stats by priority fetched successfully", data));
+        return ResponseEntity.ok(new SuccessResponse(true, "Thống kê yêu cầu theo mức độ ưu tiên đã được truy xuất thành công.", data));
     }
 }

@@ -20,6 +20,8 @@ public interface PreventiveMaintenanceRepository
 
     Optional<PreventiveMaintenance> findByCodeIgnoreCase(String code);
 
+    List<PreventiveMaintenance> findByAsset_IdAndActiveTrue(Long assetId);
+
     Collection<PreventiveMaintenance> findByActive(boolean active);
 
     Collection<PreventiveMaintenance> findByDemo(boolean demo);

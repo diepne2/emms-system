@@ -4,9 +4,16 @@ import com.emms.backend.entity.WorkOrder;
 import com.emms.backend.entity.WorkOrderHistory;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 
 public interface WorkOrderHistoryRepository extends JpaRepository<WorkOrderHistory, Long> {
 
-    Collection<WorkOrderHistory> findByWorkOrder(WorkOrder workOrder);
+    List<WorkOrderHistory> findByWorkOrderOrderByVersionNoDescCreatedAtDesc(WorkOrder workOrder);
+
+    Optional<WorkOrderHistory> findTopByWorkOrderOrderByVersionNoDesc(WorkOrder workOrder);
+
+    List<WorkOrderHistory> findByWorkOrder_StatusInOrderByCreatedAtDesc(
+            List<WorkOrder.WorkOrderStatus> statuses
+    );
 }

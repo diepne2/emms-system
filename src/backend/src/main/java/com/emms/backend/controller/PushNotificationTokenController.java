@@ -30,7 +30,7 @@ public class PushNotificationTokenController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<PushNotificationToken> getMyToken(HttpServletRequest req) {
         User user = requireUser(req);
         requirePermission(user, PermissionEntity.NOTIFICATION_VIEW);
@@ -41,7 +41,7 @@ public class PushNotificationTokenController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<PushNotificationToken> createOrUpsert(
             @Valid @RequestBody PushNotificationToken token,
             HttpServletRequest req
@@ -60,7 +60,7 @@ public class PushNotificationTokenController {
     }
 
     @PutMapping("/me")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<PushNotificationToken> updateMyToken(
             @Valid @RequestBody PushNotificationToken token,
             HttpServletRequest req
@@ -81,7 +81,7 @@ public class PushNotificationTokenController {
     }
 
     @PutMapping("/me/deactivate")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<SuccessResponse> deactivateMyToken(HttpServletRequest req) {
         User user = requireUser(req);
         requirePermission(user, PermissionEntity.NOTIFICATION_VIEW);
@@ -91,7 +91,7 @@ public class PushNotificationTokenController {
     }
 
     @DeleteMapping("/me")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<SuccessResponse> deleteMyToken(HttpServletRequest req) {
         User user = requireUser(req);
         requirePermission(user, PermissionEntity.NOTIFICATION_VIEW);

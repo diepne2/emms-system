@@ -11,8 +11,8 @@ import com.emms.backend.service.UserService;
 import com.emms.backend.service.WorkOrderService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,7 +35,7 @@ public class WorkOrderController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<WorkOrderShowDTO> create(
             @Parameter(description = "Work order data to create")
             @Valid @RequestBody WorkOrderPostDTO dto
@@ -44,23 +44,34 @@ public class WorkOrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
+
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
     public ResponseEntity<List<WorkOrderShowDTO>> getAll() {
         return ResponseEntity.ok(workOrderService.getAll());
     }
 
+
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
+    public ResponseEntity<List<WorkOrderShowDTO>> getMyWorkOrders(HttpServletRequest request) {
+        User currentUser = userService.whoami(request);
+        return ResponseEntity.ok(workOrderService.getWorkOrdersForUser(currentUser));
+    }
+
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT','NHANVIENVANHANH')")
-    public ResponseEntity<WorkOrderShowDTO> getById(@PathVariable Long id,
-                                                    HttpServletRequest request) {
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN','OPERATOR')")
+    public ResponseEntity<WorkOrderShowDTO> getById(
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
         User currentUser = userService.whoami(request);
         workOrderService.checkAccessToWorkOrderId(id, currentUser);
         return ResponseEntity.ok(workOrderService.getById(id));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<WorkOrderShowDTO> update(
             @PathVariable Long id,
             @Valid @RequestBody WorkOrderDTO dto,
@@ -74,14 +85,14 @@ public class WorkOrderController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER','TECHNICIAN')")
     public ResponseEntity<WorkOrderShowDTO> changeStatus(
             @PathVariable Long id,
             @Valid @RequestBody WorkOrderChangeStatusDTO dto,
             HttpServletRequest request
     ) {
         User currentUser = userService.whoami(request);
-        workOrderService.checkAccessToWorkOrderId(id, currentUser);
+        workOrderService.checkCanChangeStatus(id, currentUser, dto.getStatus());
 
         if (dto.getStatus() == null) {
             throw new CustomException("Status must not be null", HttpStatus.BAD_REQUEST);
@@ -97,7 +108,7 @@ public class WorkOrderController {
     }
 
     @PatchMapping("/{id}/complete")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<WorkOrderShowDTO> markCompleted(
             @PathVariable Long id,
             @RequestParam Long completedByUserId,
@@ -112,7 +123,7 @@ public class WorkOrderController {
     }
 
     @PatchMapping("/{id}/archive")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
     public ResponseEntity<WorkOrderShowDTO> archive(
             @PathVariable Long id,
             @RequestParam boolean archived,
@@ -126,9 +137,11 @@ public class WorkOrderController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT')")
-    public ResponseEntity<Void> delete(@PathVariable Long id,
-                                       HttpServletRequest request) {
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
         User currentUser = userService.whoami(request);
         workOrderService.checkAccessToWorkOrderId(id, currentUser);
 
@@ -137,11 +150,15 @@ public class WorkOrderController {
     }
 
     @GetMapping("/{id}/entity")
-    @PreAuthorize("hasAnyRole('ADMIN','QUANLYKYTHUAT','NHANVIENKYTHUAT')")
-    public ResponseEntity<WorkOrder> getEntityById(@PathVariable Long id,
-                                                   HttpServletRequest request) {
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
+    public ResponseEntity<WorkOrder> getEntityById(
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
         User currentUser = userService.whoami(request);
         WorkOrder entity = workOrderService.checkAccessToWorkOrderId(id, currentUser);
         return ResponseEntity.ok(entity);
     }
+
+    
 }

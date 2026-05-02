@@ -40,6 +40,7 @@ public class Meter {
 
     @Column(name = "demo", nullable = false)
     private boolean demo = false;
+     
 
     @ManyToMany
     @JoinTable(

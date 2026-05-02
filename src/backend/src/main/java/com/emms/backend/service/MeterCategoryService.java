@@ -23,18 +23,18 @@ public class MeterCategoryService {
 
     public MeterCategory create(MeterCategory meterCategory) {
         if (meterCategory == null) {
-            throw new CustomException("Meter category must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu loại công tơ không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         if (meterCategory.getName() == null || meterCategory.getName().isBlank()) {
-            throw new CustomException("Meter category name must not be blank", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Tên loại công tơ không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         Optional<MeterCategory> categoryWithSameName =
                 meterCategoryRepository.findByNameIgnoreCase(meterCategory.getName());
 
         if (categoryWithSameName.isPresent()) {
-            throw new CustomException("Meter category with same name already exists", HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomException("Loại công tơ với tên đã tồn tại", HttpStatus.NOT_ACCEPTABLE);
         }
 
         return meterCategoryRepository.save(meterCategory);
@@ -42,15 +42,15 @@ public class MeterCategoryService {
 
     public MeterCategory update(Long id, CategoryPatchDTO meterCategoryDto) {
         if (id == null) {
-            throw new CustomException("Meter category id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID loại công tơ không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         if (meterCategoryDto == null) {
-            throw new CustomException("Meter category patch data must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu cập nhật loại công tơ không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         MeterCategory savedMeterCategory = meterCategoryRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Meter category not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Loại công tơ không tìm thấy", HttpStatus.NOT_FOUND));
 
         if (meterCategoryDto.getName() != null && !meterCategoryDto.getName().isBlank()) {
             Optional<MeterCategory> categoryWithSameName =
@@ -59,7 +59,7 @@ public class MeterCategoryService {
             if (categoryWithSameName.isPresent()
                     && !categoryWithSameName.get().getMeterCategoryId().equals(id)) {
                 throw new CustomException(
-                        "Meter category with same name already exists",
+                        "Loại công tơ với tên đã tồn tại",
                         HttpStatus.NOT_ACCEPTABLE
                 );
             }
@@ -90,11 +90,11 @@ public class MeterCategoryService {
     @Transactional(readOnly = true)
     public MeterCategory findEntityById(Long id) {
         if (id == null) {
-            throw new CustomException("Meter category id must not be null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID loại công tơ không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         return meterCategoryRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Meter category not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Loại công tơ không tìm thấy", HttpStatus.NOT_FOUND));
     }
 
     @Transactional(readOnly = true)

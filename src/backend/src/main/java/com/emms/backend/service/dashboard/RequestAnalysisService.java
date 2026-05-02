@@ -6,13 +6,11 @@ import com.emms.backend.dto.dashboard.request.RequestStatsByPriority;
 import com.emms.backend.dto.dashboard.request.RequestsByMonth;
 import com.emms.backend.dto.dashboard.request.RequestsResolvedByDate;
 import com.emms.backend.entity.Request;
-import com.emms.backend.entity.RequestPortal;
+import com.emms.backend.entity.Request.Status;
 import com.emms.backend.repository.RequestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -48,19 +46,19 @@ public class RequestAnalysisService {
         int resolvedItems = 0;
 
         for (Request request : requests) {
-            String status = getStatusName(request);
+            Status status = request.getStatus();
 
-            if ("APPROVED".equals(status) || "ACCEPTED".equals(status) || "RESOLVED".equals(status)) {
+            if (isApproved(status)) {
                 approvedCount++;
-            } else if ("PENDING".equals(status) || "OPEN".equals(status) || "WAITING".equals(status)) {
+            } else if (isPending(status)) {
                 pendingCount++;
-            } else if ("CANCELLED".equals(status) || "REJECTED".equals(status)) {
+            } else if (isCancelled(status) || request.isCancelled()) {
                 cancelledCount++;
             }
 
             if (request.getCreatedAt() != null
                     && request.getUpdatedAt() != null
-                    && ("APPROVED".equals(status) || "ACCEPTED".equals(status) || "RESOLVED".equals(status))) {
+                    && isApproved(status)) {
 
                 long hours = Duration.between(request.getCreatedAt(), request.getUpdatedAt()).toHours();
                 if (hours >= 0) {
@@ -83,10 +81,6 @@ public class RequestAnalysisService {
         return dto;
     }
 
-    /**
-     * Giữ tên method + DTO cũ để không ảnh hưởng API hiện tại,
-     * nhưng dữ liệu thực tế được group theo RequestPortal.
-     */
     public List<CountByCategory> getCountByCategory(LocalDate fromDate, LocalDate toDate) {
         validateDateRange(fromDate, toDate);
 
@@ -98,20 +92,19 @@ public class RequestAnalysisService {
         Map<Long, CountByCategory> countMap = new LinkedHashMap<>();
 
         for (Request request : requests) {
-            RequestPortal portal = request.getRequestPortal();
-            if (portal == null || portal.getRequestPortalId() == null) {
+            if (request.getLocation() == null || request.getLocation().getId() == null) {
                 continue;
             }
 
-            Long portalId = portal.getRequestPortalId();
-            CountByCategory dto = countMap.get(portalId);
+            Long locationId = request.getLocation().getId();
 
+            CountByCategory dto = countMap.get(locationId);
             if (dto == null) {
                 dto = new CountByCategory();
-                dto.setId(portalId);
-                dto.setName(portal.getTitle());
+                dto.setId(locationId);
+                dto.setName(request.getLocation().getName());
                 dto.setRequestCount(0);
-                countMap.put(portalId, dto);
+                countMap.put(locationId, dto);
             }
 
             dto.setRequestCount(dto.getRequestCount() + 1);
@@ -132,39 +125,32 @@ public class RequestAnalysisService {
                 toDate.plusDays(1).atStartOfDay()
         );
 
-        Map<LocalDate, Integer> receivedMap = new LinkedHashMap<>();
-        Map<LocalDate, Integer> resolvedMap = new LinkedHashMap<>();
-
-        for (LocalDate date : enumerateDates(fromDate, toDate)) {
-            receivedMap.put(date, 0);
-            resolvedMap.put(date, 0);
-        }
+        Map<LocalDate, Integer> receivedMap = initDateMap(fromDate, toDate);
+        Map<LocalDate, Integer> resolvedMap = initDateMap(fromDate, toDate);
 
         for (Request request : requests) {
             if (request.getCreatedAt() != null) {
                 LocalDate createdDate = request.getCreatedAt().toLocalDate();
-                if (!createdDate.isBefore(fromDate) && !createdDate.isAfter(toDate)) {
-                    receivedMap.put(createdDate, receivedMap.getOrDefault(createdDate, 0) + 1);
+                if (receivedMap.containsKey(createdDate)) {
+                    receivedMap.put(createdDate, receivedMap.get(createdDate) + 1);
                 }
             }
 
-            String status = getStatusName(request);
-            if (request.getUpdatedAt() != null
-                    && ("APPROVED".equals(status) || "ACCEPTED".equals(status) || "RESOLVED".equals(status))) {
-
+            if (request.getUpdatedAt() != null && isApproved(request.getStatus())) {
                 LocalDate resolvedDate = request.getUpdatedAt().toLocalDate();
-                if (!resolvedDate.isBefore(fromDate) && !resolvedDate.isAfter(toDate)) {
-                    resolvedMap.put(resolvedDate, resolvedMap.getOrDefault(resolvedDate, 0) + 1);
+                if (resolvedMap.containsKey(resolvedDate)) {
+                    resolvedMap.put(resolvedDate, resolvedMap.get(resolvedDate) + 1);
                 }
             }
         }
 
         List<RequestsResolvedByDate> result = new ArrayList<>();
-        for (LocalDate date : enumerateDates(fromDate, toDate)) {
+
+        for (LocalDate date : receivedMap.keySet()) {
             RequestsResolvedByDate dto = new RequestsResolvedByDate();
             dto.setDate(date);
-            dto.setReceivedCount(receivedMap.getOrDefault(date, 0));
-            dto.setResolvedCount(resolvedMap.getOrDefault(date, 0));
+            dto.setReceivedCount(receivedMap.get(date));
+            dto.setResolvedCount(resolvedMap.get(date));
             result.add(dto);
         }
 
@@ -180,41 +166,43 @@ public class RequestAnalysisService {
         );
 
         Map<YearMonth, List<Long>> cycleTimesByMonth = new LinkedHashMap<>();
-        for (YearMonth month : enumerateMonths(fromDate, toDate)) {
+
+        for (YearMonth month = YearMonth.from(fromDate);
+             !month.isAfter(YearMonth.from(toDate));
+             month = month.plusMonths(1)) {
             cycleTimesByMonth.put(month, new ArrayList<>());
         }
 
         for (Request request : requests) {
-            if (request.getCreatedAt() == null) {
+            if (request.getCreatedAt() == null || request.getUpdatedAt() == null) {
                 continue;
             }
 
             YearMonth month = YearMonth.from(request.getCreatedAt());
+
             if (!cycleTimesByMonth.containsKey(month)) {
                 continue;
             }
 
-            if (request.getUpdatedAt() != null) {
-                long days = Duration.between(request.getCreatedAt(), request.getUpdatedAt()).toDays();
-                if (days >= 0) {
-                    cycleTimesByMonth.get(month).add(days);
-                }
+            long days = Duration.between(request.getCreatedAt(), request.getUpdatedAt()).toDays();
+
+            if (days >= 0) {
+                cycleTimesByMonth.get(month).add(days);
             }
         }
 
         List<RequestsByMonth> result = new ArrayList<>();
+
         for (Map.Entry<YearMonth, List<Long>> entry : cycleTimesByMonth.entrySet()) {
             List<Long> values = entry.getValue();
-            double avgDays = 0.0;
 
-            if (!values.isEmpty()) {
-                long sum = values.stream().mapToLong(Long::longValue).sum();
-                avgDays = (double) sum / values.size();
-            }
+            double averageCycleTimeDays = values.isEmpty()
+                    ? 0.0
+                    : values.stream().mapToLong(Long::longValue).average().orElse(0.0);
 
             RequestsByMonth dto = new RequestsByMonth();
             dto.setMonth(entry.getKey());
-            dto.setAverageCycleTimeDays(round(avgDays));
+            dto.setAverageCycleTimeDays(round(averageCycleTimeDays));
             result.add(dto);
         }
 
@@ -235,16 +223,16 @@ public class RequestAnalysisService {
         int highCount = 0;
 
         for (Request request : requests) {
-            String priority = getPriorityName(request);
-
-            if (priority == null || priority.isBlank() || "NONE".equals(priority)) {
+            if (request.getPriority() == null) {
                 noneCount++;
-            } else if ("LOW".equals(priority)) {
-                lowCount++;
-            } else if ("MEDIUM".equals(priority)) {
-                mediumCount++;
-            } else if ("HIGH".equals(priority) || "URGENT".equals(priority)) {
-                highCount++;
+                continue;
+            }
+
+            switch (request.getPriority()) {
+                case LOW -> lowCount++;
+                case MEDIUM -> mediumCount++;
+                case HIGH, URGENT -> highCount++;
+                case NONE -> noneCount++;
             }
         }
 
@@ -257,57 +245,44 @@ public class RequestAnalysisService {
         return dto;
     }
 
-    private String getStatusName(Request request) {
-        if (request == null || request.getStatus() == null) {
-            return "";
-        }
-        return request.getStatus().name().toUpperCase();
+    private boolean isApproved(Status status) {
+        return status == Status.APPROVED
+                || status == Status.ACCEPTED
+                || status == Status.RESOLVED;
     }
 
-    private String getPriorityName(Request request) {
-        if (request == null || request.getPriority() == null) {
-            return "NONE";
-        }
-        return request.getPriority().name().toUpperCase();
+    private boolean isPending(Status status) {
+        return status == Status.PENDING
+                || status == Status.OPEN
+                || status == Status.WAITING;
     }
 
-    private List<LocalDate> enumerateDates(LocalDate fromDate, LocalDate toDate) {
-        List<LocalDate> dates = new ArrayList<>();
-        LocalDate current = fromDate;
-
-        while (!current.isAfter(toDate)) {
-            dates.add(current);
-            current = current.plusDays(1);
-        }
-
-        return dates;
+    private boolean isCancelled(Status status) {
+        return status == Status.CANCELLED
+                || status == Status.REJECTED;
     }
 
-    private List<YearMonth> enumerateMonths(LocalDate fromDate, LocalDate toDate) {
-        List<YearMonth> months = new ArrayList<>();
-        YearMonth current = YearMonth.from(fromDate);
-        YearMonth end = YearMonth.from(toDate);
+    private Map<LocalDate, Integer> initDateMap(LocalDate fromDate, LocalDate toDate) {
+        Map<LocalDate, Integer> map = new LinkedHashMap<>();
 
-        while (!current.isAfter(end)) {
-            months.add(current);
-            current = current.plusMonths(1);
+        for (LocalDate date = fromDate; !date.isAfter(toDate); date = date.plusDays(1)) {
+            map.put(date, 0);
         }
 
-        return months;
+        return map;
     }
 
     private void validateDateRange(LocalDate fromDate, LocalDate toDate) {
         if (fromDate == null || toDate == null) {
-            throw new IllegalArgumentException("fromDate and toDate must not be null");
+            throw new IllegalArgumentException("Ngày bắt đầu và ngày kết thúc không được để trống.");
         }
+
         if (toDate.isBefore(fromDate)) {
-            throw new IllegalArgumentException("toDate must be greater than or equal to fromDate");
+            throw new IllegalArgumentException("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.");
         }
     }
 
     private double round(double value) {
-        return BigDecimal.valueOf(value)
-                .setScale(2, RoundingMode.HALF_UP)
-                .doubleValue();
+        return Math.round(value * 100.0) / 100.0;
     }
 }

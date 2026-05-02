@@ -1,0 +1,238 @@
+:root {
+  --d1-bg: #f5f7fb;
+  --d1-card: #ffffff;
+  --d1-text: #0f172a;
+  --d1-muted: #64748b;
+  --d1-border: #e2e8f0;
+  --d1-blue: #2563eb;
+  --d1-orange: #f97316;
+}
+
+.d1-page {
+  min-height: 100vh;
+  padding: 28px;
+  background: var(--d1-bg);
+  color: var(--d1-text);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.d1-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: white;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+.d1-eyebrow {
+  margin: 0 0 8px;
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.d1-hero h1 {
+  margin: 0;
+  font-size: 40px;
+  letter-spacing: -0.04em;
+}
+
+.d1-hero p:not(.d1-eyebrow) {
+  margin: 12px 0 0;
+  color: #cbd5e1;
+}
+
+.d1-primary,
+.d1-secondary {
+  border: 0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.d1-primary {
+  background: white;
+  color: #0f172a;
+}
+
+.d1-secondary {
+  height: 54px;
+  align-self: end;
+  background: var(--d1-blue);
+  color: white;
+}
+
+.d1-primary:disabled,
+.d1-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.d1-filters {
+  display: grid;
+  grid-template-columns: 220px 220px 180px;
+  gap: 14px;
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid var(--d1-border);
+  border-radius: 24px;
+  background: white;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
+.d1-filters label {
+  display: grid;
+  gap: 7px;
+  color: var(--d1-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.d1-filters input {
+  height: 54px;
+  border: 1px solid var(--d1-border);
+  border-radius: 14px;
+  padding: 0 14px;
+  color: var(--d1-text);
+  background: white;
+  font-size: 14px;
+  outline: none;
+}
+
+.d1-filters input:focus {
+  border-color: var(--d1-blue);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.d1-alert {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: 18px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 700;
+}
+
+.d1-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.d1-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.d1-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--d1-border);
+  border-radius: 26px;
+  background: white;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+}
+
+.d1-panel__head {
+  padding: 20px 20px 0;
+}
+
+.d1-panel h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.d1-panel p {
+  margin: 7px 0 0;
+  color: var(--d1-muted);
+  font-size: 13px;
+}
+
+.d1-panel__body {
+  padding: 18px;
+  min-width: 0;
+}
+
+.d1-chart {
+  width: 100%;
+  height: 360px;
+  min-height: 320px;
+}
+
+.d1-chart > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.d1-empty {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 20px;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.recharts-responsive-container {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+}
+
+.recharts-cartesian-axis-tick-value {
+  font-size: 12px;
+  fill: #334155;
+}
+
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+.recharts-default-tooltip {
+  padding: 10px 14px !important;
+  border: 1px solid var(--d1-border) !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
+}
+
+.recharts-cartesian-grid line {
+  stroke: #e2e8f0;
+}
+
+.recharts-bar-rectangle:hover {
+  opacity: 0.85;
+}
+
+@media (max-width: 960px) {
+  .d1-page {
+    padding: 18px;
+  }
+
+  .d1-hero {
+    flex-direction: column;
+  }
+
+  .d1-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .d1-grid--2 {
+    grid-template-columns: 1fr;
+  }
+
+  .d1-chart {
+    height: 300px;
+  }
+}

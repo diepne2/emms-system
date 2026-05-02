@@ -1,72 +1,59 @@
 package com.emms.backend.controller;
 
+import com.emms.backend.dto.labor.LaborCreateDTO;
 import com.emms.backend.dto.labor.LaborPatchDTO;
-import com.emms.backend.entity.Labor;
+import com.emms.backend.dto.labor.LaborShowDTO;
 import com.emms.backend.service.LaborService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collection;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/labors")
-@RequiredArgsConstructor
 public class LaborController {
 
     private final LaborService laborService;
 
-    @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
-    public ResponseEntity<Labor> create(@RequestBody @Valid Labor labor) {
-        Labor createdLabor = laborService.create(labor);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdLabor);
+    public LaborController(LaborService laborService) {
+        this.laborService = laborService;
     }
 
-    @PatchMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
-    public ResponseEntity<Labor> update(
-            @PathVariable Long id,
-            @RequestBody @Valid LaborPatchDTO dto
-    ) {
-        Labor updatedLabor = laborService.update(id, dto);
-        return ResponseEntity.ok(updatedLabor);
+    @PostMapping
+    public ResponseEntity<LaborShowDTO> create(@RequestBody LaborCreateDTO dto) {
+        return ResponseEntity.ok(laborService.create(dto));
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<List<LaborShowDTO>> getMyLabors() {
+        return ResponseEntity.ok(laborService.getMyLabors());
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Collection<Labor>> getAll() {
+    public ResponseEntity<List<LaborShowDTO>> getAll() {
         return ResponseEntity.ok(laborService.getAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Labor> getById(@PathVariable Long id) {
-        Labor labor = laborService.findEntityById(id);
-        return ResponseEntity.ok(labor);
+    public ResponseEntity<LaborShowDTO> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(laborService.getById(id));
     }
 
     @GetMapping("/work-order/{workOrderId}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Collection<Labor>> getByWorkOrder(@PathVariable Long workOrderId) {
+    public ResponseEntity<List<LaborShowDTO>> findByWorkOrder(@PathVariable Long workOrderId) {
         return ResponseEntity.ok(laborService.findByWorkOrder(workOrderId));
     }
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        laborService.delete(id);
-        return ResponseEntity.noContent().build();
+    @PatchMapping("/{id}")
+    public ResponseEntity<LaborShowDTO> update(
+            @PathVariable Long id,
+            @RequestBody LaborPatchDTO dto
+    ) {
+        return ResponseEntity.ok(laborService.update(id, dto));
     }
 
     @PostMapping("/{id}/stop")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_QUANLYKYTHUAT')")
-    public ResponseEntity<Labor> stop(@PathVariable Long id) {
-        Labor labor = laborService.findEntityById(id);
-        Labor stoppedLabor = laborService.stop(labor);
-        return ResponseEntity.ok(stoppedLabor);
+    public ResponseEntity<LaborShowDTO> stop(@PathVariable Long id) {
+        return ResponseEntity.ok(laborService.stop(id));
     }
 }

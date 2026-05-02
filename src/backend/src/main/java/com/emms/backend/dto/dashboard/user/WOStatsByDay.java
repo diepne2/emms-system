@@ -15,7 +15,6 @@ public class WOStatsByDay {
     @Schema(description = "Ngày thống kê (yyyy-MM-dd)")
     private LocalDate date;
 
-    // ===== Constructor =====
 
     public WOStatsByDay() {
     }
@@ -26,7 +25,6 @@ public class WOStatsByDay {
         this.date = date;
     }
 
-    // ===== Getter & Setter =====
 
     public Integer getCreatedCount() {
         return createdCount;
@@ -52,7 +50,6 @@ public class WOStatsByDay {
         this.date = date;
     }
 
-    // ===== toString (debug dễ hơn) =====
 
     @Override
     public String toString() {

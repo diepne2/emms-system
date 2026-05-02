@@ -2,238 +2,269 @@ package com.emms.backend.service.impl;
 
 import com.emms.backend.dto.auth.UpdatePasswordRequest;
 import com.emms.backend.dto.user.ChangePasswordDTO;
+import com.emms.backend.dto.user.UserDropdownDTO;
 import com.emms.backend.dto.user.UserProfileUpdateDTO;
 import com.emms.backend.dto.user.UserResponseDTO;
 import com.emms.backend.entity.Role;
 import com.emms.backend.entity.User;
-import com.emms.backend.entity.UserInvitation;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.UserMapper;
 import com.emms.backend.repository.RoleRepository;
 import com.emms.backend.repository.UserRepository;
-import com.emms.backend.service.UserInvitationService;
+import com.emms.backend.security.CustomUserPrincipal;
+import com.emms.backend.security.JwtUtil;
 import com.emms.backend.service.UserService;
+import com.emms.backend.service.MailService;
+import com.emms.backend.specification.UserSpecifications;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+
+
+    private static final long MAX_AVATAR_SIZE = 5 * 1024 * 1024; 
+    private static final String AVATAR_UPLOAD_DIR = "/app/uploads/avatars";
+
+    @Value("${frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final UserMapper userMapper;
-    private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-    private final UserInvitationService userInvitationService;
+    private final JwtUtil jwtUtil;
+    private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
+    private final MailService mailService;
 
-    public UserServiceImpl(UserRepository userRepository,
-                           RoleRepository roleRepository,
-                           UserMapper userMapper,
-                           PasswordEncoder passwordEncoder,
-                           AuthenticationManager authenticationManager,
-                           UserInvitationService userInvitationService) {
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
-        this.userMapper = userMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.authenticationManager = authenticationManager;
-        this.userInvitationService = userInvitationService;
+    @Override
+    public String signin(String usernameOrEmail, String password) {
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(usernameOrEmail, password)
+            );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            String token = jwtUtil.generateToken(authentication.getName());
+
+            log.info("Login success for user={}", authentication.getName());
+            return token;
+        } catch (Exception ex) {
+            log.error("Login failed for usernameOrEmail={}: {}", usernameOrEmail, ex.getMessage(), ex);
+            throw new CustomException("Sai tài khoản hoặc mật khẩu", HttpStatus.UNAUTHORIZED);
+        }
     }
 
     @Override
     public List<UserResponseDTO> getAllUsers() {
-        return userRepository.findAll()
+        return userRepository.findAllByOrderByFirstNameAscLastNameAsc()
                 .stream()
                 .map(userMapper::toResponseDTO)
                 .toList();
     }
 
     @Override
+    public Page<UserResponseDTO> searchUsers(
+            String keyword,
+            String roleCode,
+            Boolean enabled,
+            String status,
+            Pageable pageable
+    ) {
+        return userRepository.findAll(
+                        UserSpecifications.filter(keyword, roleCode, enabled, status),
+                        pageable
+                )
+                .map(userMapper::toResponseDTO);
+    }
+
+    @Override
+    public List<UserDropdownDTO> getTechnicianDropdown() {
+        List<User> users = userRepository.findAll(
+                UserSpecifications.filter(null, "TECHNICIAN", true, "ACTIVE")
+        );
+
+        List<UserDropdownDTO> result = new ArrayList<>();
+        for (User user : users) {
+            if (user == null) {
+                continue;
+            }
+            result.add(toDropdownDTO(user));
+        }
+        return result;
+    }
+
+    @Override
     public UserResponseDTO getUserById(Long id, String currentUsername) {
-        User targetUser = getUserEntityById(id);
-        User currentUser = getUserEntityByUsernameOrEmail(currentUsername);
+        User target = findEntityById(id);
 
-        boolean isAdminOrManager = hasAdminOrManagerRole(currentUser);
-        boolean isSelf = targetUser.getUserId().equals(currentUser.getUserId());
-
-        if (!isAdminOrManager && !isSelf) {
-            throw new CustomException("Bạn không có quyền xem thông tin người dùng này", HttpStatus.FORBIDDEN);
+        if (currentUsername == null || currentUsername.isBlank()) {
+            throw new CustomException("Tên người dùng hiện tại là bắt buộc", HttpStatus.UNAUTHORIZED);
         }
 
-        return userMapper.toResponseDTO(targetUser);
+        User currentUser = getByUsernameOrEmail(currentUsername);
+
+        boolean isSelf = target.getUsername() != null
+                && currentUser.getUsername() != null
+                && target.getUsername().equalsIgnoreCase(currentUser.getUsername());
+
+        if (!isSelf && !hasAdminOrManagerRole(currentUser)) {
+            throw new CustomException("Bạn không có quyền truy cập người dùng này", HttpStatus.FORBIDDEN);
+        }
+
+        return userMapper.toResponseDTO(target);
     }
 
     @Override
     public UserResponseDTO getCurrentUserProfile(String username) {
-        User currentUser = getUserEntityByUsernameOrEmail(username);
-        return userMapper.toResponseDTO(currentUser);
+        User user = getByUsernameOrEmail(username);
+        return userMapper.toResponseDTO(user);
     }
 
     @Override
     public UserResponseDTO updateMyProfile(String username, UserProfileUpdateDTO request) {
         if (request == null) {
-            throw new CustomException("Dữ liệu cập nhật không hợp lệ", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu cập nhật hồ sơ là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
-        User currentUser = getUserEntityByUsernameOrEmail(username);
+        User user = getByUsernameOrEmail(username);
 
         if (request.getFirstName() != null) {
-            currentUser.setFirstName(request.getFirstName().trim());
+            user.setFirstName(trim(request.getFirstName()));
         }
         if (request.getLastName() != null) {
-            currentUser.setLastName(request.getLastName().trim());
+            user.setLastName(trim(request.getLastName()));
         }
         if (request.getPhone() != null) {
-            currentUser.setPhone(request.getPhone().trim());
+            user.setPhone(trim(request.getPhone()));
         }
         if (request.getJobTitle() != null) {
-            currentUser.setJobTitle(request.getJobTitle().trim());
+            user.setJobTitle(trim(request.getJobTitle()));
         }
 
-        User savedUser = userRepository.save(currentUser);
-        return userMapper.toResponseDTO(savedUser);
+        User saved = userRepository.save(user);
+        return userMapper.toResponseDTO(saved);
     }
 
     @Override
     public void changeMyPassword(String username, ChangePasswordDTO request) {
         if (request == null) {
-            throw new CustomException("Dữ liệu đổi mật khẩu không hợp lệ", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Yêu cầu thay đổi mật khẩu là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
-        User currentUser = getUserEntityByUsernameOrEmail(username);
-        changePassword(currentUser, request.getCurrentPassword(), request.getNewPassword());
-    }
+        User user = getByUsernameOrEmail(username);
 
-    @Override
-    public void updateMyPassword(String username, UpdatePasswordRequest request) {
-        if (request == null) {
-            throw new CustomException("Dữ liệu đổi mật khẩu không hợp lệ", HttpStatus.BAD_REQUEST);
-        }
+        String currentPassword = request.getCurrentPassword();
+        String newPassword = request.getNewPassword();
 
-        User currentUser = getUserEntityByUsernameOrEmail(username);
-        changePassword(currentUser, request.getCurrentPassword(), request.getNewPassword());
-    }
-
-    @Override
-    public void changePassword(User user, String currentPassword, String newPassword) {
-        if (user == null || user.getUserId() == null) {
-            throw new CustomException("User not authenticated", HttpStatus.UNAUTHORIZED);
-        }
+        validateNewPassword(newPassword);
 
         if (currentPassword == null || currentPassword.isBlank()) {
             throw new CustomException("Mật khẩu hiện tại không được để trống", HttpStatus.BAD_REQUEST);
         }
 
-        if (newPassword == null || newPassword.isBlank()) {
-            throw new CustomException("Mật khẩu mới không được để trống", HttpStatus.BAD_REQUEST);
-        }
-
-        String trimmedCurrentPassword = currentPassword.trim();
-        String trimmedNewPassword = newPassword.trim();
-
-        if (!passwordEncoder.matches(trimmedCurrentPassword, user.getPassword())) {
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new CustomException("Mật khẩu hiện tại không đúng", HttpStatus.BAD_REQUEST);
         }
 
-        if (trimmedCurrentPassword.equals(trimmedNewPassword)) {
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
             throw new CustomException("Mật khẩu mới không được trùng mật khẩu cũ", HttpStatus.BAD_REQUEST);
         }
 
-        user.setPassword(passwordEncoder.encode(trimmedNewPassword));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    public void updateMyPassword(String username, UpdatePasswordRequest request) {
+        if (request == null || request.getNewPassword() == null || request.getNewPassword().isBlank()) {
+            throw new CustomException("Dữ liệu cập nhật mật khẩu là bắt buộc", HttpStatus.BAD_REQUEST);
+        }
+
+        User user = getByUsernameOrEmail(username);
+        validateNewPassword(request.getNewPassword());
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new CustomException("Mật khẩu mới không được trùng mật khẩu cũ", HttpStatus.BAD_REQUEST);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
 
     @Override
     public UserResponseDTO updateEnabled(Long id, boolean enabled) {
-        User user = getUserEntityById(id);
+        User user = findEntityById(id);
         user.setEnabled(enabled);
-
-        if (!enabled) {
-            user.setStatus(User.UserStatus.INACTIVE);
-        } else if (user.getStatus() == User.UserStatus.INACTIVE) {
-            user.setStatus(User.UserStatus.ACTIVE);
-        }
-
-        User savedUser = userRepository.save(user);
-        return userMapper.toResponseDTO(savedUser);
+        return userMapper.toResponseDTO(userRepository.save(user));
     }
 
     @Override
     public UserResponseDTO updateStatus(Long id, String status) {
-        User user = getUserEntityById(id);
+        User user = findEntityById(id);
 
         if (status == null || status.isBlank()) {
-            throw new CustomException("Trạng thái không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Trạng thái là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
-        User.UserStatus newStatus;
-        try {
-            newStatus = User.UserStatus.valueOf(status.trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new CustomException(
-                    "Trạng thái không hợp lệ. Chỉ chấp nhận: ACTIVE, INACTIVE, LOCKED",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-
-        user.setStatus(newStatus);
-
-        if (newStatus == User.UserStatus.INACTIVE) {
-            user.setEnabled(false);
-        } else if (newStatus == User.UserStatus.ACTIVE) {
-            user.setEnabled(true);
-            user.setFailedAttempts(0);
-        } else if (newStatus == User.UserStatus.LOCKED) {
-            user.setEnabled(false);
-        }
-
-        User savedUser = userRepository.save(user);
-        return userMapper.toResponseDTO(savedUser);
+        applyStatus(user, status.trim().toUpperCase(Locale.ROOT));
+        return userMapper.toResponseDTO(userRepository.save(user));
     }
 
     @Override
     public UserResponseDTO updateRole(Long id, Long roleId) {
-        User user = getUserEntityById(id);
+        if (roleId == null) {
+            throw new CustomException("ID vai trò là bắt buộc", HttpStatus.BAD_REQUEST);
+        }
 
+        User user = findEntityById(id);
         Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new CustomException("Không tìm thấy role", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Vai trò không tồn tại", HttpStatus.NOT_FOUND));
 
         user.setRole(role);
-        User savedUser = userRepository.save(user);
-        return userMapper.toResponseDTO(savedUser);
+        return userMapper.toResponseDTO(userRepository.save(user));
     }
 
     @Override
     public UserResponseDTO findUserResponseByUsernameOrEmail(String usernameOrEmail) {
-        User user = getUserEntityByUsernameOrEmail(usernameOrEmail);
-        return userMapper.toResponseDTO(user);
-    }
-
-    @Override
-    public Optional<User> findByUsernameOrEmail(String usernameOrEmail) {
-        if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
-            return Optional.empty();
-        }
-        return userRepository.findByUsernameOrEmail(usernameOrEmail.trim());
+        return userMapper.toResponseDTO(getByUsernameOrEmail(usernameOrEmail));
     }
 
     @Override
     public void deleteUser(Long id) {
-        User user = getUserEntityById(id);
-        userRepository.delete(user);
+        User existing = findEntityById(id);
+        userRepository.delete(existing);
     }
 
     @Override
@@ -241,47 +272,55 @@ public class UserServiceImpl implements UserService {
         if (emails == null || emails.isEmpty()) {
             throw new CustomException("Danh sách email không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         if (roleId == null) {
-            throw new CustomException("roleId không được để trống", HttpStatus.BAD_REQUEST);
-        }
-        if (invitedBy == null || invitedBy.isBlank()) {
-            throw new CustomException("invitedBy không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID vai trò là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new CustomException("Không tìm thấy role", HttpStatus.NOT_FOUND));
-
-        User inviter = getUserEntityByUsernameOrEmail(invitedBy);
+                .orElseThrow(() -> new CustomException("Vai trò không tồn tại", HttpStatus.NOT_FOUND));
 
         for (String rawEmail : emails) {
-            if (rawEmail == null || rawEmail.isBlank()) {
+            String email = trim(rawEmail);
+
+            if (email == null || email.isBlank()) {
                 continue;
             }
 
-            String email = rawEmail.trim().toLowerCase();
-
-            if (userRepository.existsByEmail(email)) {
+            if (userRepository.existsByEmailIgnoreCase(email)) {
                 continue;
             }
 
-            UserInvitation invitation = new UserInvitation();
-            invitation.setEmail(email);
-            invitation.setRole(role);
-            invitation.setCreatedBy(inviter);
-            invitation.setToken(UUID.randomUUID().toString());
-            invitation.setCreatedAt(LocalDateTime.now());
-            invitation.setUsed(false);
+            User user = new User();
+            user.setEmail(email);
+            user.setUsername(generateUsernameFromEmail(email));
+            user.setEnabled(true);
+            user.setRole(role);
+            user.setPassword(passwordEncoder.encode(generateTemporaryPassword()));
 
-            userInvitationService.create(invitation);
+            if (user.getFirstName() == null) {
+                user.setFirstName("User");
+            }
+            if (user.getLastName() == null) {
+                user.setLastName("Invited");
+            }
+
+            trySetDefaultActiveStatus(user);
+
+            userRepository.save(user);
         }
+
+        log.info("Invited {} users by {}", emails.size(), invitedBy);
     }
 
     @Override
     public User findEntityById(Long id) {
         if (id == null) {
-            throw new CustomException("User id không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID người dùng là bắt buộc", HttpStatus.BAD_REQUEST);
         }
-        return getUserEntityById(id);
+
+        return userRepository.findById(id)
+                .orElseThrow(() -> new CustomException("Người dùng không tồn tại", HttpStatus.NOT_FOUND));
     }
 
     @Override
@@ -294,86 +333,61 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<User> findAll() {
-        return userRepository.findAll();
+        return userRepository.findAllByOrderByFirstNameAscLastNameAsc();
     }
 
     @Override
     public User getByUsernameOrEmail(String usernameOrEmail) {
         if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
-            throw new CustomException("Username hoặc email không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Tên người dùng hoặc email là bắt buộc", HttpStatus.BAD_REQUEST);
         }
-        return getUserEntityByUsernameOrEmail(usernameOrEmail.trim());
+
+        return userRepository.findByUsernameOrEmail(usernameOrEmail.trim())
+                .orElseThrow(() -> new CustomException("Người dùng không tồn tại", HttpStatus.NOT_FOUND));
     }
 
     @Override
+    @Transactional(Transactional.TxType.SUPPORTS)
     public User whoami(HttpServletRequest request) {
-        if (request == null || request.getUserPrincipal() == null) {
-            throw new CustomException("Unauthorized", HttpStatus.UNAUTHORIZED);
-        }
-
-        String username = request.getUserPrincipal().getName();
-        if (username == null || username.isBlank()) {
-            throw new CustomException("Unauthorized", HttpStatus.UNAUTHORIZED);
-        }
-
-        return getUserEntityByUsernameOrEmail(username);
-    }
-
-    @Override
-    public String signin(String usernameOrEmail, String password) {
-        if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
-            throw new CustomException("Email hoặc username không được để trống", HttpStatus.BAD_REQUEST);
-        }
-        if (password == null || password.isBlank()) {
-            throw new CustomException("Mật khẩu không được để trống", HttpStatus.BAD_REQUEST);
-        }
-
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(usernameOrEmail.trim(), password)
-            );
-
-            User user = getUserEntityByUsernameOrEmail(usernameOrEmail.trim());
-            user.markLoginSuccess();
-            userRepository.save(user);
-
-            return authentication.getName();
-        } catch (BadCredentialsException ex) {
-            Optional<User> optionalUser = userRepository.findByUsernameOrEmail(usernameOrEmail.trim());
-            optionalUser.ifPresent(savedUser -> {
-                savedUser.increaseFailedAttempts();
-                userRepository.save(savedUser);
-            });
-
-            throw new CustomException("Sai tài khoản hoặc mật khẩu", HttpStatus.UNAUTHORIZED);
-        } catch (Exception ex) {
-            throw new CustomException("Đăng nhập thất bại", HttpStatus.UNAUTHORIZED);
-        }
+        return whoami();
     }
 
     @Override
     public void createForgotPasswordToken(String email) {
         if (email == null || email.isBlank()) {
-            throw new CustomException("Email không được để trống", HttpStatus.BAD_REQUEST);
+            return;
         }
 
-        User user = getUserEntityByUsernameOrEmail(email.trim().toLowerCase());
+        Optional<User> optionalUser = userRepository.findByEmailIgnoreCase(email.trim());
+        if (optionalUser.isEmpty()) {
+            return; 
+        }
 
+        User user = optionalUser.get();
         String token = UUID.randomUUID().toString();
-        user.setResetPasswordToken(token);
-        user.setResetPasswordExpiry(LocalDateTime.now().plusMinutes(30));
 
+        user.setResetPasswordToken(token);
+        user.setResetPasswordExpiry(LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
+
+        String link = frontendUrl + "/#/reset-password?token=" + token;
+
+        mailService.sendSimpleMessage(
+                new String[]{user.getEmail()},
+                "Reset password",
+                "Click link để đổi mật khẩu: " + link + "\n\nLink hết hạn sau 15 phút."
+        );
+
+        log.info("Forgot password reset link sent to {}", user.getEmail());
     }
 
     @Override
     public void resetPassword(String token, String newPassword) {
         if (token == null || token.isBlank()) {
-            throw new CustomException("Token không được để trống", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Reset token is required", HttpStatus.BAD_REQUEST);
         }
-        if (newPassword == null || newPassword.isBlank()) {
-            throw new CustomException("Mật khẩu mới không được để trống", HttpStatus.BAD_REQUEST);
-        }
+
+        validateNewPassword(newPassword);
 
         User user = userRepository.findByResetPasswordToken(token.trim())
                 .orElseThrow(() -> new CustomException("Token không hợp lệ", HttpStatus.BAD_REQUEST));
@@ -383,45 +397,188 @@ public class UserServiceImpl implements UserService {
             throw new CustomException("Token đã hết hạn", HttpStatus.BAD_REQUEST);
         }
 
-        user.setPassword(passwordEncoder.encode(newPassword.trim()));
-        user.setResetPasswordToken(null);
-        user.setResetPasswordExpiry(null);
-        user.setFailedAttempts(0);
-        user.setEnabled(true);
-
-        if (user.getStatus() == User.UserStatus.LOCKED || user.getStatus() == User.UserStatus.INACTIVE) {
-            user.setStatus(User.UserStatus.ACTIVE);
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new CustomException("Mật khẩu mới không được trùng mật khẩu cũ", HttpStatus.BAD_REQUEST);
         }
 
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetPasswordToken(null);
+        user.setResetPasswordExpiry(null);
         userRepository.save(user);
+
+        log.info("Password reset successfully for user={}", user.getEmail());
     }
 
     @Override
     public User save(User user) {
         if (user == null) {
-            throw new CustomException("User không được null", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Người dùng là bắt buộc", HttpStatus.BAD_REQUEST);
         }
         return userRepository.save(user);
     }
 
     @Override
     public void deleteById(Long id) {
-        User user = getUserEntityById(id);
-        userRepository.delete(user);
+        User existing = findEntityById(id);
+        userRepository.delete(existing);
     }
 
-    private User getUserEntityById(Long id) {
-        return userRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Không tìm thấy người dùng", HttpStatus.NOT_FOUND));
-    }
-
-    private User getUserEntityByUsernameOrEmail(String usernameOrEmail) {
+    @Override
+    public Optional<User> findByUsernameOrEmail(String usernameOrEmail) {
         if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
-            throw new CustomException("username hoặc email không được để trống", HttpStatus.BAD_REQUEST);
+            return Optional.empty();
+        }
+        return userRepository.findByUsernameOrEmail(usernameOrEmail.trim());
+    }
+
+    @Override
+    public void changePassword(User user, String currentPassword, String newPassword) {
+        if (user == null) {
+            throw new CustomException("Người dùng là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
-        return userRepository.findByUsernameOrEmail(usernameOrEmail.trim())
-                .orElseThrow(() -> new CustomException("Không tìm thấy người dùng", HttpStatus.NOT_FOUND));
+        if (currentPassword == null || currentPassword.isBlank()) {
+            throw new CustomException("Mật khẩu hiện tại là bắt buộc", HttpStatus.BAD_REQUEST);
+        }
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new CustomException("Mật khẩu hiện tại không đúng", HttpStatus.BAD_REQUEST);
+        }
+
+        validateNewPassword(newPassword);
+
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new CustomException("Mật khẩu mới không được trùng với mật khẩu cũ", HttpStatus.BAD_REQUEST);
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional(Transactional.TxType.SUPPORTS)
+    public User whoami() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            throw new CustomException("Người dùng chưa đăng nhập", HttpStatus.UNAUTHORIZED);
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof CustomUserPrincipal customUserPrincipal) {
+            Long userId = customUserPrincipal.getUserId();
+
+            if (userId == null) {
+                throw new CustomException("Không xác định được id người dùng hiện tại", HttpStatus.UNAUTHORIZED);
+            }
+
+            return userRepository.findById(userId)
+                    .orElseThrow(() -> new CustomException("Người dùng không tồn tại", HttpStatus.NOT_FOUND));
+        }
+
+        String usernameOrEmail = authentication.getName();
+        if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
+            throw new CustomException("Không xác định được người dùng hiện tại", HttpStatus.UNAUTHORIZED);
+        }
+
+        return getByUsernameOrEmail(usernameOrEmail);
+    }
+
+    @Override
+    public UserResponseDTO uploadAvatar(String username, MultipartFile file) {
+        if (username == null || username.isBlank()) {
+            throw new CustomException("Tên người dùng là bắt buộc", HttpStatus.BAD_REQUEST);
+        }
+
+        if (file == null || file.isEmpty()) {
+            throw new CustomException("Tệp avatar không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        if (file.getSize() > MAX_AVATAR_SIZE) {
+            throw new CustomException("Avatar tối đa 5MB", HttpStatus.BAD_REQUEST);
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null ||
+                !(contentType.equalsIgnoreCase("image/png")
+                        || contentType.equalsIgnoreCase("image/jpeg")
+                        || contentType.equalsIgnoreCase("image/jpg")
+                        || contentType.equalsIgnoreCase("image/webp"))) {
+            throw new CustomException("Chỉ chấp nhận JPG, PNG, WEBP", HttpStatus.BAD_REQUEST);
+        }
+
+        User user = getByUsernameOrEmail(username);
+
+        try {
+            String extension = getExtension(file.getOriginalFilename(), contentType);
+            String fileName = UUID.randomUUID() + "." + extension;
+
+            Path uploadDir = Paths.get(AVATAR_UPLOAD_DIR);
+            Files.createDirectories(uploadDir);
+
+            Path filePath = uploadDir.resolve(fileName);
+
+            System.out.println("UPLOAD DIR = " + uploadDir.toAbsolutePath());
+            System.out.println("FILE PATH = " + filePath.toAbsolutePath());
+
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            user.setAvatar("/api/users/avatar/" + fileName);
+
+            User saved = userRepository.save(user);
+            return userMapper.toResponseDTO(saved);
+
+        } catch (IOException ex) {
+            log.error("Upload avatar failed for user={}: {}", username, ex.getMessage(), ex);
+            throw new CustomException("Upload avatar thất bại", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private UserDropdownDTO toDropdownDTO(User user) {
+        UserDropdownDTO dto = new UserDropdownDTO();
+        dto.setId(user.getUserId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setFullName(buildFullName(user));
+
+        if (user.getRole() != null && user.getRole().getCode() != null) {
+            dto.setRoleCode(user.getRole().getCode().toString());
+        }
+
+        return dto;
+    }
+
+    private String buildFullName(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        String firstName = trim(user.getFirstName());
+        String lastName = trim(user.getLastName());
+
+        if (firstName == null && lastName == null) {
+            return user.getUsername();
+        }
+        if (firstName == null) {
+            return lastName;
+        }
+        if (lastName == null) {
+            return firstName;
+        }
+        return (firstName + " " + lastName).trim();
+    }
+
+    private void validateNewPassword(String newPassword) {
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new CustomException("Mật khẩu mới không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        if (newPassword.length() < 6) {
+            throw new CustomException("Mật khẩu mới phải có ít nhất 6 ký tự", HttpStatus.BAD_REQUEST);
+        }
     }
 
     private boolean hasAdminOrManagerRole(User user) {
@@ -429,9 +586,130 @@ public class UserServiceImpl implements UserService {
             return false;
         }
 
-        String roleCode = user.getRole().getCode().name();
-        return "ADMIN".equals(roleCode)
-                || "QUANLYKYTHUAT".equals(roleCode)
-                || "TECHNICAL_MANAGER".equals(roleCode);
+        String code = normalizeRoleCode(user.getRole().getCode().toString());
+        return "ADMIN".equals(code)
+                || "TECHNICAL_MANAGER".equals(code)
+                || "QUANLYKYTHUAT".equals(code);
+    }
+
+    private String normalizeRoleCode(String code) {
+        if (code == null) {
+            return "";
+        }
+        String value = code.trim().toUpperCase(Locale.ROOT);
+        if (value.startsWith("ROLE_")) {
+            value = value.substring(5);
+        }
+        return value;
+    }
+
+    private void applyStatus(User user, String normalizedStatus) {
+        try {
+            Method getter = user.getClass().getMethod("getStatus");
+            Object currentStatus = getter.invoke(user);
+
+            Method setter = null;
+            for (Method method : user.getClass().getMethods()) {
+                if ("setStatus".equals(method.getName()) && method.getParameterCount() == 1) {
+                    setter = method;
+                    break;
+                }
+            }
+
+            if (setter == null) {
+                throw new CustomException("Người dùng không tìm thấy bộ thiết lập trạng thái", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+
+            Class<?> parameterType = setter.getParameterTypes()[0];
+
+            if (parameterType.isEnum()) {
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                Enum enumValue = Enum.valueOf((Class<Enum>) parameterType.asSubclass(Enum.class), normalizedStatus);
+                setter.invoke(user, enumValue);
+            } else if (parameterType == String.class) {
+                setter.invoke(user, normalizedStatus);
+            } else if (currentStatus != null && currentStatus.getClass().isEnum()) {
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                Enum enumValue = Enum.valueOf((Class<Enum>) currentStatus.getClass().asSubclass(Enum.class), normalizedStatus);
+                setter.invoke(user, enumValue);
+            } else {
+                throw new CustomException("Loại trạng thái người dùng không được hỗ trợ", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        } catch (CustomException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new CustomException("Trạng thái người dùng không hợp lệ: " + normalizedStatus, HttpStatus.BAD_REQUEST);
+        } catch (Exception ex) {
+            throw new CustomException("Không thể cập nhật trạng thái người dùng", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private void trySetDefaultActiveStatus(User user) {
+        try {
+            applyStatus(user, "ACTIVE");
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String trim(String value) {
+        if (value == null) {
+            return null;
+        }
+        String result = value.trim();
+        return result.isEmpty() ? null : result;
+    }
+
+    private String generateUsernameFromEmail(String email) {
+        String atSafeEmail = email == null ? "" : email;
+        int atIndex = atSafeEmail.indexOf("@");
+
+        String base = (atIndex > 0 ? atSafeEmail.substring(0, atIndex) : atSafeEmail)
+                .replaceAll("[^a-zA-Z0-9._]", "")
+                .toLowerCase(Locale.ROOT);
+
+        if (base.isBlank()) {
+            base = "user";
+        }
+
+        String username = base;
+        int counter = 1;
+        while (userRepository.existsByUsernameIgnoreCase(username)) {
+            username = base + counter;
+            counter++;
+        }
+        return username;
+    }
+
+    private String generateTemporaryPassword() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < 10; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
+    private String getExtension(String fileName, String contentType) {
+        if (fileName != null && fileName.contains(".")) {
+            String ext = fileName.substring(fileName.lastIndexOf('.') + 1)
+                    .trim()
+                    .toLowerCase(Locale.ROOT);
+            if (!ext.isBlank()) {
+                return ext;
+            }
+        }
+
+        if (contentType == null) {
+            return "png";
+        }
+
+        return switch (contentType.toLowerCase(Locale.ROOT)) {
+            case "image/jpeg", "image/jpg" -> "jpg";
+            case "image/png" -> "png";
+            case "image/webp" -> "webp";
+            default -> "png";
+        };
     }
 }

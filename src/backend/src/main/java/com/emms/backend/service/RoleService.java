@@ -67,7 +67,7 @@ public class RoleService {
         }
 
         if (dto.getDescription() != null) {
-            savedRole.setDescription(dto.getDescription());
+            savedRole.setDescription(normalize(dto.getDescription()));
         }
 
         if (dto.getActive() != null) {
@@ -78,7 +78,6 @@ public class RoleService {
             savedRole.setPermissions(safePermissions(dto.getPermissions()));
         }
 
-        // đảm bảo code luôn đúng theo roleType
         if (savedRole.getRoleType() != null) {
             savedRole.setCode(mapCodeFromRoleType(savedRole.getRoleType()));
         }
@@ -167,14 +166,14 @@ public class RoleService {
 
     private RoleCode mapCodeFromRoleType(RoleType roleType) {
         if (roleType == null) {
-            return RoleCode.USER_DEFINED;
+            return RoleCode.OPERATOR;
         }
 
         return switch (roleType) {
             case ROLE_ADMIN -> RoleCode.ADMIN;
-            case ROLE_QUANLYKYTHUAT -> RoleCode.TECHNICAL_MANAGER;
-            case ROLE_NHANVIENKYTHUAT -> RoleCode.TECHNICIAN;
-            case ROLE_NHANVIENVANHANH -> RoleCode.OPERATOR;
+            case ROLE_TECHNICAL_MANAGER -> RoleCode.TECHNICAL_MANAGER;
+            case ROLE_TECHNICIAN -> RoleCode.TECHNICIAN;
+            case ROLE_OPERATOR -> RoleCode.OPERATOR;
         };
     }
 }
