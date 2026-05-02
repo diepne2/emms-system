@@ -4,7 +4,7 @@ import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/ap
 import './location.css'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: 'https://emms-system-production-4239.up.railway.app/api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',

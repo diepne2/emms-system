@@ -23,7 +23,7 @@ export default function ForgotPassword() {
       setStatus("");
 
       const res = await fetch(
-        `http://localhost:8080/api/users/forgot-password?email=${encodeURIComponent(email)}`,
+        `https://emms-system-production-4239.up.railway.app/api/users/forgot-password?email=${encodeURIComponent(email)}`,
         { method: "POST" }
       );
 

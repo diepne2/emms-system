@@ -10,7 +10,7 @@ import CIcon from '@coreui/icons-react'
 import { cilBell } from '@coreui/icons'
 import './noti.css'
 
-const API = 'http://localhost:8080/api/notifications'
+const API = 'https://emms-system-production-4239.up.railway.app/api/notifications'
 
 function getToken() {
   const raw =

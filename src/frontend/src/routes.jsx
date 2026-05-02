@@ -8,7 +8,7 @@ const WorkOrderHistories = React.lazy(() =>
   import('./app/work-orders/WorkOrderHistories')
 )
 const Assets = React.lazy(() => import('./app/asset'))
-const Checklist = React.lazy(() => import('./app/Checklist'))
+const Checklist = React.lazy(() => import('./app/checklist'))
 const Meter = React.lazy(() => import('./app/meter'))
 const PreventiveMaintenance = React.lazy(() =>
   import('./app/preventive-maintenance')

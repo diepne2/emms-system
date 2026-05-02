@@ -21,8 +21,8 @@ import {
   FiSave,
 } from 'react-icons/fi'
 
-const API_BASE_URL = 'http://localhost:8080/api/asset-downtimes'
-const ASSET_API_BASE_URL = 'http://localhost:8080/api/assets'
+const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/asset-downtimes'
+const ASSET_API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/assets'
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import './hr.css'
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = 'https://emms-system-production-4239.up.railway.app'
 
 const api = axios.create({
   baseURL: API_BASE,

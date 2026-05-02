@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./Chat.css";
 
-const API_ORIGIN = "http://localhost:8080";
+const API_ORIGIN = "https://emms-system-production-4239.up.railway.app";
 const API_BASE = `${API_ORIGIN}/api/chat`;
 
 function getToken() {

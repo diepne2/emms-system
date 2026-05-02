@@ -9,8 +9,8 @@ import {
 } from 'react-icons/fi'
 import './WorkOrderPartSection.css'
 
-const WORK_ORDER_PART_API_BASE_URL = 'http://localhost:8080/api/work-order-parts'
-const PART_API_BASE_URL = 'http://localhost:8080/parts'
+const WORK_ORDER_PART_API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/work-order-parts'
+const PART_API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/parts'
 
 const getToken = () =>
   localStorage.getItem('accessToken') ||

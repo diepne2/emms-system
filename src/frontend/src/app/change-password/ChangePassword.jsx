@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import './changepassword.css'
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = 'https://emms-system-production-4239.up.railway.app'
 
 const api = axios.create({
   baseURL: API_BASE,

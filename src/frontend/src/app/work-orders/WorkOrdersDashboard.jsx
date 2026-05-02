@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import './WorkOrdersDashboard.css';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api';
 
 const STATUS_COLUMNS = [
   { key: 'OPEN', label: 'TO DO', icon: <ClipboardList size={16} /> },

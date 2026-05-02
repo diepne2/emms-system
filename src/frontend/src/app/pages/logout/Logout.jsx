@@ -13,7 +13,7 @@ export default function Logout() {
       try {
         if (refreshToken) {
           await axios.post(
-            'http://localhost:8080/api/v1/auth/logout',
+            'https://emms-system-production-4239.up.railway.app/api/v1/auth/logout',
             { refreshToken },
             {
               headers: {

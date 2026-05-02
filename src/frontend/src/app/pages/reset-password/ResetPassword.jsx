@@ -46,7 +46,7 @@ export default function ResetPassword() {
       setStatus("");
 
       const res = await fetch(
-        `http://localhost:8080/api/users/reset-password?token=${encodeURIComponent(
+        `https://emms-system-production-4239.up.railway.app/api/users/reset-password?token=${encodeURIComponent(
           token
         )}&newPassword=${encodeURIComponent(password)}`,
         { method: "POST" }

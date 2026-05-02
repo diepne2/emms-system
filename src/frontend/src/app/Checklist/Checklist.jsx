@@ -14,7 +14,7 @@ import {
   FiRotateCcw,
 } from 'react-icons/fi'
 
-const API_BASE_URL = 'http://localhost:8080/api/checklists'
+const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/checklists'
 
 const api = axios.create({
   baseURL: API_BASE_URL,

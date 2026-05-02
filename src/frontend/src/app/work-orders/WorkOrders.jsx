@@ -25,10 +25,10 @@ import {
   FiArchive,
 } from 'react-icons/fi'
 
-const API_BASE_URL = 'http://localhost:8080/api/work-orders'
-const ASSET_API_BASE_URL = 'http://localhost:8080/api/assets'
-const USER_API_BASE_URL = 'http://localhost:8080/api/users'
-const LOCATION_API_BASE_URL = 'http://localhost:8080/api/locations'
+const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/work-orders'
+const ASSET_API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/assets'
+const USER_API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/users'
+const LOCATION_API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/locations'
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react"
 import axios from "axios"
 import "./profile.css"
 
-const API_URL = "http://localhost:8080/api"
-const SERVER_URL = "http://localhost:8080"
+const API_URL = "https://emms-system-production-4239.up.railway.app/api"
+const SERVER_URL = "https://emms-system-production-4239.up.railway.app"
 
 const Profile = () => {
   const [profile, setProfile] = useState(null)

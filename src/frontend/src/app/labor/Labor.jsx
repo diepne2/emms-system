@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./Labor.css";
 
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = "https://emms-system-production-4239.up.railway.app/api";
 const LABOR_API = `${API_BASE}/labors`;
 const WORK_ORDERS_API = `${API_BASE}/work-orders/my`;
 

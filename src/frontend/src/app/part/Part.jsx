@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import "./Part.css";
 
-const API_BASE =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:8080";
+const API_BASE = 'https://emms-system-production-4239.up.railway.app'
 const PARTS_API = `${API_BASE}/parts`;
 
 const emptyForm = {

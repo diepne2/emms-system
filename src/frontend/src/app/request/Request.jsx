@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import './request.css'
 
-const API_BASE = 'http://localhost:8080/requests'
-const LOCATION_API = 'http://localhost:8080/api/locations'
-const ASSET_API = 'http://localhost:8080/api/assets'
+const API_BASE = 'https://emms-system-production-4239.up.railway.app/requests'
+const LOCATION_API = 'https://emms-system-production-4239.up.railway.app/api/locations'
+const ASSET_API = 'https://emms-system-production-4239.up.railway.app/api/assets'
 
 const EMPTY_FORM = {
   title: '',

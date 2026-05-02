@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import "./dashboard1.css";
 
-const API_BASE = "";
+const API_BASE = "https://emms-system-production-4239.up.railway.app";
 
 const API = {
   topRepairedAssets: "/api/dashboard/work-orders/top-repaired-assets",

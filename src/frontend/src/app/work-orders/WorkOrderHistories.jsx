@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import "./WorkOrderHistories.css";
 
-const HISTORY_API_BASE = "http://localhost:8080/api/work-order-histories";
-const WORK_ORDER_API_BASE = "http://localhost:8080/api/work-orders";
+const HISTORY_API_BASE = "https://emms-system-production-4239.up.railway.app/api/work-order-histories";
+const WORK_ORDER_API_BASE = "https://emms-system-production-4239.up.railway.app/api/work-orders";
 
 function getToken() {
   return localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken") || "";

@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { FaEye, FaEyeSlash } from 'react-icons/fa'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app'
 
 const API_LOGIN_URL = `${API_BASE_URL}/api/auth/login`
 export default function Login() {
