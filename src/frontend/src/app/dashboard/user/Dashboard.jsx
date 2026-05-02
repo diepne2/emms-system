@@ -13,7 +13,8 @@ import {
 } from "recharts";
 import "./Dashboard.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "https://emms-system-production-4239.up.railway.app"
 
 function getToken() {
   const raw =

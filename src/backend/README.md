@@ -17,9 +17,6 @@ docker-compose down
 docker-compose up --build
 
 
-http://localhost:8080/
-
-
 
 Chạy SQL 
 docker ps
