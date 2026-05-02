@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import ChangePassword from '../../app/change-password/ChangePassword'
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = 'https://emms-system-production-4239.up.railway.app'
 const fallbackLogo = '/logo.jpg'
 
 const avatarStyle = {

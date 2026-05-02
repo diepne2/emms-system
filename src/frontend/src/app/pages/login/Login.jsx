@@ -4,8 +4,8 @@ import axios from 'axios'
 import { FaEye, FaEyeSlash } from 'react-icons/fa'
 
 const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app'
-
 const API_LOGIN_URL = `${API_BASE_URL}/api/auth/login`
+
 export default function Login() {
   const navigate = useNavigate()
 

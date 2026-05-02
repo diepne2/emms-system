@@ -30,7 +30,7 @@ import {
 import { AppBreadcrumb } from './index'
 import { AppHeaderDropdown } from './header'
 
-const API_BASE = 'http://localhost:8080/api/chat'
+const API_BASE = 'https://emms-system-production-4239.up.railway.app/api/chat'
 
 function getToken() {
   return (
