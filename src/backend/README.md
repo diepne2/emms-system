@@ -76,3 +76,9 @@ SELECT u.id, u.username
 FROM users u
 JOIN roles r ON u.role_id = r.id
 WHERE r.code = 'TECHNICIAN';
+
+
+
+git add .
+git commit -m "fix password reset"
+git push

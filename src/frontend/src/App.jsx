@@ -10,12 +10,11 @@ import './scss/examples.scss'
 const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
 
 // Pages
-const Login = React.lazy(() => import('./views/pages/login/Login'))
-const ForgotPassword = React.lazy(() => import('./views/pages/forgot-password/ForgotPassword'))
-const ResetPassword = React.lazy(() => import('./views/pages/reset-password/ResetPassword'))
-const Page404 = React.lazy(() => import('./views/pages/page404/Page404'))
-const Page500 = React.lazy(() => import('./views/pages/page500/Page500'))
-const Logout = React.lazy(() => import('./views/logout/Logout'))
+const Login = React.lazy(() => import('./app/pages/login/Login'))
+const ForgotPassword = React.lazy(() => import('./app/pages/forgot-password/ForgotPassword'))
+const ResetPassword = React.lazy(() => import('./app/pages/reset-password/ResetPassword'))
+const Page404 = React.lazy(() => import('./app/pages/page404/Page404'))
+const Logout = React.lazy(() => import('./app/pages/logout/Logout'))
 
 const App = () => {
   const { isColorModeSet, setColorMode } =
@@ -57,10 +56,11 @@ const App = () => {
           <Route path="/logout" element={<Logout />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+  
 
           {/* ERROR ROUTES */}
           <Route path="/404" element={<Page404 />} />
-          <Route path="/500" element={<Page500 />} />
+
 
           {/* MAIN APP */}
           <Route path="/*" element={<DefaultLayout />} />

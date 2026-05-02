@@ -1,36 +1,60 @@
 import React from 'react'
 
-const Dashboard = React.lazy(() => import('./views/dashboard'))
-const WorkOrders = React.lazy(() => import('./views/work-orders'))
-const Devices = React.lazy(() => import('./views/devices'))
-const MaintenancePlan = React.lazy(() => import('./views/maintenance-plan'))
-const Warehouse = React.lazy(() => import('./views/warehouse'))
-const Locations = React.lazy(() => import('./views/locations'))
-const Requests = React.lazy(() => import('./views/requests'))
-const HR = React.lazy(() => import('./views/hr'))
-const Reports = React.lazy(() => import('./views/reports'))
-const Profile = React.lazy(() => import('./views/profile'))
-const Chat = React.lazy(() => import('./views/chat'))
-const Logout = React.lazy(() => import('./views/logout/Logout'))
+const Dashboard1 = React.lazy(() => import('./app/dashboard1'))
+
+const Dashboard = React.lazy(() => import('./app/dashboard'))
+const WorkOrders = React.lazy(() => import('./app/work-orders'))
+const WorkOrderHistories = React.lazy(() =>
+  import('./app/work-orders/WorkOrderHistories')
+)
+const Assets = React.lazy(() => import('./app/asset'))
+const Checklists = React.lazy(() => import('./app/checklist'))
+const Meter = React.lazy(() => import('./app/meter'))
+const PreventiveMaintenance = React.lazy(() =>
+  import('./app/preventive-maintenance')
+)
+const Part = React.lazy(() => import("./app/part"));
+const Location = React.lazy(() => import('./app/location'))
+const LocationMap = React.lazy(() => import('./app/location/LocationMap'))
+const Request = React.lazy(() => import('./app/request'))
+const HR = React.lazy(() => import('./app/hr'))
+const Reports = React.lazy(() => import('./app/reports'))
+const Profile = React.lazy(() => import('./app/profile'))
+const Chat = React.lazy(() => import('./app/chat'))
+const Logout = React.lazy(() => import('./app/pages/logout/Logout'))
+const Labor = React.lazy(() => import('./app/labor/Labor'))
 
 const routes = [
-  { path: '/', exact: true, name: 'Home', element: Dashboard },
-  { path: '/dashboard', name: 'Dashboard', element: Dashboard },
+  { path: '/dashboard1', name: 'Trang chủ', element: Dashboard1 },
+  { path: '/dashboard/*', name: 'Dashboard', element: Dashboard },
 
-  { path: '/work-orders/*', name: 'Work Orders', element: WorkOrders },
-  { path: '/devices/*', name: 'Devices', element: Devices },
-  { path: '/maintenance-plan/*', name: 'Maintenance Plan', element: MaintenancePlan },
+  { path: '/work-orders/*', name: 'Lệnh công việc', element: WorkOrders },
+  { path: '/work-order-histories', name: 'History WO', element: WorkOrderHistories },
+  { path: '/assets/*', name: 'Thiết bị', element: Assets },
+  { path: '/checklists/*', name: 'Checklist', element: Checklists },
 
-  { path: '/warehouse/*', name: 'Warehouse', element: Warehouse },
-  { path: '/locations/*', name: 'Locations', element: Locations },
-  { path: '/requests/*', name: 'Requests', element: Requests },
+  { path: '/request', name: 'Yêu cầu sửa chữa', element: Request },
+  { path: '/meter', name: 'Meters', element: Meter },
 
-  { path: '/hr/*', name: 'HR', element: HR },
-  { path: '/reports/*', name: 'Reports', element: Reports },
 
-  { path: '/profile', name: 'Profile', element: Profile },
+  { path: '/labors', name: 'Work Log', element: Labor },
+  { path: '/work-orders/:workOrderId/labors', name: 'Work Log theo WO', element: Labor },
+
+  { path: '/preventive-maintenance/*', name: 'Kế hoạch bảo trì', element: PreventiveMaintenance },
+  
+
+  { path: '/part', name: 'Kho vật tư', element: Part },
+  { path: '/location', name: 'Vị trí', element: Location },
+  { path: '/location/map', name: 'Bản đồ vị trí', element: LocationMap },
+
+  
+
+  { path: '/hr', name: 'Nhân sự', element: HR },
+  { path: '/reports/*', name: 'Phân tích & Báo cáo', element: Reports },
+
+  { path: '/profile', name: 'Thông tin người dùng', element: Profile },
   { path: '/chat', name: 'Chat', element: Chat },
-  { path: '/logout', name: 'Logout', element: Logout },
+  { path: '/logout', name: 'Đăng xuất', element: Logout },
 ]
 
 export default routes

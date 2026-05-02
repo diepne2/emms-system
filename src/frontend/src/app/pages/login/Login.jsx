@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { FaEye, FaEyeSlash } from 'react-icons/fa'
 
-const API_LOGIN_URL = 'http://localhost:8080/api/auth/login'
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
+const API_LOGIN_URL = `${API_BASE_URL}/api/auth/login`
 export default function Login() {
   const navigate = useNavigate()
 
@@ -63,7 +65,7 @@ export default function Login() {
     storage.setItem('permissions', JSON.stringify(permissions || []))
     if (role) storage.setItem('role', role)
 
-    // đồng bộ sang localStorage để các page khác đang đọc localStorage vẫn hoạt động
+
     if (accessToken) localStorage.setItem('accessToken', accessToken)
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken)
     localStorage.setItem('user', JSON.stringify(user || {}))

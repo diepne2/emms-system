@@ -18,7 +18,7 @@ const _nav = [
   {
     component: CNavItem,
     name: 'Dashboard',
-    to: '/dashboard',
+    to: '/dashboard1',
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
   },
 
@@ -29,9 +29,34 @@ const _nav = [
     name: 'Thiết bị',
     icon: <CIcon icon={cilDevices} customClassName="nav-icon" />,
     items: [
-      { component: CNavItem, name: 'Danh sách thiết bị', to: '/devices/list' },
-      { component: CNavItem, name: 'Nhóm thiết bị', to: '/devices/group' },
-      { component: CNavItem, name: 'Tài liệu thiết bị', to: '/devices/documents' },
+      { component: CNavItem, name: 'Danh sách thiết bị', to: '/assets/list' },
+      { component: CNavItem, name: 'Nhật ký dừng máy', to: '/assets/downtimes' },
+    ],
+  },
+
+  {
+    component: CNavGroup,
+    name: 'Checklist',
+    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+    items: [
+      { component: CNavItem, name: 'Tra cứu / quản lý checklist', to: '/checklists/view' },
+    ],
+  },
+  {
+    component: CNavGroup,
+    name: 'Bảo trì định kỳ',
+    icon: <CIcon icon={cilCalendar} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'Danh sách PM',
+        to: '/preventive-maintenance',
+      },
+      {
+        component: CNavItem,
+        name: 'Work Orders của tôi',
+        to: '/preventive-maintenance/work-orders/my',
+      },
     ],
   },
 
@@ -40,31 +65,25 @@ const _nav = [
     name: 'Work Orders',
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
     items: [
+      { component: CNavItem, name: 'Dashboard', to: '/work-orders/dashboard' },
       { component: CNavItem, name: 'Danh sách', to: '/work-orders/list' },
-      { component: CNavItem, name: 'Kanban', to: '/work-orders/kanban' },
-      { component: CNavItem, name: 'Lịch', to: '/work-orders/calendar' },
-      { component: CNavItem, name: 'Tạo mới', to: '/work-orders/new' },
+      { component: CNavItem, name: 'Lịch sử Work Order', to: '/work-order-histories' },
+      { component: CNavItem, name: 'Work Log', to: '/labors' },
     ],
   },
+  {
+  component: CNavGroup,
+  to: '/meter',
+  name: 'Meter',
+  icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+},
+
 
   {
-    component: CNavGroup,
-    name: 'Bảo trì định kỳ',
-    icon: <CIcon icon={cilCalendar} customClassName="nav-icon" />,
-    items: [
-      { component: CNavItem, name: 'Danh sách kế hoạch', to: '/maintenance-plan/list' },
-      { component: CNavItem, name: 'Lịch bảo trì', to: '/maintenance-plan/calendar' },
-      { component: CNavItem, name: 'Lịch sử sửa chữa', to: '/maintenance-plan/history' },
-    ],
-  },
-
-  {
-    component: CNavGroup,
+    component: CNavItem,
     name: 'Kho vật tư',
-    icon: <CIcon icon={cilStorage} customClassName="nav-icon" />,
-    items: [
-      { component: CNavItem, name: 'Danh mục vật tư', to: '/warehouse/parts' },
-    ],
+    to: '/part',
+    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
   },
 
   {
@@ -72,26 +91,23 @@ const _nav = [
     name: 'Vị trí',
     icon: <CIcon icon={cilLocationPin} customClassName="nav-icon" />,
     items: [
-      { component: CNavItem, name: 'Danh sách vị trí', to: '/locations' },
-      { component: CNavItem, name: 'Bản đồ', to: '/locations/map' },
+      { component: CNavItem, name: 'Danh sách vị trí', to: '/location' },
+      { component: CNavItem, name: 'Bản đồ', to: '/location/map' },
     ],
   },
 
   {
     component: CNavItem,
     name: 'Yêu cầu sửa chữa',
-    to: '/requests',
+    to: '/request',
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
   },
 
   {
-    component: CNavGroup,
+    component: CNavItem,
     name: 'Nhân sự',
+    to: '/hr',
     icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
-    items: [
-      { component: CNavItem, name: 'Nhân viên', to: '/hr/users' },
-      { component: CNavItem, name: 'Tổ / đội', to: '/hr/teams' },
-    ],
   },
 
   {
@@ -99,15 +115,17 @@ const _nav = [
     name: 'Phân tích & Báo cáo',
     icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
     items: [
-      { component: CNavItem, name: 'KPI Dashboard', to: '/reports/kpi' },
+      { component: CNavItem, name: 'Tổng quan thiết bị', to: '/dashboard/asset' },
+      { component: CNavItem, name: 'Yêu cầu sửa chữa', to: '/dashboard/request' },
+      { component: CNavItem, name: 'Nhân sự kỹ thuật', to: '/dashboard/user' },
+      { component: CNavItem, name: 'Work Orders', to: '/dashboard/wo' },
     ],
   },
 
-  { component: CNavTitle, name: 'Cá nhân' },
 
   {
     component: CNavItem,
-    name: 'Hồ sơ cá nhân',
+    name: 'Thông tin người dùng',
     to: '/profile',
     icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
   },
