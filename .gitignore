@@ -106,3 +106,7 @@ failsafe-reports/
 !src/main/resources/application.properties
 !src/main/resources/application-dev.properties
 !src/main/resources/application-test.properties
+*.jar
+node_modules/
+.vite/
+dist/
