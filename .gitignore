@@ -110,3 +110,4 @@ failsafe-reports/
 node_modules/
 .vite/
 dist/
+*.jar
