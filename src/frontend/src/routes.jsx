@@ -8,7 +8,7 @@ const WorkOrderHistories = React.lazy(() =>
   import('./app/work-orders/WorkOrderHistories')
 )
 const Assets = React.lazy(() => import('./app/asset'))
-const Checklists = React.lazy(() => import('./app/checklist'))
+const Checklist = React.lazy(() => import('./app/Checklist'))
 const Meter = React.lazy(() => import('./app/meter'))
 const PreventiveMaintenance = React.lazy(() =>
   import('./app/preventive-maintenance')
@@ -29,7 +29,7 @@ const routes = [
   { path: '/work-orders/*', name: 'Lệnh công việc', element: WorkOrders },
   { path: '/work-order-histories', name: 'History WO', element: WorkOrderHistories },
   { path: '/assets/*', name: 'Thiết bị', element: Assets },
-  { path: '/checklists/*', name: 'Checklist', element: Checklists },
+  { path: '/checklist/*', name: 'Checklist', element: Checklist },
 
   { path: '/request', name: 'Yêu cầu sửa chữa', element: Request },
   { path: '/meter', name: 'Meters', element: Meter },
