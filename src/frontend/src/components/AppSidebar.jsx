@@ -11,7 +11,7 @@ import {
 } from '@coreui/react'
 
 import { AppSidebarNav } from './AppSidebarNav'
-import logo from '../assets/brand/logo.jpg'
+import logo from '../logo/brand/logo.jpg'
 import navigation from '../_nav'
 
 const AppSidebar = () => {

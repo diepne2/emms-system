@@ -18,7 +18,6 @@ const Location = React.lazy(() => import('./app/location'))
 const LocationMap = React.lazy(() => import('./app/location/LocationMap'))
 const Request = React.lazy(() => import('./app/request'))
 const HR = React.lazy(() => import('./app/hr'))
-const Reports = React.lazy(() => import('./app/reports'))
 const Profile = React.lazy(() => import('./app/profile'))
 const Chat = React.lazy(() => import('./app/chat'))
 const Logout = React.lazy(() => import('./app/pages/logout/Logout'))
@@ -26,7 +25,6 @@ const Labor = React.lazy(() => import('./app/labor/Labor'))
 
 const routes = [
   { path: '/dashboard1', name: 'Trang chủ', element: Dashboard1 },
-  { path: '/dashboard/*', name: 'Dashboard', element: Dashboard },
 
   { path: '/work-orders/*', name: 'Lệnh công việc', element: WorkOrders },
   { path: '/work-order-histories', name: 'History WO', element: WorkOrderHistories },
@@ -50,7 +48,7 @@ const routes = [
   
 
   { path: '/hr', name: 'Nhân sự', element: HR },
-  { path: '/reports/*', name: 'Phân tích & Báo cáo', element: Reports },
+  { path: '/dashboard/*', name: 'Phân tích & Báo cáo', element: Dashboard },
 
   { path: '/profile', name: 'Thông tin người dùng', element: Profile },
   { path: '/chat', name: 'Chat', element: Chat },

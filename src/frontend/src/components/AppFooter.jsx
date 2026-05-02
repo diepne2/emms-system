@@ -9,8 +9,6 @@ const AppFooter = () => {
         <span className="ms-1">© 2026 – Hệ thống Quản lý Thiết bị &amp; Bảo trì</span>
       </div>
       <div className="ms-auto">
-        <span className="me-1">Developed by</span>
-        <span>EMMS Team</span>
       </div>
     </CFooter>
   )

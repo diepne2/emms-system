@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 
-import ComponentsImg from '../assets/images/components.webp'
+import ComponentsImg from '../logo/images/components.webp'
 
 
 const DocsComponents = (props) => (

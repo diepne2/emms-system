@@ -1,6 +1,6 @@
 import React from 'react'
 
-import IconsImg from '../assets/images/icons.webp'
+import IconsImg from '../logo/images/icons.webp'
 
 const DocsIcons = () => (
   <div className="bg-warning bg-opacity-10 border border-2 border-warning rounded mb-4">

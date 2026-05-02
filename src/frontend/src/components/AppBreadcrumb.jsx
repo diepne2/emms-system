@@ -1,49 +1,66 @@
 import React from 'react'
 import { useLocation } from 'react-router-dom'
-
-import routes from '../routes'
-
 import { CBreadcrumb, CBreadcrumbItem } from '@coreui/react'
+import routes from '../routes'
 
 const AppBreadcrumb = () => {
   const currentLocation = useLocation().pathname
 
-  const getRouteName = (pathname, routes) => {
-    const currentRoute = routes.find((route) => route.path === pathname)
-    return currentRoute ? currentRoute.name : false
+  const normalizeRoutePath = (path) => {
+    return path?.replace(/\/\*$/, '') || ''
   }
 
-  const getBreadcrumbs = (location) => {
+  const getRouteName = (pathname, routes) => {
+    const currentRoute = routes.find((route) => normalizeRoutePath(route.path) === pathname)
+    return currentRoute ? currentRoute.name : null
+  }
+
+  const getBreadcrumbs = (pathname) => {
     const breadcrumbs = []
-    location.split('/').reduce((prev, curr, index, array) => {
-      const currentPathname = `${prev}/${curr}`
-      const routeName = getRouteName(currentPathname, routes)
-      routeName &&
+    const pathSegments = pathname.split('/').filter(Boolean)
+
+    let currentPath = ''
+
+    pathSegments.forEach((segment, index) => {
+      currentPath += `/${segment}`
+      const routeName = getRouteName(currentPath, routes)
+
+      if (
+        routeName &&
+        currentPath !== '/dashboard' &&
+        currentPath !== '/logo'
+      ) {
         breadcrumbs.push({
-          pathname: currentPathname,
+          pathname: currentPath,
           name: routeName,
-          active: index + 1 === array.length ? true : false,
+          active: index === pathSegments.length - 1,
         })
-      return currentPathname
+      }
     })
+
     return breadcrumbs
   }
 
   const breadcrumbs = getBreadcrumbs(currentLocation)
 
   return (
-    <CBreadcrumb className="my-0">
-      <CBreadcrumbItem href="#">Home</CBreadcrumbItem>
-      {breadcrumbs.map((breadcrumb, index) => {
-        return (
-          <CBreadcrumbItem
-            {...(breadcrumb.active ? { active: true } : { href: breadcrumb.pathname })}
-            key={index}
-          >
-            {breadcrumb.name}
-          </CBreadcrumbItem>
-        )
-      })}
+    <CBreadcrumb
+      className="my-0 py-1"
+      style={{
+        fontSize: '13px',
+        marginBottom: 0,
+      }}
+    >
+      <CBreadcrumbItem href="#/dashboard">Trang chủ</CBreadcrumbItem>
+
+      {breadcrumbs.map((breadcrumb, index) => (
+        <CBreadcrumbItem
+          key={index}
+          {...(breadcrumb.active ? { active: true } : { href: `#${breadcrumb.pathname}` })}
+        >
+          {breadcrumb.name}
+        </CBreadcrumbItem>
+      ))}
     </CBreadcrumb>
   )
 }
