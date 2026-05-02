@@ -1,19 +1,6 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16
-    container_name: emms-postgres
-    restart: always
-    environment:
-      POSTGRES_DB: emms_system
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   redis:
     image: redis:7
     container_name: emms-redis
@@ -30,16 +17,17 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
       - redis
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/emms_system
+      SPRING_DATASOURCE_URL: jdbc:postgresql://maglev.proxy.rlwy.net:52003/railway?sslmode=require
       SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: 123456
+      SPRING_DATASOURCE_PASSWORD: xtmMiBQjZjIyzTZkuFPophHVFujjZtmT
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
+
       SECURITY_JWT_TOKEN_SECRET_KEY: abcdefghijklmnopqrstuvwxyz123456
       SECURITY_JWT_TOKEN_EXPIRE_LENGTH: 3600000
       SECURITY_JWT_TOKEN_REFRESH_EXPIRE_LENGTH: 604800000
