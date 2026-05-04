@@ -33,14 +33,18 @@ const _nav = [
       { component: CNavItem, name: 'Nhật ký dừng máy', to: '/assets/downtimes' },
     ],
   },
-
   {
     component: CNavGroup,
-    name: 'Checklist',
+    to: '/meter',
+    name: 'Meter',
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
-    items: [
-      { component: CNavItem, name: 'Tra cứu / quản lý checklist', to: '/checklists/view' },
-    ],
+  },
+
+  {
+    component: CNavItem,
+    name: 'Checklist',
+    to: '/Checklist',
+    icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
   },
   {
     component: CNavGroup,
@@ -59,6 +63,12 @@ const _nav = [
       },
     ],
   },
+  {
+    component: CNavItem,
+    name: 'Yêu cầu sửa chữa',
+    to: '/request',
+    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+  },
 
   {
     component: CNavGroup,
@@ -71,12 +81,6 @@ const _nav = [
       { component: CNavItem, name: 'Work Log', to: '/labors' },
     ],
   },
-  {
-  component: CNavGroup,
-  to: '/meter',
-  name: 'Meter',
-  icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
-},
 
 
   {
@@ -96,12 +100,7 @@ const _nav = [
     ],
   },
 
-  {
-    component: CNavItem,
-    name: 'Yêu cầu sửa chữa',
-    to: '/request',
-    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
-  },
+
 
   {
     component: CNavItem,
@@ -109,8 +108,7 @@ const _nav = [
     to: '/hr',
     icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
   },
-
-  {
+    {
     component: CNavGroup,
     name: 'Phân tích & Báo cáo',
     icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
@@ -121,7 +119,6 @@ const _nav = [
       { component: CNavItem, name: 'Work Orders', to: '/dashboard/wo' },
     ],
   },
-
 
   {
     component: CNavItem,

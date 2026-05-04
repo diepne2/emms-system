@@ -1,164 +1,68 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
-import './Checklist.css'
 import {
-  FiSearch,
-  FiPlus,
-  FiTrash2,
-  FiSave,
-  FiX,
   FiCheckSquare,
-  FiEdit2,
-  FiAlertTriangle,
-  FiInfo,
-  FiRotateCcw,
+  FiClipboard,
+  FiEdit3,
+  FiPlus,
+  FiRefreshCcw,
+  FiSearch,
+  FiTrash2,
+  FiX,
 } from 'react-icons/fi'
+import './Checklist.css'
 
-const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/checklists'
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const checklistApi = axios.create({
+  baseURL: `${API_BASE_URL}/api/checklists`,
 })
 
-const getToken = () =>
-  localStorage.getItem('accessToken') ||
-  localStorage.getItem('token') ||
-  localStorage.getItem('access_token') ||
-  sessionStorage.getItem('accessToken') ||
-  sessionStorage.getItem('token') ||
-  sessionStorage.getItem('access_token') ||
-  ''
+function getToken() {
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken') ||
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('jwt')
+  )
+}
 
-const getAuthConfig = () => {
+function authConfig() {
   const token = getToken()
-  return {
-    headers: token
-      ? {
+
+  return token
+    ? {
+        headers: {
           Authorization: `Bearer ${token}`,
-        }
-      : {},
-  }
+        },
+      }
+    : {}
 }
 
-const safeJsonParse = (value, fallback) => {
-  try {
-    return JSON.parse(value)
-  } catch {
-    return fallback
-  }
-}
-
-const normalizeToArray = (value) => {
-  if (!value) return []
-  if (Array.isArray(value)) return value
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return []
-    return [trimmed]
-  }
-  return []
-}
-
-const normalizeGrant = (value) => {
-  if (!value) return ''
-  let raw = String(value).trim().toUpperCase()
-  if (!raw) return ''
-  if (raw.startsWith('ROLE_')) raw = raw.substring(5)
-  return raw
-}
-
-const extractGrantValue = (item) => {
-  if (!item) return null
-  if (typeof item === 'string') return item.trim()
-  if (typeof item === 'object') {
-    return item.authority || item.name || item.code || item.role || item.permission || null
-  }
-  return null
-}
-
-const getUserContext = () => {
-  const userRaw = localStorage.getItem('user') || sessionStorage.getItem('user')
-  const rolesRaw = localStorage.getItem('roles') || sessionStorage.getItem('roles')
-  const authoritiesRaw =
-    localStorage.getItem('authorities') || sessionStorage.getItem('authorities')
-  const permissionsRaw =
-    localStorage.getItem('permissions') || sessionStorage.getItem('permissions')
-  const roleRaw = localStorage.getItem('role') || sessionStorage.getItem('role') || ''
-
-  const user = safeJsonParse(userRaw, {})
-  const roles = normalizeToArray(safeJsonParse(rolesRaw, rolesRaw || user?.roles || []))
-  const authorities = normalizeToArray(
-    safeJsonParse(authoritiesRaw, authoritiesRaw || user?.authorities || []),
+function getErrorMessage(err, fallback) {
+  return (
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    fallback
   )
-  const permissions = normalizeToArray(
-    safeJsonParse(permissionsRaw, permissionsRaw || user?.permissions || []),
-  )
-  const singleRole = normalizeToArray(roleRaw)
-
-  const merged = [
-    ...roles,
-    ...authorities,
-    ...permissions,
-    ...singleRole,
-    ...(Array.isArray(user?.roles) ? user.roles : []),
-    ...(Array.isArray(user?.authorities) ? user.authorities : []),
-    ...(Array.isArray(user?.permissions) ? user.permissions : []),
-  ]
-    .map(extractGrantValue)
-    .filter(Boolean)
-    .map(normalizeGrant)
-    .filter(Boolean)
-
-  return {
-    user,
-    grants: Array.from(new Set(merged)),
-  }
 }
 
-const hasAnyGrant = (grants, expected = []) => {
-  if (!Array.isArray(grants) || !expected.length) return false
-  const normalizedUserGrants = grants.map(normalizeGrant)
-  const normalizedExpected = expected.map(normalizeGrant)
-  return normalizedExpected.some((item) => normalizedUserGrants.includes(item))
-}
-
-const extractErrorMessage = (err, fallback) => {
-  if (!err) return fallback
-
-  if (err.response) {
-    const data = err.response.data
-
-    if (typeof data === 'string' && data.trim()) {
-      return `HTTP ${err.response.status}: ${data}`
-    }
-
-    if (data?.message) {
-      return `HTTP ${err.response.status}: ${data.message}`
-    }
-
-    if (data?.error) {
-      return `HTTP ${err.response.status}: ${data.error}`
-    }
-
-    return `HTTP ${err.response.status}: ${fallback}`
+function getApplyLabel(value) {
+  const map = {
+    WORK_ORDER: 'Work Order',
+    MAINTENANCE_PLAN: 'Preventive Maintenance',
+    ASSET: 'Asset',
+    GENERAL: 'General',
   }
 
-  if (err.request) {
-    return 'Không nhận được phản hồi từ backend. Kiểm tra backend/CORS/network.'
-  }
-
-  return err.message || fallback
+  return map[value] || value || 'General'
 }
 
-const TASK_TYPE_OPTIONS = [
-  { value: 'PASS_FAIL', label: 'Pass / Fail' },
-  { value: 'NUMBER', label: 'Number' },
-  { value: 'TEXT', label: 'Text' },
-]
+function getTaskTitle(task) {
+  return task?.title || task?.label || '-'
+}
 
 const emptyTask = {
   label: '',
@@ -166,821 +70,643 @@ const emptyTask = {
   taskType: 'PASS_FAIL',
 }
 
-const emptyChecklistForm = {
+const emptyForm = {
   name: '',
   description: '',
-  appliesTo: '',
+  appliesTo: 'WORK_ORDER',
   active: true,
   tasks: [{ ...emptyTask }],
 }
 
-function DetailItem({ icon, label, value, full = false }) {
-  return (
-    <div className={`detail-item ${full ? 'detail-item--full' : ''}`}>
-      <div className="detail-item__label">
-        <span className="detail-item__icon">{icon}</span>
-        <span>{label}</span>
-      </div>
-      <div className="detail-item__value">{value || '-'}</div>
-    </div>
-  )
-}
-
-function FormField({ label, children, full = false }) {
-  return (
-    <div className={`form-field ${full ? 'form-field--full' : ''}`}>
-      <label className="form-label">{label}</label>
-      {children}
-    </div>
-  )
-}
-
-const getTaskTypeLabel = (value) => {
-  const found = TASK_TYPE_OPTIONS.find((item) => item.value === value)
-  return found?.label || value || 'Pass / Fail'
-}
-
 export default function Checklist() {
-  const { grants } = useMemo(() => getUserContext(), [])
-  const isAuthenticated = Boolean(getToken())
+  const [keyword, setKeyword] = useState('')
+  const [results, setResults] = useState([])
+  const [selectedChecklist, setSelectedChecklist] = useState(null)
 
-  const canCreate = isAuthenticated
-  const canEdit = isAuthenticated
-  const canDelete = isAuthenticated
-  const canViewDetail = true
-
-  const [lookupId, setLookupId] = useState('')
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [checklist, setChecklist] = useState(null)
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [createLoading, setCreateLoading] = useState(false)
-  const [createError, setCreateError] = useState('')
-  const [createForm, setCreateForm] = useState(emptyChecklistForm)
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(emptyForm)
 
-  const [editOpen, setEditOpen] = useState(false)
-  const [editLoading, setEditLoading] = useState(false)
-  const [editError, setEditError] = useState('')
-  const [editForm, setEditForm] = useState(emptyChecklistForm)
+  const taskCount = useMemo(() => {
+    return selectedChecklist?.tasks?.length || 0
+  }, [selectedChecklist])
 
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteLoading, setDeleteLoading] = useState(false)
-  const [deleteError, setDeleteError] = useState('')
+  useEffect(() => {
+    loadChecklists('')
+  }, [])
 
-  const pageTitle = 'Checklist'
-
-  const buildPayload = (form) => ({
-    name: form.name?.trim() || '',
-    description: form.description?.trim() || '',
-    appliesTo: form.appliesTo?.trim() || '',
-    active: Boolean(form.active),
-    tasks: (form.tasks || [])
-      .map((task) => ({
-        label: task.label?.trim() || '',
-        description: task.description?.trim() || '',
-        taskType: task.taskType || 'PASS_FAIL',
-      }))
-      .filter((task) => task.label),
-  })
-
-  const handleLoadChecklist = async () => {
-    if (!lookupId.trim()) {
-      setError('Vui lòng nhập Checklist ID.')
-      setChecklist(null)
-      return
-    }
-
+  async function loadChecklists(q = keyword) {
     try {
       setLoading(true)
       setError('')
-      const response = await api.get(`/${lookupId.trim()}`, getAuthConfig())
-      setChecklist(response?.data || null)
+
+      const cleanKeyword = String(q || '').trim()
+
+      const res = await checklistApi.get('', {
+        ...authConfig(),
+        params: cleanKeyword ? { q: cleanKeyword } : {},
+      })
+
+      const list = Array.isArray(res.data) ? res.data : []
+
+      setResults(list)
+
+      if (list.length === 1) {
+        setSelectedChecklist(list[0])
+      } else {
+        setSelectedChecklist(null)
+      }
+
+      if (list.length === 0) {
+        setError('Không tìm thấy checklist phù hợp.')
+      }
     } catch (err) {
-      setChecklist(null)
-      setError(extractErrorMessage(err, 'Không thể tải checklist.'))
+      setError(getErrorMessage(err, 'Không thể tải danh sách checklist.'))
+      setResults([])
+      setSelectedChecklist(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const openCreateModal = () => {
-    if (!canCreate) return
-    setCreateError('')
-    setCreateForm({
-      ...emptyChecklistForm,
+  function resetSearch() {
+    setKeyword('')
+    setError('')
+    setSelectedChecklist(null)
+    loadChecklists('')
+  }
+
+  function openCreate() {
+    setEditingId(null)
+    setForm({
+      ...emptyForm,
       tasks: [{ ...emptyTask }],
     })
-    setCreateOpen(true)
+    setShowForm(true)
   }
 
-  const closeCreateModal = () => {
-    if (createLoading) return
-    setCreateOpen(false)
-    setCreateError('')
-    setCreateForm(emptyChecklistForm)
-  }
+  function openEdit(item) {
+    setEditingId(item.id)
 
-  const openEditModal = () => {
-    if (!canEdit || !checklist) return
-
-    setEditError('')
-    setEditForm({
-      name: checklist?.name || '',
-      description: checklist?.description || '',
-      appliesTo: checklist?.appliesTo || '',
-      active: checklist?.active ?? true,
+    setForm({
+      name: item.name || '',
+      description: item.description || '',
+      appliesTo: item.appliesTo || 'WORK_ORDER',
+      active: item.active !== false,
       tasks:
-        Array.isArray(checklist?.tasks) && checklist.tasks.length > 0
-          ? checklist.tasks.map((task) => ({
-              label: task?.title || task?.label || '',
-              description: task?.description || '',
-              taskType: task?.taskType || 'PASS_FAIL',
+        item.tasks?.length > 0
+          ? item.tasks.map((task) => ({
+              label: task.title || task.label || '',
+              description: task.description || '',
+              taskType: task.taskType || 'PASS_FAIL',
             }))
           : [{ ...emptyTask }],
     })
-    setEditOpen(true)
+
+    setShowForm(true)
   }
 
-  const closeEditModal = () => {
-    if (editLoading) return
-    setEditOpen(false)
-    setEditError('')
+  function closeForm() {
+    setShowForm(false)
+    setEditingId(null)
+    setForm({
+      ...emptyForm,
+      tasks: [{ ...emptyTask }],
+    })
   }
 
-  const openDeleteModal = () => {
-    if (!canDelete || !checklist?.id) return
-    setDeleteError('')
-    setDeleteOpen(true)
-  }
+  function updateTask(index, field, value) {
+    setForm((prev) => {
+      const tasks = [...prev.tasks]
 
-  const closeDeleteModal = () => {
-    if (deleteLoading) return
-    setDeleteOpen(false)
-    setDeleteError('')
-  }
-
-  const handleCreateFormChange = (field, value) => {
-    setCreateForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  const handleEditFormChange = (field, value) => {
-    setEditForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  const handleTaskChange = (mode, index, field, value) => {
-    if (mode === 'create') {
-      setCreateForm((prev) => {
-        const nextTasks = [...prev.tasks]
-        nextTasks[index] = {
-          ...nextTasks[index],
-          [field]: value,
-        }
-        return {
-          ...prev,
-          tasks: nextTasks,
-        }
-      })
-      return
-    }
-
-    setEditForm((prev) => {
-      const nextTasks = [...prev.tasks]
-      nextTasks[index] = {
-        ...nextTasks[index],
+      tasks[index] = {
+        ...tasks[index],
         [field]: value,
       }
+
       return {
         ...prev,
-        tasks: nextTasks,
+        tasks,
       }
     })
   }
 
-  const handleAddTask = (mode) => {
-    if (mode === 'create') {
-      setCreateForm((prev) => ({
-        ...prev,
-        tasks: [...prev.tasks, { ...emptyTask }],
-      }))
-      return
-    }
-
-    setEditForm((prev) => ({
+  function addTask() {
+    setForm((prev) => ({
       ...prev,
       tasks: [...prev.tasks, { ...emptyTask }],
     }))
   }
 
-  const handleRemoveTask = (mode, index) => {
-    if (mode === 'create') {
-      setCreateForm((prev) => {
-        const nextTasks = prev.tasks.filter((_, i) => i !== index)
-        return {
-          ...prev,
-          tasks: nextTasks.length ? nextTasks : [{ ...emptyTask }],
-        }
-      })
+  function removeTask(index) {
+    setForm((prev) => ({
+      ...prev,
+      tasks:
+        prev.tasks.length === 1
+          ? [{ ...emptyTask }]
+          : prev.tasks.filter((_, i) => i !== index),
+    }))
+  }
+
+  async function submitForm(e) {
+    e.preventDefault()
+
+    if (!form.name.trim()) {
+      setError('Tên checklist không được để trống.')
       return
     }
 
-    setEditForm((prev) => {
-      const nextTasks = prev.tasks.filter((_, i) => i !== index)
-      return {
-        ...prev,
-        tasks: nextTasks.length ? nextTasks : [{ ...emptyTask }],
-      }
-    })
-  }
+    const validTasks = form.tasks
+      .filter((task) => task.label?.trim())
+      .map((task) => ({
+        label: task.label.trim(),
+        description: task.description?.trim() || null,
+        taskType: task.taskType || 'PASS_FAIL',
+      }))
 
-  const handleCreateSubmit = async () => {
-    if (!canCreate) return
+    if (validTasks.length === 0) {
+      setError('Checklist cần ít nhất 1 task.')
+      return
+    }
+
+    const payload = {
+      name: form.name.trim(),
+      description: form.description?.trim() || null,
+      appliesTo: form.appliesTo,
+      active: form.active,
+      tasks: validTasks,
+    }
 
     try {
-      setCreateLoading(true)
-      setCreateError('')
-      const response = await api.post('', buildPayload(createForm), getAuthConfig())
-      const created = response?.data || null
-      setChecklist(created)
-      if (created?.id) {
-        setLookupId(String(created.id))
+      setSaving(true)
+      setError('')
+
+      if (editingId) {
+        await checklistApi.patch(`/${editingId}`, payload, authConfig())
+      } else {
+        await checklistApi.post('', payload, authConfig())
       }
-      closeCreateModal()
+
+      closeForm()
+      await loadChecklists(keyword)
     } catch (err) {
-      setCreateError(extractErrorMessage(err, 'Không thể tạo checklist.'))
+      setError(getErrorMessage(err, 'Không thể lưu checklist.'))
     } finally {
-      setCreateLoading(false)
+      setSaving(false)
     }
   }
 
-  const handleEditSubmit = async () => {
-    if (!canEdit || !checklist?.id) return
+  async function deleteChecklist(id) {
+    const ok = window.confirm('Bạn có chắc muốn xóa checklist này không?')
+    if (!ok) return
 
     try {
-      setEditLoading(true)
-      setEditError('')
-      const response = await api.patch(`/${checklist.id}`, buildPayload(editForm), getAuthConfig())
-      setChecklist(response?.data || null)
-      closeEditModal()
-    } catch (err) {
-      setEditError(extractErrorMessage(err, 'Không thể cập nhật checklist.'))
-    } finally {
-      setEditLoading(false)
-    }
-  }
+      setLoading(true)
+      setError('')
 
-  const handleDeleteConfirm = async () => {
-    if (!canDelete || !checklist?.id) return
+      await checklistApi.delete(`/${id}`, authConfig())
 
-    try {
-      setDeleteLoading(true)
-      setDeleteError('')
-      await api.delete(`/${checklist.id}`, getAuthConfig())
-      setChecklist(null)
-      setLookupId('')
-      closeDeleteModal()
+      if (selectedChecklist?.id === id) {
+        setSelectedChecklist(null)
+      }
+
+      await loadChecklists(keyword)
     } catch (err) {
-      setDeleteError(extractErrorMessage(err, 'Không thể xóa checklist.'))
+      setError(getErrorMessage(err, 'Không thể xóa checklist.'))
     } finally {
-      setDeleteLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <>
-      <div className="assets-page">
-        <div className="assets-card">
-          <div className="assets-header">
-            <div className="assets-header__top">
-              <div className="assets-header__intro">
-                <div className="assets-header__mini-title">{pageTitle}</div>
-              </div>
+    <div className="ck-page">
+      <div className="ck-shell">
+        <header className="ck-header">
+          <div>
+            <h1>Quản lý Checklist</h1>
+          </div>
+
+          <button className="ck-btn ck-btn-primary" onClick={openCreate}>
+            <FiPlus />
+            Thêm checklist
+          </button>
+        </header>
+
+        <section className="ck-filter-card">
+          <div className="ck-filter-head">
+            <div className="ck-filter-icon">
+              <FiSearch size={22} />
             </div>
 
-            <div className="filters-panel">
-              <div className="filters-panel__header">
-                <div className="filters-panel__title-wrap">
-                  <div className="filters-panel__icon">
-                    <FiCheckSquare size={18} />
-                  </div>
-                  <div>
-                    <div className="filters-panel__title">Tra cứu checklist</div>
-                  </div>
-                </div>
-
-                {canCreate && (
-                  <button
-                    className="btn btn-soft-blue btn-create-header"
-                    onClick={openCreateModal}
-                    type="button"
-                  >
-                    <FiPlus size={16} />
-                    <span>Thêm mới</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="filters-grid filters-grid--4">
-                <div className="filter-field">
-                  <label className="filter-label">Checklist ID</label>
-                  <div className="search-box">
-                    <FiSearch size={16} />
-                    <input
-                      type="text"
-                      placeholder="Nhập checklist id..."
-                      value={lookupId}
-                      onChange={(e) => setLookupId(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleLoadChecklist()
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="filter-field filter-field--actions">
-                  <label className="filter-label filter-label--ghost">Thao tác</label>
-                  <div className="filter-actions-row">
-                    <button
-                      className="btn btn-primary btn-search-compact"
-                      onClick={handleLoadChecklist}
-                      type="button"
-                    >
-                      <FiSearch size={15} />
-                      <span>Tải checklist</span>
-                    </button>
-
-                    <button
-                      className="btn btn-light btn-icon-only"
-                      onClick={() => {
-                        setLookupId('')
-                        setChecklist(null)
-                        setError('')
-                      }}
-                      title="Reset"
-                      aria-label="Reset"
-                      type="button"
-                    >
-                      <FiRotateCcw size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <div>
+              <h2>Tìm kiếm checklist</h2>
             </div>
           </div>
 
-          {loading ? (
-            <div className="assets-message">Đang tải dữ liệu...</div>
-          ) : error ? (
-            <div className="assets-message assets-message--error">{error}</div>
-          ) : !checklist ? (
-            <div className="assets-message">
-              Chưa có checklist nào được tải.
-            </div>
-          ) : (
-            <div className="list-section">
-              <div className="list-section__title">
-                Checklist chi tiết
-                <span className="list-badge">{checklist?.id || '-'}</span>
+          <div className="ck-filter-grid">
+            <label className="ck-field">
+              <span>Từ khóa</span>
+
+              <div className="ck-search-box">
+                <FiSearch />
+
+                <input
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      loadChecklists(keyword)
+                    }
+                  }}
+                  placeholder="Nhập từ khóa"
+                />
               </div>
+            </label>
 
-              <div className="drawer-body" style={{ maxHeight: 'unset' }}>
-                <div className="detail-hero">
-                  <div className="detail-hero__left">
-                    <div className="detail-hero__icon">
-                      <FiCheckSquare size={30} />
-                    </div>
+            <div className="ck-actions">
+              <button
+                className="ck-btn ck-btn-primary"
+                onClick={() => loadChecklists(keyword)}
+                disabled={loading}
+              >
+                <FiSearch />
+                {loading ? 'Đang tìm...' : 'Tìm kiếm'}
+              </button>
 
-                    <div className="detail-hero__content">
-                      <h3>{checklist?.name || '-'}</h3>
-                      <p>{checklist?.description || 'Không có mô tả'}</p>
+              <button className="ck-btn ck-btn-light" onClick={resetSearch}>
+                <FiRefreshCcw />
+                Làm mới
+              </button>
+            </div>
+          </div>
+        </section>
 
-                      <div className="detail-hero__meta">
-                        <span className={`badge ${checklist?.active ? 'badge--success' : 'badge--default'}`}>
-                          {checklist?.active ? 'Đang hoạt động' : 'Ngưng sử dụng'}
-                        </span>
-                        <span className="hero-chip">
-                          <FiInfo size={14} />
-                          Applies To: {checklist?.appliesTo || '-'}
-                        </span>
-                        <span className="hero-chip">
-                          <FiTag size={14} />
-                          Tasks: {Array.isArray(checklist?.tasks) ? checklist.tasks.length : 0}
+        {error && <div className="ck-alert ck-alert-error">{error}</div>}
+
+        <section className="ck-detail-card">
+          <div className="ck-card-head">
+            <div>
+              <h2>Danh sách checklist</h2>
+              <p>{results.length} checklist</p>
+            </div>
+          </div>
+
+          <div className="ck-detail-body">
+            {loading ? (
+              <div className="ck-empty">
+                <strong>Đang tải dữ liệu...</strong>
+                <span>Vui lòng chờ trong giây lát.</span>
+              </div>
+            ) : results.length === 0 ? (
+              <div className="ck-empty">
+                <strong>Chưa có checklist</strong>
+                <span>Hãy thêm checklist mới hoặc đổi từ khóa tìm kiếm.</span>
+              </div>
+            ) : (
+              <div className="ck-task-list">
+                {results.map((item) => (
+                  <div
+                    className={`ck-task-card ${
+                      selectedChecklist?.id === item.id ? 'ck-task-card-active' : ''
+                    }`}
+                    key={item.id}
+                    onClick={() => setSelectedChecklist(item)}
+                  >
+                    <div className="ck-task-head">
+                      <div className="ck-task-title">
+                        <FiCheckSquare size={17} />
+                        <span>
+                          #{item.id} - {item.name || 'Không có tên'}
                         </span>
                       </div>
+
+                      <span
+                        className={`ck-badge ${
+                          item.active ? 'ck-badge-success' : 'ck-badge-muted'
+                        }`}
+                      >
+                        {item.active ? 'Đang hoạt động' : 'Ngưng sử dụng'}
+                      </span>
+                    </div>
+
+                    <div className="ck-task-content">
+                      <div>
+                        <strong>Áp dụng:</strong> {getApplyLabel(item.appliesTo)}
+                      </div>
+                      <div>
+                        <strong>Số task:</strong> {item.tasks?.length || 0}
+                      </div>
+                      <div>
+                        <strong>Mô tả:</strong> {item.description || '-'}
+                      </div>
+                    </div>
+
+                    <div className="ck-card-actions">
+                      <button
+                        className="ck-icon-btn"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openEdit(item)
+                        }}
+                        title="Sửa checklist"
+                      >
+                        <FiEdit3 />
+                      </button>
+
+                      <button
+                        className="ck-icon-btn ck-icon-danger"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteChecklist(item.id)
+                        }}
+                        title="Xóa checklist"
+                      >
+                        <FiTrash2 />
+                      </button>
                     </div>
                   </div>
-                </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
 
-                <div className="detail-section">
-                  <div className="detail-section__title">Thông tin checklist</div>
-                  <div className="detail-grid detail-grid--2">
-                    <DetailItem icon={<FiTag size={16} />} label="Checklist ID" value={checklist?.id} />
-                    <DetailItem icon={<FiInfo size={16} />} label="Applies To" value={checklist?.appliesTo} />
-                    <DetailItem
-                      icon={<FiInfo size={16} />}
-                      label="Mô tả"
-                      value={checklist?.description}
-                      full
-                    />
-                  </div>
-                </div>
+        {selectedChecklist && (
+          <section className="ck-detail-card ck-detail-selected">
+            <div className="ck-card-head">
+              <div>
+                <h2>Chi tiết checklist</h2>
+                <p>Thông tin template và các task kiểm tra.</p>
+              </div>
 
-                <div className="detail-section">
-                  <div className="detail-section__title">Danh sách task</div>
-                  {Array.isArray(checklist?.tasks) && checklist.tasks.length > 0 ? (
-                    <div className="detail-grid">
-                      {checklist.tasks.map((task, index) => (
-                        <div key={task?.id || index} className="detail-item detail-item--full">
-                          <div className="detail-item__label">
-                            <span className="detail-item__icon">
-                              <FiCheckSquare size={16} />
-                            </span>
-                            <span>
-                              Task {index + 1} - {task?.title || task?.label || '-'}
-                            </span>
-                          </div>
-                          <div className="detail-item__value">
-                            <div><strong>Loại:</strong> {getTaskTypeLabel(task?.taskType)}</div>
-                            <div><strong>Mô tả:</strong> {task?.description || '-'}</div>
-                            <div><strong>Required:</strong> {task?.required ? 'Có' : 'Không'}</div>
-                            <div><strong>Thứ tự:</strong> {task?.displayOrder || index + 1}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="assets-message">Checklist chưa có task nào.</div>
-                  )}
-                </div>
-
-                <div className="drawer-footer" style={{ paddingLeft: 0, paddingRight: 0, paddingBottom: 0 }}>
-                  {canEdit && (
-                    <button className="btn btn-secondary" onClick={openEditModal} type="button">
-                      <FiEdit2 size={16} />
-                      <span>Chỉnh sửa</span>
-                    </button>
-                  )}
-
-                  {canDelete && (
-                    <button className="btn btn-danger-solid" onClick={openDeleteModal} type="button">
-                      <FiTrash2 size={16} />
-                      <span>Xóa checklist</span>
-                    </button>
-                  )}
-                </div>
+              <div className="ck-actions">
+                <button
+                  className="ck-btn ck-btn-light"
+                  onClick={() => openEdit(selectedChecklist)}
+                >
+                  <FiEdit3 />
+                  Sửa
+                </button>
               </div>
             </div>
-          )}
-        </div>
+
+            <div className="ck-detail-body">
+              <div className="ck-hero">
+                <div className="ck-hero-icon">
+                  <FiClipboard size={28} />
+                </div>
+
+                <div className="ck-hero-content">
+                  <h3>{selectedChecklist.name}</h3>
+                  <p>{selectedChecklist.description || 'Không có mô tả.'}</p>
+
+                  <div className="ck-hero-meta">
+                    <span className="ck-chip">
+                      ID: #{selectedChecklist.id}
+                    </span>
+                    <span className="ck-chip">
+                      {getApplyLabel(selectedChecklist.appliesTo)}
+                    </span>
+                    <span
+                      className={`ck-badge ${
+                        selectedChecklist.active
+                          ? 'ck-badge-success'
+                          : 'ck-badge-muted'
+                      }`}
+                    >
+                      {selectedChecklist.active
+                        ? 'Đang hoạt động'
+                        : 'Ngưng sử dụng'}
+                    </span>
+                    <span className="ck-chip">{taskCount} task</span>
+                  </div>
+                </div>
+              </div>
+
+              <h3 className="ck-section-title">Danh sách task</h3>
+
+              {taskCount === 0 ? (
+                <div className="ck-empty ck-empty-small">
+                  Checklist này chưa có task.
+                </div>
+              ) : (
+                <div className="ck-task-list">
+                  {selectedChecklist.tasks.map((task, index) => (
+                    <div className="ck-task-card" key={task.id || index}>
+                      <div className="ck-task-head">
+                        <div className="ck-task-title">
+                          <FiCheckSquare size={16} />
+                          <span>
+                            {index + 1}. {getTaskTitle(task)}
+                          </span>
+                        </div>
+
+                        <span className="ck-badge ck-badge-muted">
+                          {task.taskType || 'PASS_FAIL'}
+                        </span>
+                      </div>
+
+                      <div className="ck-task-content">
+                        {task.description || 'Không có mô tả.'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
-      {createOpen && (
-        <div className="drawer-overlay" onClick={closeCreateModal}>
-          <div className="drawer drawer--wide" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
+      {showForm && (
+        <div className="ck-modal-overlay">
+          <div className="ck-modal ck-modal-wide">
+            <div className="ck-modal-head">
               <div>
-                <h2>Thêm mới checklist</h2>
-                <p>Tạo checklist đúng payload backend hiện tại</p>
+                <h2>{editingId ? 'Cập nhật checklist' : 'Thêm checklist'}</h2>
+                <p>
+                  Nhập tên checklist, loại áp dụng và danh sách task kiểm tra.
+                </p>
               </div>
-              <button className="drawer-close" onClick={closeCreateModal} type="button">
-                <FiX size={22} />
+
+              <button className="ck-close-btn" onClick={closeForm}>
+                <FiX />
               </button>
             </div>
 
-            <div className="drawer-body">
-              {createError && (
-                <div className="drawer-message drawer-message--error drawer-message--inline">
-                  {createError}
+            <form onSubmit={submitForm}>
+              <div className="ck-modal-body">
+                <div className="ck-form-section">
+                  <div className="ck-form-grid">
+                    <label className="ck-form-field">
+                      <span>Tên checklist *</span>
+                      <input
+                        className="ck-input"
+                        value={form.name}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            name: e.target.value,
+                          }))
+                        }
+                        placeholder="VD: Kiểm tra máy bơm định kỳ"
+                      />
+                    </label>
+
+                    <label className="ck-form-field">
+                      <span>Áp dụng cho</span>
+                      <select
+                        className="ck-input"
+                        value={form.appliesTo}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            appliesTo: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="WORK_ORDER">Work Order</option>
+                        <option value="MAINTENANCE_PLAN">
+                          Preventive Maintenance
+                        </option>
+                        <option value="ASSET">Asset</option>
+                        <option value="GENERAL">General</option>
+                      </select>
+                    </label>
+
+                    <label className="ck-form-field ck-form-field-full">
+                      <span>Mô tả</span>
+                      <textarea
+                        className="ck-input ck-textarea"
+                        value={form.description}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            description: e.target.value,
+                          }))
+                        }
+                        placeholder="Mô tả mục đích của checklist..."
+                      />
+                    </label>
+
+                    <label className="ck-form-field">
+                      <span>Trạng thái</span>
+                      <select
+                        className="ck-input"
+                        value={form.active ? 'true' : 'false'}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            active: e.target.value === 'true',
+                          }))
+                        }
+                      >
+                        <option value="true">Đang hoạt động</option>
+                        <option value="false">Ngưng sử dụng</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
-              )}
 
-              <div className="form-section">
-                <div className="detail-section__title">Thông tin checklist</div>
-                <div className="form-grid">
-                  <FormField label="Tên checklist">
-                    <input
-                      className="form-input"
-                      value={createForm.name}
-                      onChange={(e) => handleCreateFormChange('name', e.target.value)}
-                      placeholder="Tìm kiếm"
-                    />
-                  </FormField>
+                <h3 className="ck-section-title">Task kiểm tra</h3>
 
-                  <FormField label="Applies To">
-                    <input
-                      className="form-input"
-                      value={createForm.appliesTo}
-                      onChange={(e) => handleCreateFormChange('appliesTo', e.target.value)}
-                      placeholder="Ví dụ: ASSET / WORK_ORDER"
-                    />
-                  </FormField>
+                <div className="ck-task-list">
+                  {form.tasks.map((task, index) => (
+                    <div className="ck-task-card" key={index}>
+                      <div className="ck-task-head">
+                        <div className="ck-task-title">
+                          <FiCheckSquare />
+                          <span>Task {index + 1}</span>
+                        </div>
 
-                  <FormField label="Trạng thái">
-                    <select
-                      className="form-input"
-                      value={String(createForm.active)}
-                      onChange={(e) => handleCreateFormChange('active', e.target.value === 'true')}
-                    >
-                      <option value="true">Đang hoạt động</option>
-                      <option value="false">Ngưng sử dụng</option>
-                    </select>
-                  </FormField>
-
-                  <FormField label="Mô tả" full>
-                    <textarea
-                      className="form-input form-textarea"
-                      value={createForm.description}
-                      onChange={(e) => handleCreateFormChange('description', e.target.value)}
-                      placeholder="Nhập mô tả checklist"
-                    />
-                  </FormField>
-                </div>
-              </div>
-
-              <div className="form-section">
-                <div className="detail-section__title">Danh sách task</div>
-
-                <div className="detail-grid">
-                  {createForm.tasks.map((task, index) => (
-                    <div key={`create-task-${index}`} className="detail-item detail-item--full">
-                      <div className="detail-item__label">
-                        <span className="detail-item__icon">
-                          <FiCheckSquare size={16} />
-                        </span>
-                        <span>Task {index + 1}</span>
+                        <button
+                          type="button"
+                          className="ck-icon-btn ck-icon-danger"
+                          onClick={() => removeTask(index)}
+                        >
+                          <FiTrash2 />
+                        </button>
                       </div>
 
-                      <div className="form-grid">
-                        <FormField label="Tiêu đề task">
+                      <div className="ck-form-grid">
+                        <label className="ck-form-field">
+                          <span>Tên task *</span>
                           <input
-                            className="form-input"
+                            className="ck-input"
                             value={task.label}
-                            onChange={(e) => handleTaskChange('create', index, 'label', e.target.value)}
-                            placeholder="Nhập title"
+                            onChange={(e) =>
+                              updateTask(index, 'label', e.target.value)
+                            }
+                            placeholder="VD: Kiểm tra rò rỉ dầu"
                           />
-                        </FormField>
+                        </label>
 
-                        <FormField label="Loại task">
+                        <label className="ck-form-field">
+                          <span>Loại task</span>
                           <select
-                            className="form-input"
+                            className="ck-input"
                             value={task.taskType}
-                            onChange={(e) => handleTaskChange('create', index, 'taskType', e.target.value)}
+                            onChange={(e) =>
+                              updateTask(index, 'taskType', e.target.value)
+                            }
                           >
-                            {TASK_TYPE_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
+                            <option value="PASS_FAIL">PASS / FAIL</option>
+                            <option value="NUMBER">Nhập số</option>
+                            <option value="TEXT">Nhập text</option>
                           </select>
-                        </FormField>
+                        </label>
 
-                        <FormField label="Mô tả" full>
+                        <label className="ck-form-field ck-form-field-full">
+                          <span>Mô tả task</span>
                           <textarea
-                            className="form-input form-textarea"
+                            className="ck-input ck-textarea"
                             value={task.description}
                             onChange={(e) =>
-                              handleTaskChange('create', index, 'description', e.target.value)
+                              updateTask(index, 'description', e.target.value)
                             }
-                            placeholder="Nhập mô tả task"
+                            placeholder="Mô tả cách kiểm tra..."
                           />
-                        </FormField>
-                      </div>
-
-                      <div className="drawer-footer" style={{ paddingLeft: 0, paddingRight: 0, paddingBottom: 0 }}>
-                        <button
-                          className="btn btn-light"
-                          onClick={() => handleRemoveTask('create', index)}
-                          type="button"
-                        >
-                          <FiTrash2 size={16} />
-                          <span>Xóa task</span>
-                        </button>
+                        </label>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div style={{ marginTop: 12 }}>
-                  <button className="btn btn-secondary" onClick={() => handleAddTask('create')} type="button">
-                    <FiPlus size={16} />
-                    <span>Thêm task</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="ck-btn ck-btn-light ck-add-task-btn"
+                  onClick={addTask}
+                >
+                  <FiPlus />
+                  Thêm task
+                </button>
               </div>
-            </div>
 
-            <div className="drawer-footer">
-              <button className="btn btn-secondary" onClick={closeCreateModal} disabled={createLoading} type="button">
-                Hủy
-              </button>
-              <button className="btn btn-primary" onClick={handleCreateSubmit} disabled={createLoading} type="button">
-                <FiSave size={16} />
-                <span>{createLoading ? 'Đang lưu...' : 'Lưu checklist'}</span>
-              </button>
-            </div>
+              <div className="ck-modal-footer">
+                <button
+                  type="button"
+                  className="ck-btn ck-btn-light"
+                  onClick={closeForm}
+                >
+                  Hủy
+                </button>
+
+                <button
+                  type="submit"
+                  className="ck-btn ck-btn-primary"
+                  disabled={saving}
+                >
+                  {saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Tạo mới'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-
-      {editOpen && (
-        <div className="drawer-overlay" onClick={closeEditModal}>
-          <div className="drawer drawer--wide" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
-              <div>
-                <h2>Cập nhật checklist</h2>
-                <p>Patch checklist theo đúng backend hiện tại</p>
-              </div>
-              <button className="drawer-close" onClick={closeEditModal} type="button">
-                <FiX size={22} />
-              </button>
-            </div>
-
-            <div className="drawer-body">
-              {editError && (
-                <div className="drawer-message drawer-message--error drawer-message--inline">
-                  {editError}
-                </div>
-              )}
-
-              <div className="form-section">
-                <div className="detail-section__title">Thông tin checklist</div>
-                <div className="form-grid">
-                  <FormField label="Tên checklist">
-                    <input
-                      className="form-input"
-                      value={editForm.name}
-                      onChange={(e) => handleEditFormChange('name', e.target.value)}
-                      placeholder="Nhập tên checklist"
-                    />
-                  </FormField>
-
-                  <FormField label="Applies To">
-                    <input
-                      className="form-input"
-                      value={editForm.appliesTo}
-                      onChange={(e) => handleEditFormChange('appliesTo', e.target.value)}
-                      placeholder="Ví dụ: ASSET / WORK_ORDER"
-                    />
-                  </FormField>
-
-                  <FormField label="Trạng thái">
-                    <select
-                      className="form-input"
-                      value={String(editForm.active)}
-                      onChange={(e) => handleEditFormChange('active', e.target.value === 'true')}
-                    >
-                      <option value="true">Đang hoạt động</option>
-                      <option value="false">Ngưng sử dụng</option>
-                    </select>
-                  </FormField>
-
-                  <FormField label="Mô tả" full>
-                    <textarea
-                      className="form-input form-textarea"
-                      value={editForm.description}
-                      onChange={(e) => handleEditFormChange('description', e.target.value)}
-                      placeholder="Nhập mô tả checklist"
-                    />
-                  </FormField>
-                </div>
-              </div>
-
-              <div className="form-section">
-                <div className="detail-section__title">Danh sách task</div>
-
-                <div className="detail-grid">
-                  {editForm.tasks.map((task, index) => (
-                    <div key={`edit-task-${index}`} className="detail-item detail-item--full">
-                      <div className="detail-item__label">
-                        <span className="detail-item__icon">
-                          <FiCheckSquare size={16} />
-                        </span>
-                        <span>Task {index + 1}</span>
-                      </div>
-
-                      <div className="form-grid">
-                        <FormField label="Tiêu đề task">
-                          <input
-                            className="form-input"
-                            value={task.label}
-                            onChange={(e) => handleTaskChange('edit', index, 'label', e.target.value)}
-                            placeholder="Nhập title"
-                          />
-                        </FormField>
-
-                        <FormField label="Loại task">
-                          <select
-                            className="form-input"
-                            value={task.taskType}
-                            onChange={(e) => handleTaskChange('edit', index, 'taskType', e.target.value)}
-                          >
-                            {TASK_TYPE_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
-                        </FormField>
-
-                        <FormField label="Mô tả" full>
-                          <textarea
-                            className="form-input form-textarea"
-                            value={task.description}
-                            onChange={(e) =>
-                              handleTaskChange('edit', index, 'description', e.target.value)
-                            }
-                            placeholder="Nhập mô tả task"
-                          />
-                        </FormField>
-                      </div>
-
-                      <div className="drawer-footer" style={{ paddingLeft: 0, paddingRight: 0, paddingBottom: 0 }}>
-                        <button
-                          className="btn btn-light"
-                          onClick={() => handleRemoveTask('edit', index)}
-                          type="button"
-                        >
-                          <FiTrash2 size={16} />
-                          <span>Xóa task</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <button className="btn btn-secondary" onClick={() => handleAddTask('edit')} type="button">
-                    <FiPlus size={16} />
-                    <span>Thêm task</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="drawer-footer">
-              <button className="btn btn-secondary" onClick={closeEditModal} disabled={editLoading} type="button">
-                Hủy
-              </button>
-              <button className="btn btn-primary" onClick={handleEditSubmit} disabled={editLoading} type="button">
-                <FiSave size={16} />
-                <span>{editLoading ? 'Đang lưu...' : 'Lưu cập nhật'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deleteOpen && (
-        <div className="drawer-overlay" onClick={closeDeleteModal}>
-          <div className="drawer drawer--small" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
-              <div>
-                <h2>Xóa checklist</h2>
-                <p>Xác nhận trước khi xóa dữ liệu</p>
-              </div>
-              <button className="drawer-close" onClick={closeDeleteModal} type="button">
-                <FiX size={22} />
-              </button>
-            </div>
-
-            <div className="drawer-body">
-              {deleteError && (
-                <div className="drawer-message drawer-message--error drawer-message--inline">
-                  {deleteError}
-                </div>
-              )}
-
-              <div className="delete-box">
-                <div className="delete-box__icon">
-                  <FiAlertTriangle size={28} />
-                </div>
-                <div className="delete-box__content">
-                  <h3>{checklist?.name || 'Checklist'}</h3>
-                  <p>
-                    Bạn có chắc muốn xóa checklist này không?
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="drawer-footer">
-              <button className="btn btn-secondary" onClick={closeDeleteModal} disabled={deleteLoading} type="button">
-                Hủy
-              </button>
-              <button className="btn btn-danger-solid" onClick={handleDeleteConfirm} disabled={deleteLoading} type="button">
-                <FiTrash2 size={16} />
-                <span>{deleteLoading ? 'Đang xóa...' : 'Xóa checklist'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   )
 }

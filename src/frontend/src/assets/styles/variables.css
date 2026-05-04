@@ -1,0 +1,157 @@
+/* ============================================================
+   EMMS Design Tokens — variables.css
+   Import trong main.jsx:
+   import '@/assets/styles/variables.css';
+   ============================================================ */
+
+:root {
+
+  /* ========================================================
+     PRIMARY (Industrial Blue)
+     ======================================================== */
+  --clr-primary:        #1B4FD8;
+  --clr-primary-hover:  #1641B8;
+  --clr-primary-light:  #3B6FE8;
+  --clr-primary-tint:   #EEF3FF;
+  --clr-primary-tint2:  #DBEAFE;
+
+  /* ========================================================
+     SEMANTIC COLORS
+     ======================================================== */
+  --clr-success:        #16A34A;
+  --clr-success-bg:     #DCFCE7;
+  --clr-success-border: #BBF7D0;
+  --clr-success-text:   #166534;
+
+  --clr-warning:        #D97706;
+  --clr-warning-bg:     #FEF3C7;
+  --clr-warning-border: #FDE68A;
+  --clr-warning-text:   #92400E;
+
+  --clr-danger:         #DC2626;
+  --clr-danger-bg:      #FEE2E2;
+  --clr-danger-border:  #FECACA;
+  --clr-danger-text:    #991B1B;
+
+  --clr-info:           #2563EB;
+  --clr-info-bg:        #DBEAFE;
+  --clr-info-border:    #BFDBFE;
+  --clr-info-text:      #1E40AF;
+
+  --clr-purple:         #7C3AED;
+  --clr-purple-bg:      #EDE9FE;
+  --clr-purple-text:    #5B21B6;
+
+  /* ========================================================
+     TEXT COLORS
+     ======================================================== */
+  --clr-text-primary:   #1A2B36;
+  --clr-text-secondary: #4B6070;
+  --clr-text-muted:     #64748B;
+  --clr-text-hint:      #94A3B8;
+
+  /* ========================================================
+     BACKGROUND
+     ======================================================== */
+  --clr-bg-page:        #F1F5F9;
+  --clr-bg-card:        #FFFFFF;
+  --clr-bg-subtle:      #F8FAFC;
+  --clr-bg-input:       #F8FAFC;
+
+  /* ========================================================
+     BORDER
+     ======================================================== */
+  --clr-border:         #E2E8F0;
+  --clr-border-light:   #EEF2F6;
+  --clr-border-input:   #CBD5E1;
+  --clr-border-focus:   #93C5FD;
+
+  /* ========================================================
+     SPACING SYSTEM (IMPORTANT)
+     ======================================================== */
+  --space-2xs: 4px;
+  --space-xs:  8px;
+  --space-sm:  12px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 40px;
+
+  /* ========================================================
+     BORDER RADIUS
+     ======================================================== */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-2xl:  24px;
+  --radius-pill: 999px;
+
+  /* ========================================================
+     SHADOW
+     ======================================================== */
+  --shadow-xs:  0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm:  0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-md:  0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-lg:  0 20px 50px rgba(15, 23, 42, 0.12);
+  --shadow-primary: 0 8px 18px rgba(27, 79, 216, 0.24);
+  --shadow-danger:  0 8px 18px rgba(220, 38, 38, 0.22);
+
+  /* ========================================================
+     FONT
+     ======================================================== */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --fs-xs:  12px;
+  --fs-sm:  14px;
+  --fs-md:  16px;
+  --fs-lg:  18px;
+  --fs-xl:  20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 30px;
+
+  --fw-normal:   400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* ========================================================
+     EFFECT
+     ======================================================== */
+  --focus-ring: 0 0 0 3px rgba(59, 111, 232, 0.22);
+  --transition: all 0.2s ease;
+
+  /* ========================================================
+     Z-INDEX
+     ======================================================== */
+  --z-dropdown: 1000;
+  --z-modal:    1100;
+  --z-tooltip:  1200;
+
+  /* ========================================================
+     ANT DESIGN MAPPING (IMPORTANT)
+     ======================================================== */
+  --ant-primary-color: var(--clr-primary);
+  --ant-success-color: var(--clr-success);
+  --ant-warning-color: var(--clr-warning);
+  --ant-error-color:   var(--clr-danger);
+}
+
+/* ============================================================
+   DARK MODE
+   ============================================================ */
+[data-theme="dark"] {
+
+  --clr-bg-page:        #0F172A;
+  --clr-bg-card:        #1E293B;
+  --clr-bg-subtle:      #1E293B;
+
+  --clr-text-primary:   #E2E8F0;
+  --clr-text-secondary: #CBD5F5;
+  --clr-text-muted:     #94A3B8;
+
+  --clr-border:         #334155;
+  --clr-border-light:   #1E293B;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+}

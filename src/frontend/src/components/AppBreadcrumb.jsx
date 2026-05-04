@@ -45,11 +45,7 @@ const AppBreadcrumb = () => {
 
   return (
     <CBreadcrumb
-      className="my-0 py-1"
-      style={{
-        fontSize: '13px',
-        marginBottom: 0,
-      }}
+      className="emms-breadcrumb"
     >
       <CBreadcrumbItem href="#/dashboard">Trang chủ</CBreadcrumbItem>
 

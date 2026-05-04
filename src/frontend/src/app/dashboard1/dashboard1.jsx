@@ -9,6 +9,8 @@ import {
   Tooltip,
 } from "recharts";
 import "./dashboard1.css";
+import { clearAuth } from '../../api/auth'
+
 
 const API_BASE = "https://emms-system-production-4239.up.railway.app";
 
@@ -33,6 +35,11 @@ async function apiGet(path) {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+   if (res.status === 401 || res.status === 403) {
+    clearAuth()
+    window.location.href = '/#/login'
+    return null
+  }
 
   const text = await res.text();
 

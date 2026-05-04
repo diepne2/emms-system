@@ -55,7 +55,7 @@ async function api(path) {
     headers.Authorization = `Bearer ${jwt}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { headers });
+  const res = await fetch(`${BASE_URL}${path}`, { headers });
   const json = await res.json().catch(() => null);
 
   if (res.status === 401) {

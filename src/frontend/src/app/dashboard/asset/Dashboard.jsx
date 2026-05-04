@@ -54,7 +54,7 @@ async function api(path) {
     throw new Error("Bạn chưa đăng nhập hoặc token không hợp lệ");
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,

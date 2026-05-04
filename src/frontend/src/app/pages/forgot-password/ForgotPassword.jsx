@@ -68,7 +68,7 @@ export default function ForgotPassword() {
             <label>Email</label>
             <input
               type="email"
-              placeholder="example@email.com"
+              placeholder="Nhập email"
               value={email}
               disabled={loading}
               onChange={(e) => setEmail(e.target.value)}

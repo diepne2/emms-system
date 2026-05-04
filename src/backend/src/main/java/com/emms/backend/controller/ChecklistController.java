@@ -5,13 +5,14 @@ import com.emms.backend.entity.Checklist;
 import com.emms.backend.service.ChecklistService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/checklists")
@@ -21,15 +22,22 @@ public class ChecklistController {
 
     private final ChecklistService checklistService;
 
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Checklist>> search(
+            @RequestParam(value = "q", required = false) String q
+    ) {
+        return ResponseEntity.ok(checklistService.search(q));
+    }
+
     @GetMapping("/{id}")
-    @PreAuthorize("permitAll()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Checklist> getById(@PathVariable("id") Long id) {
-        Checklist checklist = checklistService.findEntityById(id);
-        return ResponseEntity.ok(checklist);
+        return ResponseEntity.ok(checklistService.findEntityById(id));
     }
 
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
     public ResponseEntity<Checklist> create(
             @Parameter(description = "Checklist to create")
             @Valid @RequestBody ChecklistDTO checklistReq
@@ -39,7 +47,7 @@ public class ChecklistController {
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
     public ResponseEntity<Checklist> patch(
             @Parameter(description = "Checklist fields to update")
             @Valid @RequestBody ChecklistDTO checklistReq,
@@ -50,7 +58,7 @@ public class ChecklistController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
     public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         checklistService.delete(id);
         return ResponseEntity.noContent().build();

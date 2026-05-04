@@ -1,59 +1,108 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./Labor.css";
 
-const API_BASE = "https://emms-system-production-4239.up.railway.app/api";
-const LABOR_API = `${API_BASE}/labors`;
-const WORK_ORDERS_API = `${API_BASE}/work-orders/my`;
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://emms-system-production-4239.up.railway.app";
+
+const LABOR_API = `${API_BASE}/api/labors`;
+const WORK_ORDERS_API = `${API_BASE}/api/work-orders/my`;
+
+function getToken() {
+  return (
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("jwt") ||
+    ""
+  );
+}
+
+function headers() {
+  const token = getToken();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+async function readResponse(res) {
+  const text = await res.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function normalizeList(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.content)) return data.content;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+}
+
+function getErrorMessage(data, fallback) {
+  if (!data) return fallback;
+  if (typeof data === "string") return data;
+  return data.message || data.error || fallback;
+}
+
+function formatDateForBackend(value) {
+  if (!value) return null;
+  if (value.length === 16) return `${value}:00`;
+  return value;
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatCurrency(value) {
+  const number = Number(value || 0);
+  return number.toLocaleString("vi-VN") + " đ/giờ";
+}
+
+function statusLabel(status) {
+  const s = String(status || "").toUpperCase();
+
+  if (s === "RUNNING") return "Đang thực hiện";
+  if (s === "STOPPED") return "Đã dừng";
+  if (s === "DONE") return "Hoàn tất";
+  if (s === "CANCELLED") return "Đã hủy";
+
+  return status || "Không rõ";
+}
+
+function statusClass(status) {
+  return String(status || "unknown").toLowerCase();
+}
 
 export default function Labor() {
   const [workOrders, setWorkOrders] = useState([]);
   const [labors, setLabors] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [keyword, setKeyword] = useState("");
 
   const [form, setForm] = useState({
     workOrderId: "",
     startedAt: "",
     hourlyRate: 0,
   });
-
-  const getToken = () =>
-    localStorage.getItem("token") ||
-    localStorage.getItem("accessToken") ||
-    localStorage.getItem("jwt") ||
-    "";
-
-  const headers = () => {
-    const token = getToken();
-
-    return {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  };
-
-  const readResponse = async (res) => {
-    const text = await res.text();
-    if (!text) return null;
-
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
-    }
-  };
-
-  const normalizeList = (data) => {
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.content)) return data.content;
-    if (Array.isArray(data?.data)) return data.data;
-    return [];
-  };
-
-  const getErrorMessage = (data, fallback) => {
-    if (!data) return fallback;
-    if (typeof data === "string") return data;
-    return data.message || data.error || fallback;
-  };
 
   const loadWorkOrders = async () => {
     try {
@@ -93,9 +142,14 @@ export default function Labor() {
     }
   };
 
+  const loadAll = async () => {
+    setPageLoading(true);
+    await Promise.all([loadWorkOrders(), loadLabors()]);
+    setPageLoading(false);
+  };
+
   useEffect(() => {
-    loadWorkOrders();
-    loadLabors();
+    loadAll();
   }, []);
 
   const handleChange = (e) => {
@@ -105,26 +159,14 @@ export default function Labor() {
     }));
   };
 
-  // 🔥 FIX DATE
-  const formatDateForBackend = (value) => {
-    if (!value) return null;
-
-    // 2026-04-27T10:59 → 2026-04-27T10:59:00
-    if (value.length === 16) {
-      return `${value}:00`;
-    }
-
-    return value;
-  };
-
   const handleCreate = async () => {
     if (!form.workOrderId) {
-      alert("Chọn Work Order");
+      alert("Vui lòng chọn Work Order.");
       return;
     }
 
     if (!form.startedAt) {
-      alert("Chọn thời gian");
+      alert("Vui lòng chọn thời gian bắt đầu.");
       return;
     }
 
@@ -133,7 +175,7 @@ export default function Labor() {
     try {
       const payload = {
         workOrderId: Number(form.workOrderId),
-        startedAt: formatDateForBackend(form.startedAt), // ✅ FIX
+        startedAt: formatDateForBackend(form.startedAt),
         hourlyRate: Number(form.hourlyRate || 0),
         duration: 0,
         includeToTotalTime: true,
@@ -154,7 +196,7 @@ export default function Labor() {
         return;
       }
 
-      alert("Tạo thành công");
+      alert("Ghi nhận công việc thành công.");
 
       setForm({
         workOrderId: "",
@@ -165,26 +207,88 @@ export default function Labor() {
       loadLabors();
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối");
+      alert("Không thể kết nối đến máy chủ.");
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (value) => {
-    if (!value) return "";
-    return new Date(value).toLocaleString("vi-VN");
-  };
+  const filteredLabors = useMemo(() => {
+    const q = keyword.trim().toLowerCase();
+    if (!q) return labors;
+
+    return labors.filter((item) =>
+      [
+        item.id,
+        item.workOrderCode,
+        item.workOrderId,
+        item.status,
+        item.startedAt,
+        item.endedAt,
+        item.hourlyRate,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [labors, keyword]);
+
+  const runningCount = labors.filter(
+    (item) => String(item.status || "").toUpperCase() === "RUNNING"
+  ).length;
+
+  const stoppedCount = labors.filter(
+    (item) => String(item.status || "").toUpperCase() === "STOPPED"
+  ).length;
 
   return (
     <div className="labor-page">
       <div className="labor-shell">
-        <h1>Work Log</h1>
+        <header className="labor-header">
+          <div>
+            <div className="labor-eyebrow">EMMS / Nhân công</div>
+            <h1>Ghi nhận công việc</h1>
+            <p>
+              Theo dõi thời gian làm việc của kỹ thuật viên theo từng Work Order.
+            </p>
+          </div>
+
+          <div className="labor-header-actions">
+            <span className="labor-chip">{labors.length} bản ghi</span>
+            <button className="labor-btn labor-btn-light" onClick={loadAll}>
+              Làm mới
+            </button>
+          </div>
+        </header>
+
+        <section className="labor-stats">
+          <div className="labor-stat">
+            <span>Tổng bản ghi</span>
+            <strong>{labors.length}</strong>
+          </div>
+          <div className="labor-stat">
+            <span>Đang thực hiện</span>
+            <strong>{runningCount}</strong>
+          </div>
+          <div className="labor-stat">
+            <span>Đã dừng</span>
+            <strong>{stoppedCount}</strong>
+          </div>
+          <div className="labor-stat">
+            <span>Work Order của tôi</span>
+            <strong>{workOrders.length}</strong>
+          </div>
+        </section>
 
         <div className="labor-layout">
-          {/* FORM */}
-          <div className="labor-panel">
-            <h2>Create Labor</h2>
+          <section className="labor-panel">
+            <div className="labor-card-head">
+              <div>
+                <h2>Thêm ghi nhận</h2>
+                <p>Ghi nhận thời gian bắt đầu làm việc cho Work Order.</p>
+              </div>
+            </div>
 
             <div className="labor-form">
               <label>Work Order</label>
@@ -193,15 +297,15 @@ export default function Labor() {
                 value={form.workOrderId}
                 onChange={handleChange}
               >
-                <option value="">-- Chọn --</option>
+                <option value="">Chọn Work Order</option>
                 {workOrders.map((wo) => (
                   <option key={wo.id} value={wo.id}>
-                    #{wo.id} - {wo.title || wo.name}
+                    WO-{wo.id} — {wo.title || wo.name || wo.assetName || "Không có tên"}
                   </option>
                 ))}
               </select>
 
-              <label>Started At</label>
+              <label>Thời gian bắt đầu</label>
               <input
                 type="datetime-local"
                 name="startedAt"
@@ -209,54 +313,90 @@ export default function Labor() {
                 onChange={handleChange}
               />
 
-              <label>Hourly Rate</label>
+              <label>Đơn giá theo giờ</label>
               <input
                 type="number"
                 name="hourlyRate"
+                min="0"
                 value={form.hourlyRate}
                 onChange={handleChange}
+                placeholder="VD: 50000"
               />
 
               <button onClick={handleCreate} disabled={loading}>
-                {loading ? "Creating..." : "Create"}
+                {loading ? "Đang lưu..." : "Ghi nhận công việc"}
               </button>
             </div>
-          </div>
+          </section>
 
-          {/* LIST */}
-          <div className="labor-list-card">
-            <h2>Labor List</h2>
+          <section className="labor-list-card">
+            <div className="labor-card-head labor-card-head-row">
+              <div>
+                <h2>Danh sách ghi nhận</h2>
+                <p>Quản lý các bản ghi nhân công đã tạo.</p>
+              </div>
 
-            {labors.length === 0 ? (
-              <p>No data</p>
+              <div className="labor-search">
+                <input
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  placeholder="Tìm theo WO, trạng thái..."
+                />
+              </div>
+            </div>
+
+            {pageLoading ? (
+              <div className="labor-empty">
+                <strong>Đang tải dữ liệu...</strong>
+                <span>Vui lòng chờ trong giây lát.</span>
+              </div>
+            ) : filteredLabors.length === 0 ? (
+              <div className="labor-empty">
+                <strong>Chưa có dữ liệu</strong>
+                <span>Chưa tìm thấy bản ghi nhân công phù hợp.</span>
+              </div>
             ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>WO</th>
-                    <th>Status</th>
-                    <th>Started</th>
-                    <th>Ended</th>
-                    <th>Rate</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {labors.map((l) => (
-                    <tr key={l.id}>
-                      <td>{l.id}</td>
-                      <td>{l.workOrderCode || l.workOrderId}</td>
-                      <td>{l.status}</td>
-                      <td>{formatDate(l.startedAt)}</td>
-                      <td>{formatDate(l.endedAt)}</td>
-                      <td>{l.hourlyRate}</td>
+              <div className="labor-table-wrap">
+                <table className="labor-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Work Order</th>
+                      <th>Trạng thái</th>
+                      <th>Bắt đầu</th>
+                      <th>Kết thúc</th>
+                      <th>Đơn giá</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {filteredLabors.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <span className="labor-id">#{item.id}</span>
+                        </td>
+                        <td>
+                          <span className="labor-wo">
+                            {item.workOrderCode || `WO-${item.workOrderId || "—"}`}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={`labor-status-badge ${statusClass(item.status)}`}
+                          >
+                            {statusLabel(item.status)}
+                          </span>
+                        </td>
+                        <td>{formatDate(item.startedAt)}</td>
+                        <td>{formatDate(item.endedAt)}</td>
+                        <td>{formatCurrency(item.hourlyRate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </div>

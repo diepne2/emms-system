@@ -7,6 +7,7 @@ import com.emms.backend.entity.ChecklistTask;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.repository.CheckListRepository;
 import jakarta.persistence.EntityManager;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,18 +22,42 @@ public class ChecklistService {
     private final CheckListRepository checklistRepository;
     private final EntityManager em;
 
-    public ChecklistService(
-            CheckListRepository checklistRepository,
-            EntityManager em
-    ) {
+    public ChecklistService(CheckListRepository checklistRepository, EntityManager em) {
         this.checklistRepository = checklistRepository;
         this.em = em;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Checklist> search(String keyword) {
+        String q = keyword == null ? "" : keyword.trim();
+
+        if (q.isBlank()) {
+            return checklistRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+        }
+
+        List<Checklist> results = new ArrayList<>(checklistRepository.search(q));
+
+        try {
+            Long id = Long.parseLong(q);
+            checklistRepository.findWithTasksById(id).ifPresent(found -> {
+                boolean exists = results.stream()
+                        .anyMatch(item -> item.getId().equals(found.getId()));
+
+                if (!exists) {
+                    results.add(0, found);
+                }
+            });
+        } catch (NumberFormatException ignored) {
+        }
+
+        return results;
     }
 
     public Checklist create(ChecklistDTO dto) {
         if (dto == null) {
             throw new CustomException("ChecklistDTO không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         if (dto.getName() == null || dto.getName().isBlank()) {
             throw new CustomException("Tên checklist không được để trống", HttpStatus.BAD_REQUEST);
         }
@@ -44,8 +69,10 @@ public class ChecklistService {
         checklist.setActive(dto.getActive() == null || dto.getActive());
 
         List<ChecklistTask> tasks = new ArrayList<>();
+
         if (dto.getTasks() != null) {
             int order = 1;
+
             for (TaskBaseDTO taskDto : dto.getTasks()) {
                 ChecklistTask task = new ChecklistTask();
                 task.setTitle(requireLabel(taskDto));
@@ -71,19 +98,24 @@ public class ChecklistService {
         if (dto.getName() != null) {
             existing.setName(dto.getName());
         }
+
         if (dto.getDescription() != null) {
             existing.setDescription(dto.getDescription());
         }
+
         if (dto.getAppliesTo() != null) {
             existing.setAppliesTo(dto.getAppliesTo());
         }
+
         if (dto.getActive() != null) {
             existing.setActive(dto.getActive());
         }
 
         if (dto.getTasks() != null) {
             existing.getTasks().clear();
+
             int order = 1;
+
             for (TaskBaseDTO taskDto : dto.getTasks()) {
                 ChecklistTask task = new ChecklistTask();
                 task.setTitle(requireLabel(taskDto));
@@ -103,7 +135,7 @@ public class ChecklistService {
 
     @Transactional(readOnly = true)
     public Checklist findEntityById(Long id) {
-        return checklistRepository.findById(id)
+        return checklistRepository.findWithTasksById(id)
                 .orElseThrow(() -> new CustomException("Checklist không tồn tại", HttpStatus.NOT_FOUND));
     }
 
@@ -115,6 +147,7 @@ public class ChecklistService {
         if (dto == null || dto.getLabel() == null || dto.getLabel().isBlank()) {
             throw new CustomException("Task title không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         return dto.getLabel().trim();
     }
 
@@ -131,9 +164,8 @@ public class ChecklistService {
     }
 
     private String trim(String value) {
-        if (value == null) {
-            return null;
-        }
+        if (value == null) return null;
+
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }

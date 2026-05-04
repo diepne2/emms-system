@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import dayjs from 'dayjs'
@@ -24,15 +24,29 @@ import {
   DeleteOutlined,
   SaveOutlined,
   SearchOutlined,
+  BarChartOutlined,
+  CheckCircleOutlined,
+  StopOutlined,
+  FilterOutlined,
+  DownloadOutlined,
+  CalendarOutlined,
+  FileTextOutlined,
+  SettingOutlined,
+  CloseOutlined,
 } from '@ant-design/icons'
 import './PreventiveMaintenance.css'
 
 const { TextArea } = Input
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://emms-system-production-4239.up.railway.app'
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://emms-system-production-4239.up.railway.app',
-  withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 })
 
 api.interceptors.request.use((config) => {
@@ -47,13 +61,27 @@ api.interceptors.request.use((config) => {
 })
 
 const priorityColor = {
-  LOW: 'green',
+  LOW: 'default',
   MEDIUM: 'blue',
   HIGH: 'orange',
   URGENT: 'red',
 }
 
-const normalizeAssetRows = (raw) => {
+const priorityLabel = {
+  LOW: 'THẤP',
+  MEDIUM: 'TRUNG BÌNH',
+  HIGH: 'CAO',
+  URGENT: 'KHẨN CẤP',
+}
+
+const recurrenceLabel = {
+  DAILY: 'Hằng ngày',
+  WEEKLY: 'Hằng tuần',
+  MONTHLY: 'Hằng tháng',
+  YEARLY: 'Hằng năm',
+}
+
+const normalizeRows = (raw) => {
   if (Array.isArray(raw)) return raw
   if (Array.isArray(raw?.content)) return raw.content
   if (Array.isArray(raw?.data)) return raw.data
@@ -61,23 +89,100 @@ const normalizeAssetRows = (raw) => {
   return []
 }
 
-const isPmExpired = (record) => {
-  const endsOn = record?.schedule?.endsOn || record?.endsOn || record?.scheduleEndDate
+const getErrorMessage = (err, fallback) =>
+  err?.response?.data?.message ||
+  err?.response?.data?.error ||
+  (typeof err?.response?.data === 'string' ? err.response.data : '') ||
+  err?.message ||
+  fallback
 
-  if (!endsOn) return false
-
-  return dayjs().isAfter(dayjs(endsOn), 'day')
+const toDateTimeString = (value) => {
+  if (!value) return null
+  return dayjs(value).format('YYYY-MM-DDTHH:mm:ss')
 }
 
-const uniqueAssets = (rows) => {
-  const map = new Map()
+const buildCreatePayload = (values) => ({
+  title: values.title?.trim(),
+  description: values.description?.trim() || null,
+  assetId: values.assetId || null,
+  assignedToId: values.assignedToId || null,
+  estimatedHours: values.estimatedHours ?? null,
+  startsOn: toDateTimeString(values.startsOn),
+  endsOn: values.endsOn ? toDateTimeString(values.endsOn) : null,
+  recurrenceRule: {
+    type: values.type || 'DAILY',
+    basedOn: values.basedOn || 'SCHEDULED_DATE',
+    frequency: Number(values.frequency || 1),
+    dueDateDelay: Number(values.dueDateDelay || 0),
+    daysOfWeek: values.type === 'WEEKLY' ? values.daysOfWeek || [] : null,
+    priority: values.priority || 'MEDIUM',
+  },
+})
 
-  rows.forEach((asset) => {
-    const id = asset?.id || asset?.assetId
-    if (id) map.set(String(id), asset)
-  })
+const buildUpdatePayload = (values) => ({
+  title: values.title?.trim(),
+  description: values.description?.trim() || null,
+  assetId: values.assetId || null,
+  assignedToId: values.assignedToId || null,
+  estimatedHours: values.estimatedHours ?? null,
+  active: values.active ?? true,
+  priority: values.priority || 'MEDIUM',
+  startsOn: values.startsOn ? toDateTimeString(values.startsOn) : null,
+  endsOn: values.endsOn ? toDateTimeString(values.endsOn) : null,
+  recurrenceRule: {
+    type: values.type || 'DAILY',
+    basedOn: values.basedOn || 'SCHEDULED_DATE',
+    frequency: Number(values.frequency || 1),
+    dueDateDelay: Number(values.dueDateDelay || 0),
+    daysOfWeek: values.type === 'WEEKLY' ? values.daysOfWeek || [] : null,
+    priority: values.priority || 'MEDIUM',
+  },
+})
 
-  return Array.from(map.values())
+const getAssetName = (record) =>
+  record.asset?.name || record.asset?.assetName || record.assetName || '-'
+
+const getAssetCode = (record) =>
+  record.asset?.code || record.asset?.assetCode || record.assetCode || ''
+
+const getAssignedName = (record) =>
+  record.assignedTo?.fullName ||
+  record.assignedTo?.username ||
+  record.assignedTo?.email ||
+  record.assignedToName ||
+  '-'
+
+const initialsOf = (name) => {
+  if (!name || name === '-') return '?'
+  const words = String(name).trim().split(/\s+/)
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+}
+
+const getRecurrenceType = (record) =>
+  record?.recurrenceRule?.type ||
+  record?.schedule?.recurrenceType ||
+  record?.schedule?.type ||
+  record?.type ||
+  ''
+
+const getFrequencyText = (record) => {
+  const type = getRecurrenceType(record)
+  const frequency =
+    record?.recurrenceRule?.frequency ||
+    record?.schedule?.frequency ||
+    record?.frequency
+
+  if (!type && !frequency) return record?.description || 'Chưa có thông tin lịch lặp'
+
+  const label = recurrenceLabel[type] || type || 'Lặp'
+  return frequency && Number(frequency) > 1 ? `${label} / ${frequency}` : label
+}
+
+const isPmExpired = (record) => {
+  const endsOn = record?.endsOn || record?.schedule?.endsOn || record?.scheduleEndDate
+  if (!endsOn) return false
+  return dayjs().isAfter(dayjs(endsOn), 'day')
 }
 
 export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
@@ -90,6 +195,7 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [filterType, setFilterType] = useState('ALL')
 
   const [openModal, setOpenModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
@@ -99,48 +205,56 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
   const [assetDropdownOpen, setAssetDropdownOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
 
-  const getErrorMessage = (err, fallback) =>
-    err?.response?.data?.message ||
-    err?.response?.data?.error ||
-    (typeof err?.response?.data === 'string' ? err.response.data : '') ||
-    err?.message ||
-    fallback
-
   const loadData = async () => {
     try {
       setLoading(true)
       const res = await api.get('/preventive-maintenances')
-      setItems(Array.isArray(res.data) ? res.data : [])
+      setItems(normalizeRows(res.data))
     } catch (err) {
-      message.error(getErrorMessage(err, 'Không tải được danh sách PM'))
+      message.error(getErrorMessage(err, 'Không tải được danh sách kế hoạch bảo trì'))
     } finally {
       setLoading(false)
     }
   }
 
-  const loadAllAssets = async () => {
-    const res = await api.get('/api/assets')
-    return uniqueAssets(normalizeAssetRows(res.data))
-  }
-
   const loadOptions = async () => {
     const [assetRes, userRes] = await Promise.allSettled([
-      loadAllAssets(),
+      api.get('/api/assets'),
       api.get('/api/users/technicians'),
     ])
 
-    if (assetRes.status === 'fulfilled') {
-      setAssets(assetRes.value)
-    } else {
-      setAssets([])
-      message.warning('Không tải được danh sách thiết bị')
-    }
+    setAssets(assetRes.status === 'fulfilled' ? normalizeRows(assetRes.value.data) : [])
+    setUsers(userRes.status === 'fulfilled' ? normalizeRows(userRes.value.data) : [])
+  }
 
-    if (userRes.status === 'fulfilled') {
-      const rows = userRes.value.data
-      setUsers(Array.isArray(rows) ? rows : [])
-    } else {
-      setUsers([])
+  useEffect(() => {
+    loadData()
+    loadOptions()
+  }, [])
+
+  useEffect(() => {
+    if (autoOpenCreate) openCreateModal()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCreate])
+
+  useEffect(() => {
+    const editId = location.state?.editId
+    if (!editId || !items.length) return
+
+    const item = items.find((x) => String(x.id) === String(editId))
+    if (item) openEditModal(item)
+
+    navigate('/preventive-maintenance', { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, items])
+
+  const closeModal = () => {
+    setOpenModal(false)
+    setEditingItem(null)
+    form.resetFields()
+
+    if (window.location.hash.includes('/preventive-maintenance/new')) {
+      navigate('/preventive-maintenance')
     }
   }
 
@@ -161,7 +275,6 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
       dueDateDelay: 0,
       basedOn: 'SCHEDULED_DATE',
       daysOfWeek: [],
-      descriptionLong: '',
       active: true,
     })
     setOpenModal(true)
@@ -174,31 +287,45 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
 
       const res = await api.get(`/preventive-maintenances/${record.id}`)
       const pm = res.data || record
+      const schedule = pm.schedule || {}
+      const recurrenceRule = pm.recurrenceRule || {}
 
       form.setFieldsValue({
         title: pm.title || '',
         description: pm.description || '',
-        descriptionLong: pm.description || '',
-        assetId: pm.assetId || pm.asset?.id || pm.asset?.assetId,
-        assignedToId: pm.assignedToId || pm.assignedTo?.userId || pm.assignedTo?.id,
-        estimatedHours: pm.estimatedHours ?? 0,
-        priority: pm.priority || 'MEDIUM',
+        assetId: pm.assetId || pm.asset?.id || pm.asset?.assetId || null,
+        assignedToId:
+          pm.assignedToId ||
+          pm.assignedTo?.id ||
+          pm.assignedTo?.userId ||
+          null,
+        estimatedHours: pm.estimatedHours ?? 1,
         active: pm.active ?? true,
+        priority: pm.priority || recurrenceRule.priority || 'MEDIUM',
+        startsOn: pm.startsOn
+          ? dayjs(pm.startsOn)
+          : schedule.startsOn
+            ? dayjs(schedule.startsOn)
+            : null,
+        endsOn: pm.endsOn
+          ? dayjs(pm.endsOn)
+          : schedule.endsOn
+            ? dayjs(schedule.endsOn)
+            : null,
+        type: recurrenceRule.type || schedule.recurrenceType || schedule.type || 'DAILY',
+        basedOn:
+          recurrenceRule.basedOn ||
+          schedule.recurrenceBasedOn ||
+          schedule.basedOn ||
+          'SCHEDULED_DATE',
+        frequency: recurrenceRule.frequency || schedule.frequency || 1,
+        dueDateDelay: recurrenceRule.dueDateDelay ?? schedule.dueDateDelay ?? 0,
+        daysOfWeek: recurrenceRule.daysOfWeek || schedule.daysOfWeek || [],
       })
 
       setOpenModal(true)
     } catch (err) {
-      message.error(getErrorMessage(err, 'Không tải được dữ liệu PM để sửa'))
-    }
-  }
-
-  const closeModal = () => {
-    setOpenModal(false)
-    setEditingItem(null)
-    form.resetFields()
-
-    if (window.location.hash.includes('/preventive-maintenance/new')) {
-      navigate('/preventive-maintenance')
+      message.error(getErrorMessage(err, 'Không tải được dữ liệu kế hoạch để sửa'))
     }
   }
 
@@ -206,41 +333,18 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
     try {
       const values = await form.validateFields()
 
+      if (values.endsOn && values.startsOn && values.endsOn.isBefore(values.startsOn)) {
+        message.error('Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu')
+        return
+      }
+
       setSaving(true)
 
-      if (editingItem) {
-        const payload = {
-          title: values.title?.trim(),
-          description: values.descriptionLong?.trim() || values.description?.trim() || '',
-          estimatedHours: Number(values.estimatedHours || 0),
-          assetId: values.assetId || null,
-          assignedToId: values.assignedToId || null,
-          priority: values.priority || 'MEDIUM',
-          active: values.active ?? true,
-        }
-
-        await api.put(`/preventive-maintenances/${editingItem.id}`, payload)
+      if (editingItem?.id) {
+        await api.put(`/preventive-maintenances/${editingItem.id}`, buildUpdatePayload(values))
         message.success('Cập nhật kế hoạch bảo trì thành công')
       } else {
-        const payload = {
-          title: values.title?.trim(),
-          description: values.descriptionLong?.trim() || values.description?.trim() || '',
-          estimatedHours: Number(values.estimatedHours || 0),
-          assetId: values.assetId || null,
-          assignedToId: values.assignedToId || null,
-          startsOn: values.startsOn.format('YYYY-MM-DDTHH:mm:ss'),
-          endsOn: values.endsOn ? values.endsOn.format('YYYY-MM-DDTHH:mm:ss') : null,
-          recurrenceRule: {
-            type: values.type,
-            frequency: Number(values.frequency || 1),
-            priority: values.priority || 'MEDIUM',
-            dueDateDelay: Number(values.dueDateDelay || 0),
-            basedOn: values.basedOn || 'SCHEDULED_DATE',
-            daysOfWeek: values.type === 'WEEKLY' ? values.daysOfWeek || [] : [],
-          },
-        }
-
-        await api.post('/preventive-maintenances', payload)
+        await api.post('/preventive-maintenances', buildCreatePayload(values))
         message.success('Tạo kế hoạch bảo trì thành công')
       }
 
@@ -248,7 +352,7 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
       await loadData()
     } catch (err) {
       if (err?.errorFields) return
-      message.error(getErrorMessage(err, editingItem ? 'Cập nhật PM thất bại' : 'Tạo PM thất bại'))
+      message.error(getErrorMessage(err, editingItem ? 'Cập nhật thất bại' : 'Tạo thất bại'))
     } finally {
       setSaving(false)
     }
@@ -273,62 +377,27 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
     })
   }
 
-  useEffect(() => {
-    loadData()
-    loadOptions()
-  }, [])
-
-  useEffect(() => {
-    if (autoOpenCreate) openCreateModal()
-  }, [autoOpenCreate])
-
-  useEffect(() => {
-    const editId = location.state?.editId
-    if (!editId || !items.length) return
-
-    const item = items.find((x) => String(x.id) === String(editId))
-    if (item) openEditModal(item)
-
-    navigate('/preventive-maintenance', { replace: true, state: null })
-  }, [location.state, items])
-
   const assetOptions = assets
     .filter((asset) => asset?.id || asset?.assetId)
     .map((asset) => {
       const id = asset.id || asset.assetId
       const code = asset.code || asset.assetCode || asset.barcode || ''
       const name = asset.name || asset.assetName || asset.title || `Asset #${id}`
-
-      return {
-        value: id,
-        label: code ? `${name} - ${code}` : `${name} #${id}`,
-      }
+      return { value: id, label: code ? `${name} - ${code}` : `${name} #${id}` }
     })
 
   const userOptions = users
     .filter((user) => user?.userId || user?.id)
     .map((user) => {
       const id = user.userId || user.id
-      const name =
-        user.fullName ||
-        user.name ||
-        user.username ||
-        user.email ||
-        `User #${id}`
-
-      return {
-        value: id,
-        label: `${name} #${id}`,
-      }
+      const name = user.fullName || user.name || user.username || user.email || `User #${id}`
+      return { value: id, label: `${name} #${id}` }
     })
 
   const filterOptions = (options, searchValue) => {
     const q = searchValue.trim().toLowerCase()
     if (!q) return options
-
-    return options.filter((option) =>
-      String(option?.label || '').toLowerCase().includes(q),
-    )
+    return options.filter((option) => String(option?.label || '').toLowerCase().includes(q))
   }
 
   const assetOptionsFiltered = filterOptions(assetOptions, assetSearch)
@@ -354,10 +423,7 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
     onSelect,
     emptyText,
   }) => (
-    <div
-      className="pm-select-dropdown-inner"
-      onMouseDown={(e) => e.preventDefault()}
-    >
+    <div className="pm-select-dropdown-inner" onMouseDown={(e) => e.preventDefault()}>
       <Input
         allowClear
         autoFocus
@@ -394,58 +460,91 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
     </div>
   )
 
+  const filteredItems = useMemo(() => {
+    if (filterType === 'ALL') return items
+    return items.filter((item) => getRecurrenceType(item) === filterType)
+  }, [items, filterType])
+
+  const totalPM = items.length
+  const activePM = items.filter((x) => x.active).length
+  const inactivePM = items.filter((x) => !x.active).length
+
   const columns = [
     {
       title: 'Mã',
-      dataIndex: 'id',
-      width: 110,
-      render: (_, record) => <b>{record.code || `PM-${record.id}`}</b>,
+      dataIndex: 'code',
+      width: 120,
+      render: (_, record) => (
+        <span className="pm-code-text">{record.code || `PM-${record.id}`}</span>
+      ),
     },
     {
       title: 'Kế hoạch bảo trì',
       dataIndex: 'title',
+      width: 260,
       render: (_, record) => (
-        <div>
+        <div className="pm-plan-cell">
           <Link className="pm-table-title" to={`/preventive-maintenance/${record.id}`}>
-            {record.title}
+            {record.title || 'Không có tiêu đề'}
           </Link>
-          <div className="pm-table-subtitle">
-            {record.description || 'Không có mô tả'}
-          </div>
+          <div className="pm-table-subtitle">{getFrequencyText(record)}</div>
         </div>
       ),
     },
     {
       title: 'Thiết bị',
-      render: (_, record) =>
-        record.asset?.name ||
-        record.asset?.assetName ||
-        record.assetName ||
-        '-',
+      width: 220,
+      render: (_, record) => (
+        <div className="pm-asset-cell">
+          <span className="pm-asset-icon">⚙</span>
+          <div>
+            <div className="pm-asset-name">{getAssetCode(record) || getAssetName(record)}</div>
+            {getAssetCode(record) ? (
+              <div className="pm-table-subtitle">{getAssetName(record)}</div>
+            ) : null}
+          </div>
+        </div>
+      ),
     },
     {
       title: 'Người phụ trách',
-      render: (_, record) =>
-        record.assignedTo?.fullName ||
-        record.assignedTo?.username ||
-        record.assignedTo?.email ||
-        record.assignedToName ||
-        '-',
+      width: 190,
+      render: (_, record) => {
+        const name = getAssignedName(record)
+        return (
+          <div className="pm-user-cell">
+            <span className="pm-avatar">{initialsOf(name)}</span>
+            <span>{name}</span>
+          </div>
+        )
+      },
     },
     {
       title: 'Ưu tiên',
       dataIndex: 'priority',
-      width: 120,
+      width: 135,
       render: (priority = 'MEDIUM') => (
-        <Tag color={priorityColor[priority] || 'default'}>{priority}</Tag>
+        <Tag className="pm-priority-tag" color={priorityColor[priority] || 'default'}>
+          {priorityLabel[priority] || priority}
+        </Tag>
       ),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'active',
-      width: 120,
+      width: 135,
       render: (active) =>
-        active ? <Tag color="green">Active</Tag> : <Tag>Inactive</Tag>,
+        active ? (
+          <span className="pm-status pm-status--active">
+            <i />
+            Active
+          </span>
+        ) : (
+          <span className="pm-status pm-status--inactive">
+            <i />
+            Inactive
+          </span>
+        ),
     },
     {
       title: 'Thao tác',
@@ -491,163 +590,235 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
 
   return (
     <div className="pm-shell">
-      <div className="pm-card-pro">
-        <div className="pm-list-header">
+      <div className="pm-page-pro">
+        <div className="pm-hero-row">
           <div>
-            <h2>Kế hoạch bảo trì định kỳ</h2>
+            <h1>Kế hoạch bảo trì định kỳ</h1>
+            <p>Quản lý lịch bảo trì, thiết bị, người phụ trách và trạng thái PM.</p>
           </div>
 
-          <Space>
-            <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
-              Tải lại
-            </Button>
-
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-              Thêm kế hoạch
-            </Button>
-          </Space>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={openCreateModal}
+            className="pm-add-btn"
+          >
+            Thêm kế hoạch mới
+          </Button>
         </div>
 
-        <div className="pm-stats">
-          <div className="pm-stat-box">
-            <span>Tổng kế hoạch</span>
-            <b>{items.length}</b>
+        <div className="pm-summary-grid">
+          <div className="pm-summary-card">
+            <div>
+              <span>Tổng kế hoạch</span>
+              <b>{totalPM}</b>
+              <small>Tổng số kế hoạch trong hệ thống</small>
+            </div>
+            <div className="pm-summary-icon pm-summary-icon--blue">
+              <BarChartOutlined />
+            </div>
           </div>
 
-          <div className="pm-stat-box">
-            <span>Đang active</span>
-            <b>{items.filter((x) => x.active).length}</b>
+          <div className="pm-summary-card">
+            <div>
+              <span>Đang active</span>
+              <b>{activePM}</b>
+              <small>Hoạt động bình thường</small>
+            </div>
+            <div className="pm-summary-icon pm-summary-icon--green">
+              <CheckCircleOutlined />
+            </div>
           </div>
 
-          <div className="pm-stat-box">
-            <span>Inactive</span>
-            <b>{items.filter((x) => !x.active).length}</b>
+          <div className="pm-summary-card">
+            <div>
+              <span>Inactive</span>
+              <b>{inactivePM}</b>
+              <small>Đang tạm dừng bảo trì</small>
+            </div>
+            <div className="pm-summary-icon pm-summary-icon--gray">
+              <StopOutlined />
+            </div>
           </div>
         </div>
 
-        <Table
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={items}
-          pagination={{ pageSize: 8 }}
-        />
+        <div className="pm-list-panel">
+          <div className="pm-list-panel__head">
+            <div className="pm-list-tabs">
+              <h2>Danh sách PM</h2>
+
+              <button
+                type="button"
+                className={`pm-tab ${filterType === 'ALL' ? 'active' : ''}`}
+                onClick={() => setFilterType('ALL')}
+              >
+                Tất cả
+              </button>
+
+              <button
+                type="button"
+                className={`pm-tab ${filterType === 'WEEKLY' ? 'active' : ''}`}
+                onClick={() => setFilterType('WEEKLY')}
+              >
+                Hàng tuần
+              </button>
+
+              <button
+                type="button"
+                className={`pm-tab ${filterType === 'MONTHLY' ? 'active' : ''}`}
+                onClick={() => setFilterType('MONTHLY')}
+              >
+                Hàng tháng
+              </button>
+            </div>
+
+            <Space wrap>
+              <Button icon={<FilterOutlined />} className="pm-light-btn">
+                Bộ lọc
+              </Button>
+              <Button icon={<DownloadOutlined />} className="pm-light-btn">
+                Xuất dữ liệu
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
+                Tải lại
+              </Button>
+            </Space>
+          </div>
+
+          <Table
+            rowKey="id"
+            loading={loading}
+            columns={columns}
+            dataSource={filteredItems}
+            rowClassName={(record) => (isPmExpired(record) ? 'pm-expired-row' : '')}
+            scroll={{ x: 1180 }}
+            pagination={{
+              pageSize: 8,
+              showSizeChanger: false,
+            }}
+          />
+        </div>
       </div>
 
       <Modal
         open={openModal}
         onCancel={closeModal}
         footer={null}
-        width={680}
-        centered
+        centered={false}
+        closable={false}
         destroyOnClose
         maskClosable={false}
         className="pm-create-modal"
         rootClassName="pm-create-modal-root"
-        closeIcon={<span className="pm-modal-close">×</span>}
       >
         <div className="pm-modal-head">
-          <h2>{editingItem ? 'Chỉnh sửa kế hoạch bảo trì' : 'Thêm kế hoạch bảo trì'}</h2>
-          <p>
-            {editingItem
-              ? 'Cập nhật thông tin preventive maintenance'
-              : 'Tạo mới preventive maintenance trong hệ thống'}
-          </p>
+          <div className="pm-modal-title-wrap">
+            <h2>{editingItem ? 'Chỉnh sửa kế hoạch bảo trì' : 'Thêm kế hoạch bảo trì'}</h2>
+            <p>
+              {editingItem
+                ? 'Cập nhật thông tin và lịch lặp của preventive maintenance.'
+                : 'Tạo mới kế hoạch bảo trì định kỳ cho thiết bị.'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="pm-modal-x-btn"
+            onClick={closeModal}
+            aria-label="Đóng"
+          >
+            ×
+          </button>
         </div>
 
-        <div className="pm-modal-body">
+        <div className="pm-modal-scroll-body">
           <Form form={form} layout="vertical">
-            <h3>Thông tin chính</h3>
+            <div className="pm-modal-section-card">
+              <div className="pm-modal-section-title">
+                <SettingOutlined />
+                <div>
+                  <h3>Thông tin chính</h3>
+                  <p>Thông tin cơ bản của kế hoạch bảo trì.</p>
+                </div>
+              </div>
 
-            <div className="pm-form-grid">
-              <Form.Item
-                label="Tên kế hoạch"
-                name="title"
-                rules={[{ required: true, message: 'Nhập tên kế hoạch' }]}
-              >
-                <Input placeholder="Nhập tên kế hoạch" />
-              </Form.Item>
+              <div className="pm-form-grid">
+                <Form.Item
+                  label="Tên kế hoạch"
+                  name="title"
+                  rules={[{ required: true, message: 'Nhập tên kế hoạch' }]}
+                >
+                  <Input placeholder="Nhập tên kế hoạch" />
+                </Form.Item>
 
-              <Form.Item label="Mô tả" name="description">
-                <Input placeholder="Nhập mô tả ngắn" />
-              </Form.Item>
+                <Form.Item label="Thiết bị" name="assetId">
+                  <Select
+                    allowClear
+                    showSearch={false}
+                    open={assetDropdownOpen}
+                    onOpenChange={(open) => {
+                      setAssetDropdownOpen(open)
+                      if (!open) setAssetSearch('')
+                    }}
+                    placeholder="Chọn thiết bị"
+                    options={assetOptions}
+                    popupClassName="pm-select-dropdown"
+                    getPopupContainer={() => document.body}
+                    dropdownRender={() =>
+                      renderSearchDropdown({
+                        value: assetSearch,
+                        onChange: setAssetSearch,
+                        placeholder: 'Tìm thiết bị...',
+                        options: assetOptionsFiltered,
+                        onSelect: selectAsset,
+                        emptyText: 'Không có thiết bị',
+                      })
+                    }
+                  />
+                </Form.Item>
 
-              <Form.Item
-                label="Thiết bị"
-                name="assetId"
-                rules={[{ required: true, message: 'Chọn thiết bị' }]}
-              >
-                <Select
-                  allowClear
-                  showSearch={false}
-                  open={assetDropdownOpen}
-                  onOpenChange={(open) => {
-                    setAssetDropdownOpen(open)
-                    if (!open) setAssetSearch('')
-                  }}
-                  placeholder="Chọn thiết bị"
-                  options={assetOptions}
-                  popupClassName="pm-select-dropdown"
-                  getPopupContainer={() => document.body}
-                  dropdownRender={() =>
-                    renderSearchDropdown({
-                      value: assetSearch,
-                      onChange: setAssetSearch,
-                      placeholder: 'Tìm thiết bị...',
-                      options: assetOptionsFiltered,
-                      onSelect: selectAsset,
-                      emptyText: 'Không có thiết bị',
-                    })
-                  }
-                />
-              </Form.Item>
+                <Form.Item label="Người phụ trách" name="assignedToId">
+                  <Select
+                    allowClear
+                    showSearch={false}
+                    open={userDropdownOpen}
+                    onOpenChange={(open) => {
+                      setUserDropdownOpen(open)
+                      if (!open) setUserSearch('')
+                    }}
+                    placeholder="Chọn người phụ trách"
+                    options={userOptions}
+                    popupClassName="pm-select-dropdown"
+                    getPopupContainer={() => document.body}
+                    dropdownRender={() =>
+                      renderSearchDropdown({
+                        value: userSearch,
+                        onChange: setUserSearch,
+                        placeholder: 'Tìm người phụ trách...',
+                        options: userOptionsFiltered,
+                        onSelect: selectUser,
+                        emptyText: 'Không có người phụ trách',
+                      })
+                    }
+                  />
+                </Form.Item>
 
-              <Form.Item
-                label="Người phụ trách"
-                name="assignedToId"
-                rules={[{ required: true, message: 'Chọn người phụ trách' }]}
-              >
-                <Select
-                  allowClear
-                  showSearch={false}
-                  open={userDropdownOpen}
-                  onOpenChange={(open) => {
-                    setUserDropdownOpen(open)
-                    if (!open) setUserSearch('')
-                  }}
-                  placeholder="Chọn người phụ trách"
-                  options={userOptions}
-                  popupClassName="pm-select-dropdown"
-                  getPopupContainer={() => document.body}
-                  dropdownRender={() =>
-                    renderSearchDropdown({
-                      value: userSearch,
-                      onChange: setUserSearch,
-                      placeholder: 'Tìm người phụ trách...',
-                      options: userOptionsFiltered,
-                      onSelect: selectUser,
-                      emptyText: 'Không có người phụ trách',
-                    })
-                  }
-                />
-              </Form.Item>
+                <Form.Item label="Estimated Hours" name="estimatedHours">
+                  <InputNumber min={0} style={{ width: '100%' }} />
+                </Form.Item>
 
-              <Form.Item label="Estimated Hours" name="estimatedHours">
-                <InputNumber min={0} style={{ width: '100%' }} />
-              </Form.Item>
+                <Form.Item label="Ưu tiên" name="priority">
+                  <Select
+                    options={[
+                      { value: 'LOW', label: 'LOW' },
+                      { value: 'MEDIUM', label: 'MEDIUM' },
+                      { value: 'HIGH', label: 'HIGH' },
+                      { value: 'URGENT', label: 'URGENT' },
+                    ]}
+                  />
+                </Form.Item>
 
-              <Form.Item label="Ưu tiên" name="priority">
-                <Select
-                  options={[
-                    { value: 'LOW', label: 'LOW' },
-                    { value: 'MEDIUM', label: 'MEDIUM' },
-                    { value: 'HIGH', label: 'HIGH' },
-                    { value: 'URGENT', label: 'URGENT' },
-                  ]}
-                />
-              </Form.Item>
-
-              {editingItem && (
                 <Form.Item label="Trạng thái" name="active">
                   <Select
                     options={[
@@ -656,135 +827,145 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
                     ]}
                   />
                 </Form.Item>
-              )}
 
-              {!editingItem && (
-                <>
-                  <Form.Item
-                    label="Ngày bắt đầu"
-                    name="startsOn"
-                    rules={[{ required: true, message: 'Chọn ngày bắt đầu' }]}
-                  >
-                    <DatePicker
-                      showTime
-                      style={{ width: '100%' }}
-                      format="DD/MM/YYYY HH:mm"
-                    />
-                  </Form.Item>
+                <Form.Item
+                  label="Ngày bắt đầu"
+                  name="startsOn"
+                  rules={[{ required: true, message: 'Chọn ngày bắt đầu' }]}
+                >
+                  <DatePicker
+                    showTime
+                    style={{ width: '100%' }}
+                    format="DD/MM/YYYY HH:mm"
+                    placeholder="Chọn ngày bắt đầu"
+                  />
+                </Form.Item>
 
-                  <Form.Item
-                    label="Ngày kết thúc"
-                    name="endsOn"
-                    dependencies={['startsOn']}
-                    rules={[
-                      ({ getFieldValue }) => ({
-                        validator(_, value) {
-                          const startsOn = getFieldValue('startsOn')
-
-                          if (!value || !startsOn) return Promise.resolve()
-
-                          if (value.isBefore(startsOn)) {
-                            return Promise.reject(
-                              new Error('Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu'),
-                            )
-                          }
-
-                          return Promise.resolve()
-                        },
-                      }),
-                    ]}
-                  >
-                    <DatePicker
-                      showTime
-                      allowClear
-                      style={{ width: '100%' }}
-                      format="DD/MM/YYYY HH:mm"
-                      placeholder="Không giới hạn nếu bỏ trống"
-                    />
-                  </Form.Item>
-                </>
-              )}
+                <Form.Item
+                  label="Ngày kết thúc"
+                  name="endsOn"
+                  dependencies={['startsOn']}
+                  rules={[
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        const startsOn = getFieldValue('startsOn')
+                        if (!value || !startsOn) return Promise.resolve()
+                        if (value.isBefore(startsOn)) {
+                          return Promise.reject(
+                            new Error('Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu'),
+                          )
+                        }
+                        return Promise.resolve()
+                      },
+                    }),
+                  ]}
+                >
+                  <DatePicker
+                    showTime
+                    allowClear
+                    style={{ width: '100%' }}
+                    format="DD/MM/YYYY HH:mm"
+                    placeholder="Không giới hạn nếu bỏ trống"
+                  />
+                </Form.Item>
+              </div>
             </div>
 
-            {!editingItem && (
-              <>
-                <h3>Lịch lặp</h3>
-
-                <div className="pm-form-grid">
-                  <Form.Item label="Kiểu lặp" name="type">
-                    <Select
-                      options={[
-                        { value: 'DAILY', label: 'Hằng ngày' },
-                        { value: 'WEEKLY', label: 'Hằng tuần' },
-                        { value: 'MONTHLY', label: 'Hằng tháng' },
-                        { value: 'YEARLY', label: 'Hằng năm' },
-                      ]}
-                    />
-                  </Form.Item>
-
-                  <Form.Item label="Tần suất" name="frequency">
-                    <InputNumber min={1} style={{ width: '100%' }} />
-                  </Form.Item>
-
-                  <Form.Item label="Due Date Delay" name="dueDateDelay">
-                    <InputNumber min={0} addonAfter="ngày" style={{ width: '100%' }} />
-                  </Form.Item>
-
-                  <Form.Item label="Based On" name="basedOn">
-                    <Select
-                      options={[
-                        { value: 'SCHEDULED_DATE', label: 'Scheduled Date' },
-                        { value: 'COMPLETED_DATE', label: 'Completed Date' },
-                      ]}
-                    />
-                  </Form.Item>
-
-                  <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
-                    {({ getFieldValue }) =>
-                      getFieldValue('type') === 'WEEKLY' ? (
-                        <Form.Item
-                          label="Ngày trong tuần"
-                          name="daysOfWeek"
-                          rules={[{ required: true, message: 'Chọn ít nhất một ngày' }]}
-                        >
-                          <Select
-                            mode="multiple"
-                            placeholder="Chọn ngày"
-                            options={[
-                              { value: 1, label: 'Thứ 2' },
-                              { value: 2, label: 'Thứ 3' },
-                              { value: 3, label: 'Thứ 4' },
-                              { value: 4, label: 'Thứ 5' },
-                              { value: 5, label: 'Thứ 6' },
-                              { value: 6, label: 'Thứ 7' },
-                              { value: 7, label: 'Chủ nhật' },
-                            ]}
-                          />
-                        </Form.Item>
-                      ) : (
-                        <div />
-                      )
-                    }
-                  </Form.Item>
+            <div className="pm-modal-section-card">
+              <div className="pm-modal-section-title">
+                <CalendarOutlined />
+                <div>
+                  <h3>Lịch lặp</h3>
+                  <p>Thiết lập chu kỳ sinh công việc bảo trì.</p>
                 </div>
-              </>
-            )}
+              </div>
 
-            <Form.Item label="Ghi chú chi tiết" name="descriptionLong">
-              <TextArea rows={4} placeholder="Nhập ghi chú nếu cần" />
-            </Form.Item>
+              <div className="pm-form-grid">
+                <Form.Item
+                  label="Kiểu lặp"
+                  name="type"
+                  rules={[{ required: true, message: 'Chọn kiểu lặp' }]}
+                >
+                  <Select
+                    options={[
+                      { value: 'DAILY', label: 'Hằng ngày' },
+                      { value: 'WEEKLY', label: 'Hằng tuần' },
+                      { value: 'MONTHLY', label: 'Hằng tháng' },
+                      { value: 'YEARLY', label: 'Hằng năm' },
+                    ]}
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  label="Tần suất"
+                  name="frequency"
+                  rules={[{ required: true, message: 'Nhập tần suất' }]}
+                >
+                  <InputNumber min={1} style={{ width: '100%' }} />
+                </Form.Item>
+
+                <Form.Item label="Due Date Delay" name="dueDateDelay">
+                  <InputNumber min={0} addonAfter="ngày" style={{ width: '100%' }} />
+                </Form.Item>
+
+                <Form.Item label="Based On" name="basedOn">
+                  <Select
+                    options={[
+                      { value: 'SCHEDULED_DATE', label: 'Scheduled Date' },
+                      { value: 'COMPLETED_DATE', label: 'Completed Date' },
+                    ]}
+                  />
+                </Form.Item>
+
+                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
+                  {({ getFieldValue }) =>
+                    getFieldValue('type') === 'WEEKLY' ? (
+                      <Form.Item
+                        label="Ngày trong tuần"
+                        name="daysOfWeek"
+                        rules={[{ required: true, message: 'Chọn ít nhất một ngày' }]}
+                      >
+                        <Select
+                          mode="multiple"
+                          placeholder="Chọn ngày"
+                          options={[
+                            { value: 1, label: 'Thứ 2' },
+                            { value: 2, label: 'Thứ 3' },
+                            { value: 3, label: 'Thứ 4' },
+                            { value: 4, label: 'Thứ 5' },
+                            { value: 5, label: 'Thứ 6' },
+                            { value: 6, label: 'Thứ 7' },
+                            { value: 7, label: 'Chủ nhật' },
+                          ]}
+                        />
+                      </Form.Item>
+                    ) : (
+                      <div />
+                    )
+                  }
+                </Form.Item>
+              </div>
+            </div>
+
+            <div className="pm-modal-section-card">
+              <div className="pm-modal-section-title">
+                <FileTextOutlined />
+                <div>
+                  <h3>Mô tả</h3>
+                  <p>Ghi chú thêm cho kế hoạch bảo trì nếu cần.</p>
+                </div>
+              </div>
+
+              <Form.Item label="Mô tả" name="description">
+                <TextArea rows={4} placeholder="Nhập mô tả hoặc ghi chú nếu cần" />
+              </Form.Item>
+            </div>
           </Form>
         </div>
 
         <div className="pm-modal-footer">
           <Button onClick={closeModal}>Hủy</Button>
-
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            loading={saving}
-            onClick={handleSave}
-          >
+          <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
             {editingItem ? 'Cập nhật' : 'Lưu kế hoạch'}
           </Button>
         </div>

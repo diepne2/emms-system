@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import dayjs from 'dayjs'
 import {
   Button,
-  Card,
   Empty,
   Input,
   Modal,
@@ -11,20 +10,25 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from 'antd'
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
+  InboxOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
+  SearchOutlined,
   StopOutlined,
+  ToolOutlined,
+  WarningOutlined,
 } from '@ant-design/icons'
 import './PreventiveMaintenance.css'
 
-const { Title, Text } = Typography
+const { Text } = Typography
 const { TextArea } = Input
 
 const api = axios.create({
@@ -35,12 +39,12 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token =
-    localStorage.getItem('token') ||
     localStorage.getItem('accessToken') ||
-    localStorage.getItem('jwt')
+    localStorage.getItem('token') ||
+    localStorage.getItem('jwt') ||
+    localStorage.getItem('access_token')
 
   if (token) config.headers.Authorization = `Bearer ${token}`
-
   return config
 })
 
@@ -68,50 +72,54 @@ const statusLabel = {
 
 const nextActions = {
   OPEN: [
-    { status: 'IN_PROGRESS', label: 'Start', icon: <PlayCircleOutlined /> },
-    { status: 'ON_HOLD', label: 'Hold', icon: <PauseCircleOutlined /> },
+    { status: 'IN_PROGRESS', label: 'Bắt đầu', icon: <PlayCircleOutlined /> },
+    { status: 'ON_HOLD', label: 'Tạm giữ', icon: <PauseCircleOutlined /> },
   ],
   IN_PROGRESS: [
-    { status: 'PENDING', label: 'Submit', icon: <ClockCircleOutlined /> },
-    { status: 'ON_HOLD', label: 'Hold', icon: <PauseCircleOutlined /> },
+    { status: 'PENDING', label: 'Nộp duyệt', icon: <ClockCircleOutlined /> },
+    { status: 'ON_HOLD', label: 'Tạm giữ', icon: <PauseCircleOutlined /> },
   ],
   ON_HOLD: [
-    { status: 'IN_PROGRESS', label: 'Resume', icon: <PlayCircleOutlined /> },
-    { status: 'OPEN', label: 'Reopen', icon: <ReloadOutlined /> },
+    { status: 'IN_PROGRESS', label: 'Tiếp tục', icon: <PlayCircleOutlined /> },
+    { status: 'OPEN', label: 'Mở lại', icon: <ReloadOutlined /> },
   ],
   PENDING: [
-    { status: 'DONE', label: 'Approve', icon: <CheckCircleOutlined /> },
-    { status: 'IN_PROGRESS', label: 'Return', icon: <PlayCircleOutlined /> },
+    { status: 'DONE', label: 'Duyệt', icon: <CheckCircleOutlined /> },
+    { status: 'IN_PROGRESS', label: 'Trả về', icon: <PlayCircleOutlined /> },
   ],
   DONE: [],
   CANCELLED: [],
 }
 
-const isTerminalStatus = (status) => ['DONE', 'CANCELLED'].includes(status)
+const isTerminal = (s) => ['DONE', 'CANCELLED'].includes(s)
 
 const isOverdue = (wo) => {
-  if (!wo?.dueDate) return false
-  if (isTerminalStatus(wo.status)) return false
+  if (!wo?.dueDate || isTerminal(wo.status)) return false
   return dayjs(wo.dueDate).isBefore(dayjs(), 'day')
 }
 
-const isCompletedLate = (wo) => {
-  if (wo?.status !== 'DONE') return false
-  if (!wo?.dueDate || !wo?.completedOn) return false
+const isLateDone = (wo) => {
+  if (wo?.status !== 'DONE' || !wo?.dueDate || !wo?.completedOn) return false
   return dayjs(wo.completedOn).isAfter(dayjs(wo.dueDate), 'day')
 }
 
 const getViewStatus = (wo) => {
-  if (isCompletedLate(wo)) return 'COMPLETED_LATE'
+  if (isLateDone(wo)) return 'COMPLETED_LATE'
   if (isOverdue(wo)) return 'OVERDUE'
-  return wo?.status
+  return wo?.status || 'OPEN'
 }
 
-const formatDate = (value) => {
-  if (!value) return '-'
-  const d = dayjs(value)
-  return d.isValid() ? d.format('DD/MM/YYYY') : value
+const formatDate = (v) => {
+  if (!v) return '-'
+  const d = dayjs(v)
+  return d.isValid() ? d.format('DD/MM/YYYY') : v
 }
+
+const getErrMsg = (err, fallback) =>
+  err?.response?.data?.message ||
+  err?.response?.data?.error ||
+  (typeof err?.response?.data === 'string' ? err.response.data : '') ||
+  `${fallback} (${err?.response?.status || 'network'})`
 
 export default function WorkOrderList({ mode = 'my' }) {
   const didLoad = useRef(false)
@@ -119,34 +127,30 @@ export default function WorkOrderList({ mode = 'my' }) {
   const [data, setData] = useState([])
   const [filtered, setFiltered] = useState([])
   const [loading, setLoading] = useState(false)
-
   const [keyword, setKeyword] = useState('')
-  const [status, setStatus] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
 
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const [nextStatus, setNextStatus] = useState(null)
   const [feedback, setFeedback] = useState('')
 
-  const getErrorMessage = (err, fallback) =>
-    err?.response?.data?.message ||
-    err?.response?.data?.error ||
-    (typeof err?.response?.data === 'string' ? err.response.data : '') ||
-    `${fallback} (${err?.response?.status || 'network'})`
-
   const load = async () => {
     try {
       setLoading(true)
-
       const url = mode === 'my' ? '/api/work-orders/my' : '/api/work-orders'
       const res = await api.get(url)
+      const rows = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.content)
+          ? res.data.content
+          : []
 
-      const rows = Array.isArray(res.data) ? res.data : []
       setData(rows)
       setFiltered(rows)
     } catch (err) {
-      console.error('WORK_ORDER_ERROR:', err?.response || err)
-      message.error(getErrorMessage(err, 'Không tải được Work Orders'))
+      console.error('WORK ORDER LOAD ERROR:', err)
+      message.error(getErrMsg(err, 'Không tải được Work Orders'))
       setData([])
       setFiltered([])
     } finally {
@@ -154,37 +158,36 @@ export default function WorkOrderList({ mode = 'my' }) {
     }
   }
 
+  const stats = useMemo(() => {
+    const total = data.length
+    const active = data.filter((x) => ['OPEN', 'IN_PROGRESS', 'PENDING', 'ON_HOLD'].includes(x.status)).length
+    const overdue = data.filter((x) => getViewStatus(x) === 'OVERDUE').length
+    const done = data.filter((x) => getViewStatus(x) === 'DONE' || getViewStatus(x) === 'COMPLETED_LATE').length
+    return { total, active, overdue, done }
+  }, [data])
+
   const applyFilter = () => {
     let rows = [...data]
 
-    if (status !== 'ALL') {
-      rows = rows.filter((x) => getViewStatus(x) === status)
+    if (statusFilter !== 'ALL') {
+      rows = rows.filter((x) => getViewStatus(x) === statusFilter)
     }
 
     if (keyword.trim()) {
       const q = keyword.trim().toLowerCase()
-
-      rows = rows.filter((x) => {
-        const id = String(x.id || '').toLowerCase()
-        const title = String(x.title || '').toLowerCase()
-        const assetName = String(x.assetName || '').toLowerCase()
-        const locationName = String(x.locationName || '').toLowerCase()
-
-        return (
-          id.includes(q) ||
-          title.includes(q) ||
-          assetName.includes(q) ||
-          locationName.includes(q)
-        )
-      })
+      rows = rows.filter((x) =>
+        [x.id, x.title, x.description, x.assetName, x.locationName]
+          .map((v) => String(v || '').toLowerCase())
+          .some((s) => s.includes(q)),
+      )
     }
 
     setFiltered(rows)
   }
 
-  const openChangeModal = (record, statusValue) => {
+  const openChangeModal = (record, status) => {
     setSelected(record)
-    setNextStatus(statusValue)
+    setNextStatus(status)
     setFeedback('')
     setFeedbackOpen(true)
   }
@@ -197,35 +200,31 @@ export default function WorkOrderList({ mode = 'my' }) {
         status: nextStatus,
         feedback,
       })
-
       message.success('Cập nhật trạng thái thành công')
       setFeedbackOpen(false)
       await load()
     } catch (err) {
-      console.error('CHANGE_WO_STATUS_ERROR:', err?.response || err)
-      message.error(getErrorMessage(err, 'Cập nhật trạng thái thất bại'))
+      message.error(getErrMsg(err, 'Cập nhật trạng thái thất bại'))
     }
   }
 
   const cancelWO = (record) => {
     Modal.confirm({
       title: 'Hủy Work Order?',
-      content: `Bạn chắc chắn muốn hủy "${record.title}"?`,
+      content: `Bạn chắc chắn muốn hủy "${record.title || `WO-${record.id}`}"?`,
       okText: 'Hủy WO',
-      cancelText: 'Đóng',
       okButtonProps: { danger: true },
+      cancelText: 'Đóng',
       async onOk() {
         try {
           await api.patch(`/api/work-orders/${record.id}/status`, {
             status: 'CANCELLED',
             feedback: 'Cancelled from UI',
           })
-
           message.success('Đã hủy Work Order')
           await load()
         } catch (err) {
-          console.error('CANCEL_WO_ERROR:', err?.response || err)
-          message.error(getErrorMessage(err, 'Hủy Work Order thất bại'))
+          message.error(getErrMsg(err, 'Hủy Work Order thất bại'))
         }
       },
     })
@@ -239,81 +238,89 @@ export default function WorkOrderList({ mode = 'my' }) {
 
   useEffect(() => {
     applyFilter()
-  }, [keyword, status, data])
+  }, [keyword, statusFilter, data])
 
   const columns = [
     {
       title: 'Mã',
       dataIndex: 'id',
-      width: 90,
-      render: (id) => <Text strong>WO-{id}</Text>,
+      width: 110,
+      render: (id) => <span className="wo-code">WO-{id}</span>,
     },
     {
       title: 'Work Order',
       dataIndex: 'title',
-      render: (_, record) => (
-        <Space direction="vertical" size={0}>
-          <Text strong>{record.title || '-'}</Text>
-          <Text type="secondary">{record.description || 'Không có mô tả'}</Text>
-        </Space>
+      render: (_, r) => (
+        <div className="wo-title-cell">
+          <div className="wo-title-icon"><ToolOutlined /></div>
+          <div>
+            <div className="wo-title-text">{r.title || '-'}</div>
+            <div className="wo-title-sub">{r.description || 'Không có mô tả'}</div>
+          </div>
+        </div>
       ),
     },
     {
       title: 'Thiết bị',
       dataIndex: 'assetName',
-      width: 180,
-      render: (v) => v || '-',
+      width: 190,
+      render: (v) => v ? <span className="wo-asset-pill">{v}</span> : <span className="wo-muted">-</span>,
     },
     {
       title: 'Vị trí',
       dataIndex: 'locationName',
       width: 160,
-      render: (v) => v || '-',
+      render: (v) => v || <span className="wo-muted">-</span>,
     },
     {
       title: 'Hạn xử lý',
       dataIndex: 'dueDate',
-      width: 130,
-      render: (v) => formatDate(v),
+      width: 140,
+      render: (v, record) => {
+        const overdue = isOverdue(record)
+        return (
+          <span className={overdue ? 'wo-date-overdue' : 'wo-date'}>
+            {overdue && <WarningOutlined />} {formatDate(v)}
+          </span>
+        )
+      },
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       width: 150,
       render: (_, record) => {
-        const viewStatus = getViewStatus(record)
-
-        return (
-          <Tag color={statusColor[viewStatus] || 'default'}>
-            {statusLabel[viewStatus] || viewStatus || '-'}
-          </Tag>
-        )
+        const vs = getViewStatus(record)
+        return <Tag className="wo-status-tag" color={statusColor[vs] || 'default'}>{statusLabel[vs] || vs || '-'}</Tag>
       },
     },
     {
       title: 'Thao tác',
-      width: 260,
+      width: 250,
       render: (_, record) => (
-        <Space wrap>
+        <Space wrap size={6}>
           {(nextActions[record.status] || []).map((action) => (
-            <Button
-              key={action.status}
-              size="small"
-              icon={action.icon}
-              onClick={() => openChangeModal(record, action.status)}
-            >
-              {action.label}
-            </Button>
+            <Tooltip key={action.status} title={`Chuyển sang: ${statusLabel[action.status]}`}>
+              <Button
+                size="small"
+                icon={action.icon}
+                className="wo-action-btn"
+                onClick={() => openChangeModal(record, action.status)}
+              >
+                {action.label}
+              </Button>
+            </Tooltip>
           ))}
 
-          {!['DONE', 'CANCELLED'].includes(record.status) && (
+          {!isTerminal(record.status) && (
             <Button
               danger
               size="small"
               icon={<StopOutlined />}
+              className="wo-action-btn"
               onClick={() => cancelWO(record)}
             >
-              Cancel
+              Hủy
             </Button>
           )}
         </Space>
@@ -322,112 +329,130 @@ export default function WorkOrderList({ mode = 'my' }) {
   ]
 
   return (
-    <div className="pm-shell">
-      <Card className="pm-card-pro">
-        <div className="pm-list-header">
-          <div>
-            <Title level={3} className="pm-title">
-              {mode === 'my' ? 'Work Orders của tôi' : 'Tất cả Work Orders'}
-            </Title>
+    <div className="wo-page-shell">
+      <div className="wo-page">
+        <div className="wo-hero-card">
+          <div className="wo-hero-left">
+            <h1>{mode === 'my' ? 'Work Orders của tôi' : 'Tất cả Work Orders'}</h1>
           </div>
 
-          <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={load} loading={loading} className="wo-reload-btn">
             Tải lại
           </Button>
         </div>
 
-        <div className="pm-stats">
-          <div className="pm-stat-box">
-            <span>Tổng WO</span>
-            <b>{data.length}</b>
+        <div className="wo-stat-grid">
+          <div className="wo-stat-card">
+            <span>Tổng Work Orders</span>
+            <b>{stats.total}</b>
+            <small>Tất cả công việc được phân công</small>
           </div>
-
-          <div className="pm-stat-box">
+          <div className="wo-stat-card wo-stat-blue">
             <span>Đang xử lý</span>
-            <b>{data.filter((x) => x.status === 'IN_PROGRESS').length}</b>
+            <b>{stats.active}</b>
+            <small>OPEN / IN PROGRESS / PENDING</small>
           </div>
-
-          <div className="pm-stat-box">
+          <div className="wo-stat-card wo-stat-red">
             <span>Quá hạn</span>
-            <b>{data.filter((x) => getViewStatus(x) === 'OVERDUE').length}</b>
+            <b>{stats.overdue}</b>
+            <small>Cần ưu tiên kiểm tra</small>
           </div>
-
-          <div className="pm-stat-box">
-            <span>Hoàn tất trễ</span>
-            <b>{data.filter((x) => getViewStatus(x) === 'COMPLETED_LATE').length}</b>
+          <div className="wo-stat-card wo-stat-green">
+            <span>Hoàn tất</span>
+            <b>{stats.done}</b>
+            <small>Đã đóng hoặc hoàn tất trễ</small>
           </div>
         </div>
 
-        <div className="pm-filter-bar">
-          <Input.Search
-            allowClear
-            placeholder="Tìm kiếm"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            style={{ maxWidth: 360 }}
-          />
+        <div className="wo-panel">
+          <div className="wo-panel-head">
+            <div>
+              <h2>Danh sách Work Orders</h2>
+              <p>{filtered.length} kết quả đang hiển thị</p>
+            </div>
+          </div>
 
-          <Select
-            value={status}
-            onChange={setStatus}
-            style={{ width: 190 }}
-            options={[
-              { value: 'ALL', label: 'Tất cả trạng thái' },
-              { value: 'OPEN', label: 'Mới' },
-              { value: 'IN_PROGRESS', label: 'Đang làm' },
-              { value: 'ON_HOLD', label: 'Tạm dừng' },
-              { value: 'PENDING', label: 'Chờ duyệt' },
-              { value: 'DONE', label: 'Hoàn tất' },
-              { value: 'COMPLETED_LATE', label: 'Hoàn tất trễ' },
-              { value: 'OVERDUE', label: 'Quá hạn' },
-              { value: 'CANCELLED', label: 'Đã hủy' },
-            ]}
+          <div className="wo-toolbar">
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="Tìm kiếm"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="wo-search"
+            />
+
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              className="wo-status-select"
+              options={[
+                { value: 'ALL', label: 'Tất cả trạng thái' },
+                { value: 'OPEN', label: 'Mới' },
+                { value: 'IN_PROGRESS', label: 'Đang làm' },
+                { value: 'ON_HOLD', label: 'Tạm dừng' },
+                { value: 'PENDING', label: 'Chờ duyệt' },
+                { value: 'DONE', label: 'Hoàn tất' },
+                { value: 'COMPLETED_LATE', label: 'Hoàn tất trễ' },
+                { value: 'OVERDUE', label: 'Quá hạn' },
+                { value: 'CANCELLED', label: 'Đã hủy' },
+              ]}
+            />
+          </div>
+
+          <Table
+            rowKey="id"
+            loading={loading}
+            columns={columns}
+            dataSource={filtered}
+            rowClassName={(record) => (getViewStatus(record) === 'OVERDUE' ? 'wo-row-overdue' : '')}
+            pagination={{ pageSize: 10, showSizeChanger: true }}
+            scroll={{ x: 1100 }}
+            locale={{
+              emptyText: (
+                <div className="wo-empty">
+                  <InboxOutlined />
+                  <h3>Không có Work Order nào</h3>
+                  <p>Hiện chưa có công việc bảo trì phù hợp với bộ lọc.</p>
+                </div>
+              ),
+            }}
           />
         </div>
-
-        <Table
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={filtered}
-          pagination={{ pageSize: 8 }}
-          locale={{
-            emptyText: <Empty description="Không có Work Order" />,
-          }}
-        />
-      </Card>
+      </div>
 
       <Modal
-        title="Cập nhật trạng thái Work Order"
+        title="Cập nhật trạng thái"
         open={feedbackOpen}
         onCancel={() => setFeedbackOpen(false)}
         onOk={submitChange}
-        okText="Cập nhật"
+        okText="Xác nhận"
         cancelText="Hủy"
+        className="wo-feedback-modal"
       >
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space direction="vertical" size={14} style={{ width: '100%' }}>
           <div>
-            <Text type="secondary">Work Order</Text>
-            <div>
-              <Text strong>{selected?.title || '-'}</Text>
+            <Text type="secondary" className="wo-modal-label">Work Order</Text>
+            <div className="wo-modal-value">{selected?.title || '-'}</div>
+          </div>
+
+          <div>
+            <Text type="secondary" className="wo-modal-label">Trạng thái mới</Text>
+            <div style={{ marginTop: 6 }}>
+              <Tag color={statusColor[nextStatus] || 'default'}>{statusLabel[nextStatus] || nextStatus || '-'}</Tag>
             </div>
           </div>
 
           <div>
-            <Text type="secondary">Trạng thái mới</Text>
-            <div>
-              <Tag color={statusColor[nextStatus] || 'default'}>
-                {statusLabel[nextStatus] || nextStatus || '-'}
-              </Tag>
-            </div>
+            <Text type="secondary" className="wo-modal-label">Ghi chú / Feedback</Text>
+            <TextArea
+              rows={4}
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="Nhập ghi chú hoặc lý do..."
+              className="wo-feedback-textarea"
+            />
           </div>
-
-          <TextArea
-            rows={4}
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            placeholder="Nhập ghi chú / feedback..."
-          />
         </Space>
       </Modal>
     </div>

@@ -1042,7 +1042,6 @@ export default function Part() {
             <div className="drawer-header">
               <div>
                 <h2>{editingId ? "Cập nhật vật tư" : "Thêm vật tư mới"}</h2>
-                <p>Nhập thông tin vật tư theo chuẩn quản lý kho.</p>
               </div>
               <button
                 type="button"
@@ -1064,7 +1063,7 @@ export default function Part() {
                         name="name"
                         value={form.name}
                         onChange={handleChange}
-                        placeholder="Ví dụ: Bearing 6205"
+                        placeholder="Nhập tên vật tư"
                         required
                       />
                     </div>
@@ -1076,7 +1075,7 @@ export default function Part() {
                         name="category"
                         value={form.category}
                         onChange={handleChange}
-                        placeholder="Mechanical / Electrical / Consumable"
+                        placeholder="Nhập danh mục"
                       />
                     </div>
 
@@ -1087,7 +1086,7 @@ export default function Part() {
                         name="barcode"
                         value={form.barcode}
                         onChange={handleChange}
-                        placeholder="Barcode / SKU"
+                        placeholder="Nhập Barcode"
                       />
                     </div>
 
@@ -1098,7 +1097,7 @@ export default function Part() {
                         name="vendor"
                         value={form.vendor}
                         onChange={handleChange}
-                        placeholder="Supplier name"
+                        placeholder="Nhập tên nhà cung cấp"
                       />
                     </div>
 
@@ -1109,7 +1108,7 @@ export default function Part() {
                         name="locationName"
                         value={form.locationName}
                         onChange={handleChange}
-                        placeholder="Warehouse A / Rack B2"
+                        placeholder="Nhập vị trí"
                       />
                     </div>
 
@@ -1120,7 +1119,7 @@ export default function Part() {
                         name="assignedTo"
                         value={form.assignedTo}
                         onChange={handleChange}
-                        placeholder="Người phụ trách"
+                        placeholder="Nhập tên người phụ trách"
                       />
                     </div>
 
@@ -1133,6 +1132,7 @@ export default function Part() {
                         name="quantity"
                         value={form.quantity}
                         onChange={handleChange}
+                        placeholder="Nhập số lượng"
                       />
                     </div>
 
@@ -1195,7 +1195,7 @@ export default function Part() {
                         value={form.description}
                         onChange={handleChange}
                         rows={4}
-                        placeholder="Mô tả vật tư, thông số kỹ thuật, ghi chú sử dụng..."
+                        placeholder="Nhập mô tả"
                       />
                     </div>
                   </div>

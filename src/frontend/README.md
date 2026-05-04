@@ -23,4 +23,6 @@ Hệ thống Quản lý và Bảo trì Thiết bị (EMMS) – hỗ trợ quản
 cd C:\Users\ADMIN\emms-system\src\frontend\src
 npm run dev
 VITE v5.x.x ready in 300 ms
-Local:   http://localhost:5173/
+Local:   
+
+https://emms.up.railway.app/#/login

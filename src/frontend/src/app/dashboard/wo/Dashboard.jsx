@@ -52,7 +52,7 @@ async function api(path) {
     throw new Error("Chưa đăng nhập. Vui lòng login lại.");
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,

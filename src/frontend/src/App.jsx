@@ -6,15 +6,35 @@ import { CSpinner, useColorModes } from '@coreui/react'
 import './scss/style.scss'
 import './scss/examples.scss'
 
-// Layout
 const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
 
-// Pages
+
 const Login = React.lazy(() => import('./app/pages/login/Login'))
 const ForgotPassword = React.lazy(() => import('./app/pages/forgot-password/ForgotPassword'))
 const ResetPassword = React.lazy(() => import('./app/pages/reset-password/ResetPassword'))
 const Page404 = React.lazy(() => import('./app/pages/page404/Page404'))
 const Logout = React.lazy(() => import('./app/pages/logout/Logout'))
+
+function PrivateRoute({ children }) {
+  const token = getAccessToken()
+
+  if (!token || isTokenExpired(token)) {
+    clearAuth()
+    return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+function PublicRoute({ children }) {
+  const token = getAccessToken()
+
+  if (token && !isTokenExpired(token)) {
+    return <Navigate to="/dashboard1" replace />
+  }
+
+  return children
+}
 
 const App = () => {
   const { isColorModeSet, setColorMode } =
