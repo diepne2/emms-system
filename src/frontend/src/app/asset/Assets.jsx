@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import axios from 'axios'
+import { Select } from 'antd'
 import './Assets.css'
 import {
   FiSearch,
@@ -1464,21 +1465,24 @@ export default function Assets() {
                   </FormField>
 
                   <FormField label="Vị trí">
-                    <select
-                      className="filter-select"
-                      value={createForm.locationName}
-                      onChange={(e) => handleCreateFormChange('locationName', e.target.value)}
+                    <Select
+                      className="emms-select"
+                      value={createForm.locationName || undefined}
+                      placeholder={dropdownLoading ? 'Đang tải vị trí...' : '-- Chọn vị trí --'}
+                      loading={dropdownLoading}
                       disabled={dropdownLoading}
-                    >
-                      <option value="">
-                        {dropdownLoading ? 'Đang tải vị trí...' : '-- Chọn vị trí --'}
-                      </option>
-                      {locations.map((location) => (
-                        <option key={location.id} value={location.name}>
-                          {location.name}
-                        </option>
-                      ))}
-                    </select>
+                      showSearch
+                      allowClear
+                      placement="bottomLeft"
+                      listHeight={260}
+                      getPopupContainer={(trigger) => trigger.parentElement}
+                      optionFilterProp="label"
+                      onChange={(value) => handleCreateFormChange('locationName', value || '')}
+                      options={locations.map((location) => ({
+                        value: location.name,
+                        label: location.name,
+                      }))}
+                    />
                   </FormField>
 
                   <FormField label="Người phụ trách">
@@ -1680,11 +1684,23 @@ export default function Assets() {
                   </FormField>
 
                   <FormField label="Vị trí">
-                    <input
-                      className="form-input"
-                      value={editForm.locationName}
-                      onChange={(e) => handleEditFormChange('locationName', e.target.value)}
-                      placeholder="Nhập vị trí"
+                    <Select
+                      className="emms-select"
+                      value={editForm.locationName || undefined}
+                      placeholder={dropdownLoading ? 'Đang tải vị trí...' : '-- Chọn vị trí --'}
+                      loading={dropdownLoading}
+                      disabled={dropdownLoading}
+                      showSearch
+                      allowClear
+                      placement="bottomLeft"
+                      listHeight={260}
+                      getPopupContainer={(trigger) => trigger.parentElement}
+                      optionFilterProp="label"
+                      onChange={(value) => handleEditFormChange('locationName', value || '')}
+                      options={locations.map((location) => ({
+                        value: location.name,
+                        label: location.name,
+                      }))}
                     />
                   </FormField>
 
