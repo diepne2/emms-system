@@ -242,7 +242,7 @@ export default function Chat() {
             className="chat-search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên hoặc username..."
+            placeholder="Tìm kiếm người dùng"
           />
         </div>
 

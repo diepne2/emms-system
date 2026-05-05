@@ -143,7 +143,7 @@ export default function AppHeader() {
 
         <CHeaderNav className="d-none d-md-flex">
           <CNavItem>
-            <CNavLink to="/dashboard" as={NavLink}>
+            <CNavLink to="/dashboard1" as={NavLink}>
               Dashboard
             </CNavLink>
           </CNavItem>

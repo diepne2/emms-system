@@ -92,7 +92,7 @@ export default function WorkOrderHistories() {
         <div className="woh-header">
           <div>
             <div className="woh-eyebrow">EMMS</div>
-            <h1>Work Order History</h1>
+            <h1>Lịch sử Work Order</h1>
           </div>
         </div>
 

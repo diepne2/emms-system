@@ -47,7 +47,7 @@ const AppBreadcrumb = () => {
     <CBreadcrumb
       className="emms-breadcrumb"
     >
-      <CBreadcrumbItem href="#/dashboard">Trang chủ</CBreadcrumbItem>
+      <CBreadcrumbItem href="#/dashboard1">Trang chủ</CBreadcrumbItem>
 
       {breadcrumbs.map((breadcrumb, index) => (
         <CBreadcrumbItem

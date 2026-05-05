@@ -795,3 +795,60 @@
 .ck-detail-selected {
   margin-top: 18px;
 }
+
+
+/* scroll + footer */
+.ck-modal {
+  max-height: calc(100vh - 64px);
+}
+
+.ck-modal-form {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ck-modal-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 28px;
+}
+
+.ck-modal-footer {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.ck-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ck-modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.ck-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ck-add-task-btn {
+  width: fit-content;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  .ck-modal {
+    max-height: calc(100vh - 24px);
+  }
+
+  .ck-add-task-btn {
+    width: 100%;
+  }
+}

@@ -594,7 +594,6 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
         <div className="pm-hero-row">
           <div>
             <h1>Kế hoạch bảo trì định kỳ</h1>
-            <p>Quản lý lịch bảo trì, thiết bị, người phụ trách và trạng thái PM.</p>
           </div>
 
           <Button
@@ -865,7 +864,7 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
                     allowClear
                     style={{ width: '100%' }}
                     format="DD/MM/YYYY HH:mm"
-                    placeholder="Không giới hạn nếu bỏ trống"
+                    placeholder="Ngày kết thúc"
                   />
                 </Form.Item>
               </div>
@@ -957,7 +956,7 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
               </div>
 
               <Form.Item label="Mô tả" name="description">
-                <TextArea rows={4} placeholder="Nhập mô tả hoặc ghi chú nếu cần" />
+                <TextArea rows={4} placeholder="Nhập mô tả" />
               </Form.Item>
             </div>
           </Form>

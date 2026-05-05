@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import './hr.css'
 
-const API_BASE = 'https://emms-system-production-4239.up.railway.app'
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://emms-system-production-4239.up.railway.app'
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -25,9 +27,16 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+const INVITE_ROLE_OPTIONS = [
+  { value: 'ADMIN', label: 'Quản trị viên' },
+  { value: 'TECHNICAL_MANAGER', label: 'Quản lý kỹ thuật' },
+  { value: 'TECHNICIAN', label: 'Nhân viên kỹ thuật' },
+  { value: 'OPERATOR', label: 'Nhân viên vận hành' },
+]
+
 const EMPTY_INVITE_FORM = {
   emailsText: '',
-  roleId: '',
+  roleName: '',
 }
 
 const EMPTY_EDIT_FORM = {
@@ -38,6 +47,17 @@ const EMPTY_EDIT_FORM = {
 
 function normalizeText(value) {
   return (value || '').toString().trim()
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function parseEmails(text) {
+  return text
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function extractErrorMessage(err, fallback = 'Thao tác thất bại.') {
@@ -103,6 +123,10 @@ function formatDateTime(value) {
   }
 }
 
+function getUserId(user) {
+  return user?.id || user?.userId || user?.user_id
+}
+
 function getDisplayName(user) {
   return (
     normalizeText(user?.fullName) ||
@@ -112,15 +136,12 @@ function getDisplayName(user) {
   )
 }
 
-function parseEmails(text) {
-  return text
-    .split(/[\n,;]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
 function normalizeRole(role) {
   return normalizeText(role).replace(/^ROLE_/, '').toUpperCase()
+}
+
+function getRoleValue(user) {
+  return user?.role || user?.roleCode || user?.authority || ''
 }
 
 function displayRole(role) {
@@ -128,17 +149,13 @@ function displayRole(role) {
 
   switch (normalized) {
     case 'ADMIN':
-      return 'ADMIN'
+      return 'QUẢN TRỊ VIÊN'
     case 'TECHNICAL_MANAGER':
       return 'QUẢN LÝ KỸ THUẬT'
     case 'TECHNICIAN':
       return 'NHÂN VIÊN KỸ THUẬT'
     case 'OPERATOR':
       return 'NHÂN VIÊN VẬN HÀNH'
-    case 'REQUESTER':
-      return 'NGƯỜI YÊU CẦU'
-    case 'VIEWER':
-      return 'NGƯỜI XEM'
     default:
       return normalized || '—'
   }
@@ -165,6 +182,10 @@ function displayEnabled(enabled) {
 
 function canCreateOrEditUsers(role) {
   return ['ADMIN', 'TECHNICAL_MANAGER'].includes(normalizeRole(role))
+}
+
+function canInviteUsers(role) {
+  return normalizeRole(role) === 'ADMIN'
 }
 
 function canDeleteUsers(role) {
@@ -249,36 +270,10 @@ function EditIcon() {
 function DeleteIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path
-        d="M5 7h14"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M9 7V5h6v2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 7l1 12h6l1-12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 11v5M14 11v5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
+      <path d="M5 7h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9 7V5h6v2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 7l1 12h6l1-12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   )
 }
@@ -294,8 +289,8 @@ const HR = () => {
   const [size, setSize] = useState(10)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
-  const [sortBy, setSortBy] = useState('id')
-  const [sortDir, setSortDir] = useState('asc')
+  const [sortBy, setSortBy] = useState('userId')
+  const [sortDir, setSortDir] = useState('desc')
 
   const [keywordDraft, setKeywordDraft] = useState('')
   const [keyword, setKeyword] = useState('')
@@ -316,14 +311,15 @@ const HR = () => {
 
   const [me, setMe] = useState(null)
 
-  const currentRole = useMemo(() => normalizeRole(me?.role), [me])
+  const currentRole = useMemo(() => normalizeRole(getRoleValue(me)), [me])
   const allowCreateEdit = useMemo(() => canCreateOrEditUsers(currentRole), [currentRole])
+  const allowInvite = useMemo(() => canInviteUsers(currentRole), [currentRole])
   const allowDelete = useMemo(() => canDeleteUsers(currentRole), [currentRole])
 
   const roleOptions = useMemo(() => {
     const set = new Set(['ADMIN', 'TECHNICAL_MANAGER', 'TECHNICIAN', 'OPERATOR'])
     users.forEach((u) => {
-      const role = normalizeText(u?.role).toUpperCase()
+      const role = normalizeRole(getRoleValue(u))
       if (role) set.add(role)
     })
     return Array.from(set)
@@ -377,7 +373,7 @@ const HR = () => {
       } else if (statusCode === 403) {
         setError('Bạn không có quyền truy cập màn hình Nhân sự.')
       } else {
-        setError(extractErrorMessage(err, 'Không tải được danh sách nhân sự. Kiểm tra token hoặc endpoint backend.'))
+        setError(extractErrorMessage(err, 'Không tải được danh sách nhân sự.'))
       }
 
       setUsers([])
@@ -413,7 +409,7 @@ const HR = () => {
       locked: users.filter((u) => normalizeText(u?.status).toUpperCase() === 'LOCKED').length,
       enabledCount: users.filter((u) => toBoolean(u?.enabled)).length,
       managerCount: users.filter((u) =>
-        ['ADMIN', 'TECHNICAL_MANAGER'].includes(normalizeText(u?.role).toUpperCase())
+        ['ADMIN', 'TECHNICAL_MANAGER'].includes(normalizeRole(getRoleValue(u)))
       ).length,
     }
   }, [users])
@@ -431,8 +427,8 @@ const HR = () => {
     setEnabled('')
     setPage(0)
     setSize(10)
-    setSortBy('id')
-    setSortDir('asc')
+    setSortBy('userId')
+    setSortDir('desc')
   }
 
   const handleOpenDetail = async (id) => {
@@ -445,13 +441,7 @@ const HR = () => {
       setDetailOpen(true)
     } catch (err) {
       console.error(err)
-      const statusCode = err?.response?.status
-
-      if (statusCode === 403) {
-        setError('Bạn không có quyền xem chi tiết nhân sự này.')
-      } else {
-        setError(extractErrorMessage(err, 'Không tải được chi tiết nhân sự.'))
-      }
+      setError(extractErrorMessage(err, 'Không tải được chi tiết nhân sự.'))
     } finally {
       setSubmitting(false)
     }
@@ -475,7 +465,7 @@ const HR = () => {
     clearMessages()
 
     try {
-      await api.put(`/api/users/${selectedUser.id}/enabled`, null, {
+      await api.put(`/api/users/${getUserId(selectedUser)}/enabled`, null, {
         params: { enabled: editForm.enabled === 'true' },
       })
       setSuccess('Cập nhật trạng thái kích hoạt thành công.')
@@ -483,13 +473,7 @@ const HR = () => {
       loadUsers()
     } catch (err) {
       console.error(err)
-      const statusCode = err?.response?.status
-
-      if (statusCode === 403) {
-        setError('Bạn không có quyền cập nhật kích hoạt nhân sự.')
-      } else {
-        setError(extractErrorMessage(err, 'Không cập nhật được trạng thái kích hoạt.'))
-      }
+      setError(extractErrorMessage(err, 'Không cập nhật được trạng thái kích hoạt.'))
     } finally {
       setSubmitting(false)
     }
@@ -505,7 +489,7 @@ const HR = () => {
     clearMessages()
 
     try {
-      await api.put(`/api/users/${selectedUser.id}/status`, null, {
+      await api.put(`/api/users/${getUserId(selectedUser)}/status`, null, {
         params: { status: editForm.status },
       })
       setSuccess('Cập nhật trạng thái thành công.')
@@ -513,13 +497,7 @@ const HR = () => {
       loadUsers()
     } catch (err) {
       console.error(err)
-      const statusCode = err?.response?.status
-
-      if (statusCode === 403) {
-        setError('Bạn không có quyền cập nhật trạng thái nhân sự.')
-      } else {
-        setError(extractErrorMessage(err, 'Không cập nhật được trạng thái.'))
-      }
+      setError(extractErrorMessage(err, 'Không cập nhật được trạng thái.'))
     } finally {
       setSubmitting(false)
     }
@@ -535,7 +513,7 @@ const HR = () => {
     clearMessages()
 
     try {
-      await api.put(`/api/users/${selectedUser.id}/role`, null, {
+      await api.put(`/api/users/${getUserId(selectedUser)}/role`, null, {
         params: { roleId: Number(editForm.roleId) },
       })
       setSuccess('Cập nhật vai trò thành công.')
@@ -543,13 +521,7 @@ const HR = () => {
       loadUsers()
     } catch (err) {
       console.error(err)
-      const statusCode = err?.response?.status
-
-      if (statusCode === 403) {
-        setError('Bạn không có quyền cập nhật vai trò nhân sự.')
-      } else {
-        setError(extractErrorMessage(err, 'Không cập nhật được vai trò.'))
-      }
+      setError(extractErrorMessage(err, 'Không cập nhật được vai trò.'))
     } finally {
       setSubmitting(false)
     }
@@ -569,7 +541,7 @@ const HR = () => {
     clearMessages()
 
     try {
-      await api.delete(`/api/users/${selectedUser.id}`)
+      await api.delete(`/api/users/${getUserId(selectedUser)}`)
       setSuccess('Xóa nhân sự thành công.')
       setDeleteOpen(false)
       setSelectedUser(null)
@@ -587,13 +559,21 @@ const HR = () => {
   const handleInvite = async (e) => {
     e.preventDefault()
 
-    const emails = parseEmails(inviteForm.emailsText)
+    const emails = [...new Set(parseEmails(inviteForm.emailsText))]
+    const invalidEmails = emails.filter((email) => !isValidEmail(email))
+
     if (!emails.length) {
       setError('Vui lòng nhập ít nhất một email.')
       return
     }
-    if (!normalizeText(inviteForm.roleId)) {
-      setError('Vui lòng nhập roleId.')
+
+    if (invalidEmails.length > 0) {
+      setError(`Email không hợp lệ: ${invalidEmails.join(', ')}`)
+      return
+    }
+
+    if (!normalizeText(inviteForm.roleName)) {
+      setError('Vui lòng chọn vai trò.')
       return
     }
 
@@ -603,21 +583,16 @@ const HR = () => {
     try {
       await api.post('/api/users/invite', {
         emails,
-        roleId: Number(inviteForm.roleId),
+        roleName: inviteForm.roleName,
       })
-      setSuccess('Gửi lời mời thành công.')
+
+      setSuccess(`Đã gửi lời mời cho ${emails.length} email.`)
       setInviteForm(EMPTY_INVITE_FORM)
       setInviteOpen(false)
       loadUsers()
     } catch (err) {
       console.error(err)
-      const statusCode = err?.response?.status
-
-      if (statusCode === 403) {
-        setError('Bạn không có quyền mời nhân sự.')
-      } else {
-        setError(extractErrorMessage(err, 'Không gửi được lời mời.'))
-      }
+      setError(extractErrorMessage(err, 'Không gửi được lời mời.'))
     } finally {
       setSubmitting(false)
     }
@@ -629,9 +604,8 @@ const HR = () => {
         <div className="assets-header">
           <div className="assets-header__top">
             <div className="assets-header__intro">
-              <div className="filters-panel__icon">👥</div>
               <div>
-                <h1 className="assets-header__mini-title">Nhân sự</h1>
+                <h1 className="assets-header__mini-title">Quản lý nhân sự</h1>
               </div>
             </div>
 
@@ -640,11 +614,13 @@ const HR = () => {
               <button className="btn btn-light" onClick={loadUsers} disabled={loading || submitting}>
                 Làm mới
               </button>
-              {allowCreateEdit && (
+
+              {allowInvite && (
                 <button
                   className="btn btn-primary btn-create-header"
                   onClick={() => {
                     clearMessages()
+                    setInviteForm(EMPTY_INVITE_FORM)
                     setInviteOpen(true)
                   }}
                 >
@@ -819,63 +795,69 @@ const HR = () => {
                     </td>
                   </tr>
                 ) : (
-                  users.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-                      <td>
-                        <div className="asset-name-cell">
-                          <strong>{getDisplayName(user)}</strong>
-                          <small>{user.phone || 'Chưa có số điện thoại'}</small>
-                        </div>
-                      </td>
-                      <td>{user.email || '—'}</td>
-                      <td>
-                        <span className="badge badge--info">{displayRole(user.role)}</span>
-                      </td>
-                      <td>{user.jobTitle || '—'}</td>
-                      <td>
-                        <span className={badgeClassByStatus(user.status)}>
-                          {displayStatus(user.status)}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={badgeClassByEnabled(user.enabled)}>
-                          {displayEnabled(user.enabled)}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-group">
-                          <button
-                            className="icon-btn"
-                            title="Xem chi tiết"
-                            onClick={() => handleOpenDetail(user.id)}
-                          >
-                            <EyeIcon />
-                          </button>
-
-                          {allowCreateEdit && (
+                  users.map((user) => {
+                    const id = getUserId(user)
+                    return (
+                      <tr key={id}>
+                        <td>{id}</td>
+                        <td>
+                          <div className="asset-name-cell">
+                            <strong>{getDisplayName(user)}</strong>
+                            <small>{user.phone || 'Chưa có số điện thoại'}</small>
+                          </div>
+                        </td>
+                        <td>{user.email || '—'}</td>
+                        <td>
+                          <span className="badge badge--info">{displayRole(getRoleValue(user))}</span>
+                        </td>
+                        <td>{user.jobTitle || '—'}</td>
+                        <td>
+                          <span className={badgeClassByStatus(user.status)}>
+                            {displayStatus(user.status)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={badgeClassByEnabled(user.enabled)}>
+                            {displayEnabled(user.enabled)}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="action-group">
                             <button
                               className="icon-btn"
-                              title="Chỉnh sửa"
-                              onClick={() => handleOpenEdit(user)}
+                              title="Xem chi tiết"
+                              onClick={() => handleOpenDetail(id)}
+                              disabled={submitting}
                             >
-                              <EditIcon />
+                              <EyeIcon />
                             </button>
-                          )}
 
-                          {allowDelete && (
-                            <button
-                              className="icon-btn icon-btn--danger"
-                              title="Xóa"
-                              onClick={() => handleOpenDelete(user)}
-                            >
-                              <DeleteIcon />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            {allowCreateEdit && (
+                              <button
+                                className="icon-btn"
+                                title="Chỉnh sửa"
+                                onClick={() => handleOpenEdit(user)}
+                                disabled={submitting}
+                              >
+                                <EditIcon />
+                              </button>
+                            )}
+
+                            {allowDelete && (
+                              <button
+                                className="icon-btn icon-btn--danger"
+                                title="Xóa"
+                                onClick={() => handleOpenDelete(user)}
+                                disabled={submitting}
+                              >
+                                <DeleteIcon />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -962,7 +944,7 @@ const HR = () => {
                     <h3>{getDisplayName(selectedUser)}</h3>
                     <p>{selectedUser.email || '—'}</p>
                     <div className="detail-hero__meta">
-                      <span className="hero-chip">Vai trò: {displayRole(selectedUser.role)}</span>
+                      <span className="hero-chip">Vai trò: {displayRole(getRoleValue(selectedUser))}</span>
                       <span className="hero-chip">Trạng thái: {displayStatus(selectedUser.status)}</span>
                     </div>
                   </div>
@@ -974,7 +956,7 @@ const HR = () => {
                 <div className="detail-grid detail-grid--2">
                   <div className="detail-item">
                     <div className="detail-item__label">ID</div>
-                    <div className="detail-item__value">{selectedUser.id}</div>
+                    <div className="detail-item__value">{getUserId(selectedUser)}</div>
                   </div>
                   <div className="detail-item">
                     <div className="detail-item__label">Họ</div>
@@ -998,7 +980,7 @@ const HR = () => {
                   </div>
                   <div className="detail-item">
                     <div className="detail-item__label">Vai trò</div>
-                    <div className="detail-item__value">{displayRole(selectedUser.role)}</div>
+                    <div className="detail-item__value">{displayRole(getRoleValue(selectedUser))}</div>
                   </div>
                   <div className="detail-item">
                     <div className="detail-item__label">Kích hoạt</div>
@@ -1088,7 +1070,7 @@ const HR = () => {
                 </div>
 
                 <div className="hr-edit-note">
-                  Ghi chú: backend hiện tại đổi vai trò bằng <strong>roleId</strong>, nên FE nhập trực tiếp ID role.
+                  Ghi chú: backend đổi vai trò bằng <strong>roleId</strong>. Riêng chức năng mời nhân sự dùng dropdown roleName.
                 </div>
               </div>
             </div>
@@ -1098,28 +1080,39 @@ const HR = () => {
                 Hủy
               </button>
               <button className="btn btn-secondary" onClick={handleUpdateEnabled} disabled={submitting}>
-                Lưu kích hoạt
+                {submitting ? 'Đang lưu...' : 'Lưu kích hoạt'}
               </button>
               <button className="btn btn-soft-blue" onClick={handleUpdateStatus} disabled={submitting}>
-                Lưu trạng thái
+                {submitting ? 'Đang lưu...' : 'Lưu trạng thái'}
               </button>
               <button className="btn btn-primary" onClick={handleUpdateRole} disabled={submitting}>
-                Đổi vai trò
+                {submitting ? 'Đang lưu...' : 'Đổi vai trò'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {inviteOpen && allowCreateEdit && (
-        <div className="drawer-overlay" onClick={() => setInviteOpen(false)}>
+      {inviteOpen && allowInvite && (
+        <div
+          className="drawer-overlay"
+          onClick={() => {
+            if (!submitting) setInviteOpen(false)
+          }}
+        >
           <div className="drawer drawer--small" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
               <div>
                 <h2>Mời nhân sự</h2>
-                <p>Gửi lời mời cho nhiều email cùng lúc.</p>
+                <p>Nhập một hoặc nhiều email và chọn vai trò.</p>
               </div>
-              <button className="drawer-close" onClick={() => setInviteOpen(false)}>
+              <button
+                className="drawer-close"
+                onClick={() => {
+                  if (!submitting) setInviteOpen(false)
+                }}
+                disabled={submitting}
+              >
                 ✕
               </button>
             </div>
@@ -1128,38 +1121,57 @@ const HR = () => {
               <div className="drawer-body">
                 <div className="form-grid">
                   <div className="form-field form-field--full">
-                    <label className="form-label">Danh sách email</label>
+                    <label className="form-label">Danh sách email *</label>
                     <textarea
                       className="form-textarea"
                       value={inviteForm.emailsText}
                       onChange={(e) =>
                         setInviteForm((prev) => ({ ...prev, emailsText: e.target.value }))
                       }
-                      placeholder="Nhập email, ngăn cách bằng dấu phẩy, xuống dòng hoặc dấu chấm phẩy"
+                      placeholder={'VD:\ntech1@gmail.com\ntech2@gmail.com, operator@gmail.com'}
+                      disabled={submitting}
                     />
+                    <small className="text-muted">
+                      Có thể nhập nhiều email, ngăn cách bằng dấu phẩy, dấu chấm phẩy hoặc xuống dòng.
+                    </small>
                   </div>
 
                   <div className="form-field form-field--full">
-                    <label className="form-label">roleId</label>
-                    <input
+                    <label className="form-label">Vai trò *</label>
+                    <select
                       className="form-input"
-                      type="number"
-                      value={inviteForm.roleId}
+                      value={inviteForm.roleName}
                       onChange={(e) =>
-                        setInviteForm((prev) => ({ ...prev, roleId: e.target.value }))
+                        setInviteForm((prev) => ({ ...prev, roleName: e.target.value }))
                       }
-                      placeholder="Nhập roleId"
-                    />
+                      disabled={submitting}
+                    >
+                      <option value="">Chọn vai trò</option>
+                      {INVITE_ROLE_OPTIONS.map((role) => (
+                        <option key={role.value} value={role.value}>
+                          {role.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                </div>
+
+                <div className="hr-edit-note">
+                  Hệ thống sẽ tạo tài khoản mới, gán vai trò đã chọn và gửi email mời đăng nhập.
                 </div>
               </div>
 
               <div className="drawer-footer">
-                <button type="button" className="btn btn-light" onClick={() => setInviteOpen(false)}>
+                <button
+                  type="button"
+                  className="btn btn-light"
+                  onClick={() => setInviteOpen(false)}
+                  disabled={submitting}
+                >
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  Gửi lời mời
+                  {submitting ? 'Đang gửi...' : 'Gửi lời mời'}
                 </button>
               </div>
             </form>
@@ -1229,7 +1241,7 @@ const HR = () => {
                 Hủy
               </button>
               <button className="btn btn-danger-solid" onClick={handleDeleteUser} disabled={submitting}>
-                Xóa nhân sự
+                {submitting ? 'Đang xóa...' : 'Xóa nhân sự'}
               </button>
             </div>
           </div>

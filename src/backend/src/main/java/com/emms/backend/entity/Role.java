@@ -29,7 +29,7 @@ public class Role {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "code", nullable = false, length = 50)
-    private RoleCode code = RoleCode.OPERATOR;
+    private RoleCode code;
 
     @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;

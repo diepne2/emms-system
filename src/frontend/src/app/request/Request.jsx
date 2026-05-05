@@ -395,7 +395,7 @@ const Request = () => {
       <div className="request-shell">
         <div className="request-topbar">
           <div>
-            <h1>Request Management</h1>
+            <h1>Yêu cầu sửa chữa</h1>
           </div>
 
           <button className="ghost-btn" onClick={fetchRequests} disabled={loading}>
@@ -417,14 +417,14 @@ const Request = () => {
             <form className="request-form" onSubmit={handleCreateRequest}>
               <div className="form-group">
                 <label>
-                  Title <span className="required">*</span>
+                  Tiêu đề <span className="required">*</span>
                 </label>
                 <input
                   type="text"
                   name="title"
                   value={form.title}
                   onChange={handleInputChange}
-                  placeholder="Nhập tiêu đề request"
+                  placeholder="Nhập tiêu đề"
                 />
               </div>
 
@@ -498,7 +498,7 @@ const Request = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Priority</label>
+                  <label>Mức độ ưu tiên</label>
                   <select
                     name="priority"
                     value={form.priority}
@@ -513,7 +513,7 @@ const Request = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Due date</label>
+                  <label>Ngày hết hạn</label>
                   <input
                     type="date"
                     name="dueDate"
@@ -524,7 +524,7 @@ const Request = () => {
               </div>
 
               <div className="form-group">
-                <label>Location</label>
+                <label>Vị trí</label>
                 <select
                   name="locationId"
                   value={form.locationId}
@@ -532,7 +532,7 @@ const Request = () => {
                   disabled={locationLoading}
                 >
                   <option value="">
-                    {locationLoading ? 'Đang tải location...' : 'Chọn location'}
+                    {locationLoading ? 'Đang tải location...' : 'Chọn vị trí'}
                   </option>
 
                   {locations.map((location) => (
@@ -544,7 +544,7 @@ const Request = () => {
               </div>
 
               <div className="form-group">
-                <label>Description</label>
+                <label>Mô tả</label>
                 <textarea
                   name="description"
                   rows="5"
@@ -574,7 +574,7 @@ const Request = () => {
           <section className="card request-list-card">
             <div className="card-header list-header">
               <div>
-                <h2>Danh sách Request</h2>
+                <h2>Danh sách yêu cầu</h2>
                 <span>{filteredRequests.length} request</span>
               </div>
 

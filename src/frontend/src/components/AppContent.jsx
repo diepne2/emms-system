@@ -21,7 +21,7 @@ const AppContent = () => {
             ) : null
           })}
 
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard1" replace />} />
         </Routes>
       </Suspense>
     </CContainer>

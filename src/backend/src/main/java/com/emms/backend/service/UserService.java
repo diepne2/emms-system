@@ -52,7 +52,7 @@ public interface UserService {
 
     void deleteUser(Long id);
 
-    void inviteUsers(List<String> emails, Long roleId, String invitedBy);
+    void inviteUsers(List<String> emails, String roleName, String invitedBy);
 
     User findEntityById(Long id);
 

@@ -1,8 +1,9 @@
 package com.emms.backend.service.impl;
-
+import com.emms.backend.entity.enums.RoleCode;
 import com.emms.backend.dto.auth.UpdatePasswordRequest;
 import com.emms.backend.dto.user.ChangePasswordDTO;
 import com.emms.backend.dto.user.UserDropdownDTO;
+
 import com.emms.backend.dto.user.UserProfileUpdateDTO;
 import com.emms.backend.dto.user.UserResponseDTO;
 import com.emms.backend.entity.Role;
@@ -275,49 +276,81 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void inviteUsers(List<String> emails, Long roleId, String invitedBy) {
+    public void inviteUsers(List<String> emails, String roleName, String invitedBy) {
         if (emails == null || emails.isEmpty()) {
             throw new CustomException("Danh sách email không được để trống", HttpStatus.BAD_REQUEST);
         }
 
-        if (roleId == null) {
-            throw new CustomException("ID vai trò là bắt buộc", HttpStatus.BAD_REQUEST);
+        if (roleName == null || roleName.isBlank()) {
+            throw new CustomException("Vai trò không được để trống", HttpStatus.BAD_REQUEST);
         }
 
-        Role role = roleRepository.findById(roleId)
+
+        String roleCode = roleName.trim().toUpperCase(Locale.ROOT);
+        if (roleCode.startsWith("ROLE_")) {
+            roleCode = roleCode.substring(5);
+        }
+
+        RoleCode roleEnum;
+
+        try {
+            roleEnum = RoleCode.valueOf(roleCode);
+        } catch (IllegalArgumentException ex) {
+            throw new CustomException("Vai trò không hợp lệ: " + roleName, HttpStatus.BAD_REQUEST);
+        }
+
+        Role role = roleRepository.findByCode(roleEnum)
                 .orElseThrow(() -> new CustomException("Vai trò không tồn tại", HttpStatus.NOT_FOUND));
+
+        int createdCount = 0;
+        int skippedCount = 0;
 
         for (String rawEmail : emails) {
             String email = trim(rawEmail);
 
             if (email == null || email.isBlank()) {
+                skippedCount++;
                 continue;
             }
 
             if (userRepository.existsByEmailIgnoreCase(email)) {
+                skippedCount++;
                 continue;
             }
+            
+            String tempPassword = generateTemporaryPassword();
 
             User user = new User();
             user.setEmail(email);
             user.setUsername(generateUsernameFromEmail(email));
             user.setEnabled(true);
             user.setRole(role);
-            user.setPassword(passwordEncoder.encode(generateTemporaryPassword()));
+            user.setPassword(passwordEncoder.encode(tempPassword));
 
-            if (user.getFirstName() == null) {
-                user.setFirstName("User");
-            }
-            if (user.getLastName() == null) {
-                user.setLastName("Invited");
-            }
+            user.setFirstName("User");
+            user.setLastName("Invited");
 
             trySetDefaultActiveStatus(user);
 
             userRepository.save(user);
+            mailService.sendSimpleMessage(
+                new String[]{email},
+                "Lời mời tham gia hệ thống",
+                "Bạn đã được mời vào hệ thống Quản lý thiết bị và bảo trì\n\n"
+                        + "Email: " + email + "\n"
+                        + "Password tạm: " + tempPassword + "\n\n"
+                        + "Login: " + frontendUrl + "/#/login"
+            );
+            createdCount++;
         }
+            log.info(
+                "Invited users by {}: created={}, skipped={}, total={}",
+                invitedBy,
+                createdCount,
+                skippedCount,
+                emails.size()
+            );
 
-        log.info("Invited {} users by {}", emails.size(), invitedBy);
     }
 
     @Override

@@ -172,7 +172,7 @@ export default function Login() {
         role,
       })
 
-      navigate('/assets/list', { replace: true })
+      navigate('/dashboard1', { replace: true })
     } catch (err) {
       console.error('LOGIN ERROR:', err?.response?.data || err.message)
       setError(extractErrorMessage(err))

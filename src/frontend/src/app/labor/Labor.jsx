@@ -247,7 +247,6 @@ export default function Labor() {
       <div className="labor-shell">
         <header className="labor-header">
           <div>
-            <div className="labor-eyebrow">EMMS / Nhân công</div>
             <h1>Ghi nhận công việc</h1>
             <p>
               Theo dõi thời gian làm việc của kỹ thuật viên theo từng Work Order.

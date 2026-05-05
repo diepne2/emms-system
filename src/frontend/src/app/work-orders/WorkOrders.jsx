@@ -1091,7 +1091,7 @@ export default function WorkOrders() {
           <div className="assets-header">
             <div className="assets-header__top">
               <div className="assets-header__intro">
-                <div className="assets-header__mini-title">Work Orders</div>
+                <div className="assets-header__mini-title">Quản lý Work Orders</div>
               </div>
             </div>
 

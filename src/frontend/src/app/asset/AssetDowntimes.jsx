@@ -700,7 +700,7 @@ export default function AssetDowntimes() {
           <div className="assets-header">
             <div className="assets-header__top">
               <div className="assets-header__intro">
-                <div className="assets-header__mini-title">Asset Downtime</div>
+                <div className="assets-header__mini-title">Nhật ký dừng máy</div>
               </div>
             </div>
 
@@ -726,7 +726,7 @@ export default function AssetDowntimes() {
                   <label className="filter-label">Từ khóa</label>
                   <div className="search-box">
                     <FiSearch size={16} />
-                    <input type="text" placeholder="Tìm thiết bị, Work Order, ghi chú..." value={filterForm.keyword} onChange={(e) => handleFilterChange('keyword', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
+                    <input type="text" placeholder="Tìm kiếm" value={filterForm.keyword} onChange={(e) => handleFilterChange('keyword', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
                   </div>
                 </div>
 

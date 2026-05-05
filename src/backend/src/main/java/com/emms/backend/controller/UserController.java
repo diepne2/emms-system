@@ -24,7 +24,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.ResponseEntity;
 
 
 @RestController
@@ -143,15 +142,15 @@ public class UserController {
     }
 
     @PostMapping("/invite")
-    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<String> invite(
-            @Valid @RequestBody UserInvitationRequestDTO request,
-            Principal principal
+        @Valid @RequestBody UserInvitationRequestDTO request,
+        Principal principal
     ) {
-        userService.inviteUsers(
-                request.getEmails(),
-                request.getRoleId(),
-                principal.getName()
+    userService.inviteUsers(
+            request.getEmails(),
+            request.getRoleName(),
+            principal.getName()
         );
         return ResponseEntity.ok("Gửi lời mời thành công");
     }

@@ -538,9 +538,6 @@ export default function Checklist() {
             <div className="ck-modal-head">
               <div>
                 <h2>{editingId ? 'Cập nhật checklist' : 'Thêm checklist'}</h2>
-                <p>
-                  Nhập tên checklist, loại áp dụng và danh sách task kiểm tra.
-                </p>
               </div>
 
               <button className="ck-close-btn" onClick={closeForm}>
@@ -548,7 +545,7 @@ export default function Checklist() {
               </button>
             </div>
 
-            <form onSubmit={submitForm}>
+            <form className="ck-modal-form" onSubmit={submitForm}>
               <div className="ck-modal-body">
                 <div className="ck-form-section">
                   <div className="ck-form-grid">
@@ -563,7 +560,7 @@ export default function Checklist() {
                             name: e.target.value,
                           }))
                         }
-                        placeholder="VD: Kiểm tra máy bơm định kỳ"
+                        placeholder="Nhập tên checklist"
                       />
                     </label>
 
@@ -599,7 +596,7 @@ export default function Checklist() {
                             description: e.target.value,
                           }))
                         }
-                        placeholder="Mô tả mục đích của checklist..."
+                        placeholder="Mô tả checklist"
                       />
                     </label>
 
@@ -651,7 +648,7 @@ export default function Checklist() {
                             onChange={(e) =>
                               updateTask(index, 'label', e.target.value)
                             }
-                            placeholder="VD: Kiểm tra rò rỉ dầu"
+                            placeholder="Nhập tên task"
                           />
                         </label>
 
@@ -678,7 +675,7 @@ export default function Checklist() {
                             onChange={(e) =>
                               updateTask(index, 'description', e.target.value)
                             }
-                            placeholder="Mô tả cách kiểm tra..."
+                            placeholder="Mô tả task"
                           />
                         </label>
                       </div>

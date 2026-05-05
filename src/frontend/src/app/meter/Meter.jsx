@@ -463,9 +463,8 @@ function MeterDetail({ meter }) {
     <section className="meter-card meter-card--detail">
       <div className="meter-detail-hero">
         <div>
-          <p className="meter-eyebrow">Meter detail</p>
+          <p className="meter-eyebrow">Chi tiết Meter</p>
           <h2>{meter?.name || "Chọn meter"}</h2>
-          <p>{meter ? `Theo dõi ${meter.unit || "đơn vị"} cho asset ${getAssetName(meter)}` : "Chọn một meter để xem chi tiết."}</p>
         </div>
         {meter && <div className="meter-unit-badge">{meter.unit || "unit"}</div>}
       </div>
@@ -1000,7 +999,7 @@ export default function Meter() {
     <main className="meter-page">
       <header className="meter-topbar">
         <div>
-          <h1>Meter</h1>
+          <h1>Quản lý Meter</h1>
         </div>
         <div className="meter-topbar__stats">
           <span>{meters.length}</span>

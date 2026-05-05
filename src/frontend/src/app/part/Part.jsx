@@ -491,7 +491,7 @@ export default function Part() {
     }
 
     if (payload.lastPrice !== null && payload.lastPrice < 0) {
-      setPageError("Last price không được âm.");
+      setPageError("Giá mua gần nhất không được âm.");
       return;
     }
 
@@ -853,7 +853,7 @@ export default function Part() {
                   <th>Danh mục</th>
                   <th>Tên vật tư</th>
                   <th>Barcode</th>
-                  <th>Vendor</th>
+                  <th>Nhà cung cấp</th>
                   <th>Vị trí</th>
                   <th>Số lượng</th>
                   <th>Giá</th>
@@ -1090,7 +1090,7 @@ export default function Part() {
                     </div>
 
                     <div className="form-field">
-                      <label className="form-label">Vendor</label>
+                      <label className="form-label">Nhà cung cấp</label>
                       <input
                         className="form-input"
                         name="vendor"
@@ -1161,7 +1161,7 @@ export default function Part() {
                     </div>
 
                     <div className="form-field">
-                      <label className="form-label">Last Price</label>
+                      <label className="form-label">Giá mua gần nhất</label>
                       <input
                         className="form-input"
                         type="number"
@@ -1284,7 +1284,7 @@ export default function Part() {
                     </div>
                   </div>
                   <div className="detail-item">
-                    <div className="detail-item__label">Vendor</div>
+                    <div className="detail-item__label">Nhà cung cấp</div>
                     <div className="detail-item__value">
                       {formatText(selectedPart.vendor)}
                     </div>
@@ -1308,7 +1308,7 @@ export default function Part() {
                     </div>
                   </div>
                   <div className="detail-item">
-                    <div className="detail-item__label">Last Price</div>
+                    <div className="detail-item__label">Giá mua gần nhất</div>
                     <div className="detail-item__value">
                       {formatMoney(selectedPart.lastPrice)}
                     </div>
