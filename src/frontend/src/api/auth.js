@@ -5,26 +5,98 @@ export const ROLE = {
   NHANVIENVANHANH: 'ROLE_NHANVIENVANHANH',
 }
 
-const TOKEN_KEY = 'accessToken'
+const TOKEN_KEYS = ['accessToken', 'token', 'access_token', 'jwt']
 const REFRESH_TOKEN_KEY = 'refreshToken'
-const USER_KEY = 'currentUser'
+const USER_KEYS = ['currentUser', 'user']
 
 export function getAccessToken() {
-  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || ''
+  for (const key of TOKEN_KEYS) {
+    const token = localStorage.getItem(key) || sessionStorage.getItem(key)
+    if (token && token !== 'undefined' && token !== 'null') return token
+  }
+  return ''
 }
 
 export function getRefreshToken() {
-  return localStorage.getItem(REFRESH_TOKEN_KEY) || sessionStorage.getItem(REFRESH_TOKEN_KEY) || ''
+  return (
+    localStorage.getItem(REFRESH_TOKEN_KEY) ||
+    sessionStorage.getItem(REFRESH_TOKEN_KEY) ||
+    ''
+  )
+}
+
+export function getAuthHeaders() {
+  const token = getAccessToken()
+
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
+export function saveAuth(data = {}, remember = true) {
+  const storage = remember ? localStorage : sessionStorage
+
+  const token =
+    data.accessToken ||
+    data.token ||
+    data.jwt ||
+    data.access_token ||
+    ''
+
+  const refreshToken =
+    data.refreshToken ||
+    data.refresh_token ||
+    ''
+
+  const user = data.user || extractUserFromToken(token) || {}
+
+  const roles =
+    data.roles ||
+    user.roles ||
+    data.authorities ||
+    user.authorities ||
+    []
+
+  if (!token) return ''
+
+  TOKEN_KEYS.forEach((key) => storage.setItem(key, token))
+  TOKEN_KEYS.forEach((key) => localStorage.setItem(key, token))
+
+  if (refreshToken) {
+    storage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+  }
+
+  const finalUser = {
+    ...user,
+    roles: normalizeRoles(roles),
+  }
+
+  storage.setItem('currentUser', JSON.stringify(finalUser))
+  storage.setItem('user', JSON.stringify(finalUser))
+  localStorage.setItem('currentUser', JSON.stringify(finalUser))
+  localStorage.setItem('user', JSON.stringify(finalUser))
+  localStorage.setItem('roles', JSON.stringify(finalUser.roles))
+
+  return token
 }
 
 export function clearAuth() {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
-  localStorage.removeItem(USER_KEY)
+  const keys = [
+    ...TOKEN_KEYS,
+    REFRESH_TOKEN_KEY,
+    ...USER_KEYS,
+    'roles',
+    'authorities',
+    'permissions',
+    'role',
+  ]
 
-  sessionStorage.removeItem(TOKEN_KEY)
-  sessionStorage.removeItem(REFRESH_TOKEN_KEY)
-  sessionStorage.removeItem(USER_KEY)
+  keys.forEach((key) => {
+    localStorage.removeItem(key)
+    sessionStorage.removeItem(key)
+  })
 }
 
 export function isTokenExpired(token) {
@@ -41,10 +113,25 @@ export function isTokenExpired(token) {
 
 export function logout(message = 'Phiên đăng nhập đã hết hạn') {
   clearAuth()
-
-  alert(message)
-
+  if (message) alert(message)
   window.location.href = '/#/login'
+}
+
+export function normalizeRoles(roles = []) {
+  let arr = roles
+
+  if (typeof arr === 'string') {
+    arr = arr.split(' ').filter(Boolean)
+  }
+
+  if (!Array.isArray(arr)) {
+    arr = []
+  }
+
+  return arr.map((r) => {
+    const role = String(r).trim().toUpperCase()
+    return role.startsWith('ROLE_') ? role : `ROLE_${role}`
+  })
 }
 
 export function extractUserFromToken(token) {
@@ -52,26 +139,20 @@ export function extractUserFromToken(token) {
 
   try {
     const payload = JSON.parse(atob(token.split('.')[1]))
+
     const authorities =
       payload.authorities ||
       payload.roles ||
       payload.roleNames ||
       payload.scope ||
+      payload.role ||
       []
-
-    let roles = []
-
-    if (Array.isArray(authorities)) {
-      roles = authorities
-    } else if (typeof authorities === 'string') {
-      roles = authorities.split(' ').filter(Boolean)
-    }
 
     return {
       username: payload.sub || payload.username || '',
       fullName: payload.fullName || '',
       email: payload.email || '',
-      roles,
+      roles: normalizeRoles(authorities),
     }
   } catch {
     return null
@@ -79,12 +160,15 @@ export function extractUserFromToken(token) {
 }
 
 export function getCurrentUser() {
-  const raw = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY)
-  if (raw) {
-    try {
-      return JSON.parse(raw)
-    } catch {
-      return null
+  for (const key of USER_KEYS) {
+    const raw = localStorage.getItem(key) || sessionStorage.getItem(key)
+
+    if (raw) {
+      try {
+        return JSON.parse(raw)
+      } catch {
+        return null
+      }
     }
   }
 
@@ -93,6 +177,10 @@ export function getCurrentUser() {
 }
 
 export function hasAnyRole(user, allowedRoles = []) {
-  if (!user || !Array.isArray(user.roles)) return false
-  return allowedRoles.some((role) => user.roles.includes(role))
+  if (!user) return false
+
+  const userRoles = normalizeRoles(user.roles || [])
+  const allowed = normalizeRoles(allowedRoles)
+
+  return allowed.some((role) => userRoles.includes(role))
 }

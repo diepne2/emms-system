@@ -17,6 +17,8 @@ import java.util.List;
 @Service
 public class DashboardServiceImpl implements DashboardService {
 
+    private static final LocalDate DEFAULT_FROM_DATE = LocalDate.of(2000, 1, 1);
+
     private final WorkOrderRepository workOrderRepository;
     private final AssetRepository assetRepository;
     private final PreventiveMaintenanceRepository preventiveMaintenanceRepository;
@@ -118,10 +120,12 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private LocalDateTime toStart(LocalDate date) {
-        return date == null ? null : date.atStartOfDay();
+        LocalDate safeDate = date == null ? DEFAULT_FROM_DATE : date;
+        return safeDate.atStartOfDay();
     }
 
     private LocalDateTime toEnd(LocalDate date) {
-        return date == null ? null : date.plusDays(1).atStartOfDay();
+        LocalDate safeDate = date == null ? LocalDate.now() : date;
+        return safeDate.plusDays(1).atStartOfDay();
     }
 }

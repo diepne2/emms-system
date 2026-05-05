@@ -322,7 +322,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
         select a.id, a.name, count(wo.id)
         from WorkOrder wo
         join wo.asset a
-        where wo.createdAt >= :from and wo.createdAt < :to
+        where wo.createdAt >= :from
+          and wo.createdAt < :to
         group by a.id, a.name
         order by count(wo.id) desc
     """)
@@ -340,7 +341,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
         from WorkOrder wo
         join wo.assignedTo u
         where wo.status = :status
-          and wo.completedOn >= :from and wo.completedOn < :to
+          and wo.completedOn >= :from
+          and wo.completedOn < :to
         group by u.userId, u.username, u.firstName, u.lastName
         order by count(wo.id) desc
     """)
@@ -351,13 +353,11 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             Pageable pageable
     );
 
-
-
     @Query("""
         select count(w)
         from WorkOrder w
-        where (:fromDate is null or w.createdAt >= :fromDate)
-          and (:toDate is null or w.createdAt < :toDate)
+        where w.createdAt >= :fromDate
+          and w.createdAt < :toDate
     """)
     long countByDateRange(
             @Param("fromDate") LocalDateTime fromDate,
@@ -368,8 +368,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
         select count(w)
         from WorkOrder w
         where w.status = :status
-          and (:fromDate is null or w.createdAt >= :fromDate)
-          and (:toDate is null or w.createdAt < :toDate)
+          and w.createdAt >= :fromDate
+          and w.createdAt < :toDate
     """)
     long countByStatusAndDateRange(
             @Param("status") WorkOrderStatus status,
@@ -395,8 +395,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             count(w)
         )
         from WorkOrder w
-        where (:fromDate is null or w.createdAt >= :fromDate)
-          and (:toDate is null or w.createdAt < :toDate)
+        where w.createdAt >= :fromDate
+          and w.createdAt < :toDate
         group by w.status
         order by count(w) desc
     """)
@@ -414,8 +414,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             count(w)
         )
         from WorkOrder w
-        where (:fromDate is null or w.createdAt >= :fromDate)
-          and (:toDate is null or w.createdAt < :toDate)
+        where w.createdAt >= :fromDate
+          and w.createdAt < :toDate
         group by
             case
                 when w.preventiveMaintenance is not null then 'PREVENTIVE'
