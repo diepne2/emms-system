@@ -80,6 +80,7 @@ const emptyForm = {
 
 export default function Checklist() {
   const [keyword, setKeyword] = useState('')
+  const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState([])
   const [selectedChecklist, setSelectedChecklist] = useState(null)
 
@@ -99,12 +100,18 @@ export default function Checklist() {
     loadChecklists('')
   }, [])
 
-  async function loadChecklists(q = keyword) {
+  async function loadChecklists(q = keyword, options = {}) {
+    const { searchAction = false } = options
+
     try {
       setLoading(true)
       setError('')
 
       const cleanKeyword = String(q || '').trim()
+
+      if (searchAction) {
+        setHasSearched(true)
+      }
 
       const res = await checklistApi.get('', {
         ...authConfig(),
@@ -121,7 +128,9 @@ export default function Checklist() {
         setSelectedChecklist(null)
       }
 
-      if (list.length === 0) {
+      // Không báo lỗi khi vừa mở trang / khi DB chưa có checklist.
+      // Chỉ báo "không tìm thấy" nếu người dùng thật sự bấm tìm kiếm và có nhập từ khóa.
+      if (searchAction && cleanKeyword && list.length === 0) {
         setError('Không tìm thấy checklist phù hợp.')
       }
     } catch (err) {
@@ -135,6 +144,7 @@ export default function Checklist() {
 
   function resetSearch() {
     setKeyword('')
+    setHasSearched(false)
     setError('')
     setSelectedChecklist(null)
     loadChecklists('')
@@ -319,7 +329,7 @@ export default function Checklist() {
                   onChange={(e) => setKeyword(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      loadChecklists(keyword)
+                      loadChecklists(keyword, { searchAction: true })
                     }
                   }}
                   placeholder="Nhập từ khóa"
@@ -330,7 +340,7 @@ export default function Checklist() {
             <div className="ck-actions">
               <button
                 className="ck-btn ck-btn-primary"
-                onClick={() => loadChecklists(keyword)}
+                onClick={() => loadChecklists(keyword, { searchAction: true })}
                 disabled={loading}
               >
                 <FiSearch />
@@ -363,8 +373,8 @@ export default function Checklist() {
               </div>
             ) : results.length === 0 ? (
               <div className="ck-empty">
-                <strong>Chưa có checklist</strong>
-                <span>Hãy thêm checklist mới hoặc đổi từ khóa tìm kiếm.</span>
+                <strong>{hasSearched && keyword.trim() ? 'Không có kết quả' : 'Chưa có checklist'}</strong>
+                <span>{hasSearched && keyword.trim() ? 'Hãy đổi từ khóa tìm kiếm hoặc bấm Làm mới.' : 'Hãy thêm checklist mới để bắt đầu.'}</span>
               </div>
             ) : (
               <div className="ck-task-list">

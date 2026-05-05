@@ -494,7 +494,7 @@ public class WorkOrderService {
     }
 
     @Transactional
-    public WorkOrder createFromPreventiveMaintenance(PreventiveMaintenance pm, Schedule schedule) {
+    public WorkOrder createFromPreventiveMaintenance(PreventiveMaintenance pm, Schedule schedule,LocalDate scheduledDate) {
         if (pm == null || pm.getId() == null) {
             throw new CustomException("Bảo trì định kỳ là bắt buộc", HttpStatus.BAD_REQUEST);
         }
@@ -504,6 +504,10 @@ public class WorkOrderService {
                 "Kế hoạch bảo trì đã bị tắt, không thể tạo Work Order.",
                 HttpStatus.BAD_REQUEST
             );
+        }
+
+        if (scheduledDate == null) {
+            scheduledDate = LocalDate.now();
         }
         
         if (schedule == null) {
@@ -529,7 +533,7 @@ public class WorkOrderService {
             );
         }
     
-        if (schedule.getStartsOn().isAfter(LocalDate.now())) {
+        if (schedule.getStartsOn().isAfter(scheduledDate)) {
             throw new CustomException(
                 "Chưa tới lịch bảo trì, không thể tạo Work Order.",
                 HttpStatus.BAD_REQUEST
@@ -537,7 +541,7 @@ public class WorkOrderService {
         }
 
 
-        if (schedule.getEndsOn() != null && LocalDate.now().isAfter(schedule.getEndsOn())) {
+        if (schedule.getEndsOn() != null && scheduledDate.isAfter(schedule.getEndsOn())) {
             throw new CustomException(
                 "Kế hoạch bảo trì đã hết hạn, không thể tạo Work Order mới.",
                 HttpStatus.BAD_REQUEST
@@ -558,11 +562,12 @@ public class WorkOrderService {
             );
         }
         
-        
-        LocalDate dueDate = schedule.getStartsOn();
+    
+        LocalDate dueDate = scheduledDate;
+
         
         if (delay != null) {
-            dueDate = schedule.getStartsOn().plusDays(delay);
+            dueDate = scheduledDate.plusDays(delay);
         }
         
         boolean existed = workOrderRepository.existsByPreventiveMaintenance_IdAndDueDate(
@@ -629,6 +634,11 @@ public class WorkOrderService {
         );
         
         return saved;
+    }
+
+    @Transactional
+    public WorkOrder createFromPreventiveMaintenance(PreventiveMaintenance pm, Schedule schedule) {
+        return createFromPreventiveMaintenance(pm, schedule, LocalDate.now());
     }
 
     

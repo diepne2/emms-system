@@ -34,7 +34,7 @@ const _nav = [
     ],
   },
   {
-    component: CNavGroup,
+    component: CNavItem,
     to: '/meter',
     name: 'Meter',
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,

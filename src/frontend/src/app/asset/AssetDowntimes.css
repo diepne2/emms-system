@@ -48,3 +48,126 @@
   width: 180px;
   text-align: center;
 }
+
+
+.searchable-select {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-select__button {
+  width: 100%;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--clr-border-input);
+  padding: 0 14px;
+  background: var(--clr-bg-card);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  color: var(--clr-text-secondary);
+  box-shadow: var(--shadow-xs);
+  transition: var(--transition);
+  font-family: var(--font-sans);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.searchable-select__button:focus,
+.searchable-select__button:hover {
+  border-color: var(--clr-border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.searchable-select__button.is-disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.searchable-select__value,
+.searchable-select__placeholder {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.searchable-select__placeholder {
+  color: var(--clr-text-hint);
+}
+
+.searchable-select__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 1500;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  background: var(--clr-bg-card);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.searchable-select__search {
+  height: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--clr-border-light);
+  color: var(--clr-text-muted);
+}
+
+.searchable-select__search input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--clr-text-base);
+}
+
+.searchable-select__list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.searchable-select__option {
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  padding: 10px 10px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--clr-text-secondary);
+  font-family: var(--font-sans);
+}
+
+.searchable-select__option:hover,
+.searchable-select__option.is-selected {
+  background: var(--clr-primary-tint);
+  color: var(--clr-primary);
+}
+
+.searchable-select__option small {
+  color: var(--clr-text-muted);
+  font-size: 12px;
+}
+
+.searchable-select__empty {
+  padding: 14px 10px;
+  color: var(--clr-text-muted);
+  font-size: 13px;
+  text-align: center;
+}

@@ -26,7 +26,8 @@ import {
   FiSlash,
 } from 'react-icons/fi'
 
-const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/assets'
+const API_ROOT_URL = 'https://emms-system-production-4239.up.railway.app/api'
+const API_BASE_URL = `${API_ROOT_URL}/assets`
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -280,6 +281,36 @@ const getStatusBadgeClass = (status) => {
   }
 }
 
+
+const normalizeLocationOption = (item) => {
+  const id = item?.id ?? item?.locationId ?? item?.value ?? item?.code ?? item?.name
+  const name = item?.name ?? item?.locationName ?? item?.label ?? item?.code ?? ''
+
+  return {
+    id: String(id ?? name ?? ''),
+    name: String(name ?? '').trim(),
+  }
+}
+
+const normalizeUserOption = (item) => {
+  const id = item?.id ?? item?.userId ?? item?.value ?? item?.username ?? item?.email
+  const fullName = [item?.firstName, item?.lastName].filter(Boolean).join(' ').trim()
+  const name =
+    item?.fullName ??
+    item?.name ??
+    fullName ??
+    item?.username ??
+    item?.email ??
+    ''
+
+  return {
+    id: String(id ?? name ?? ''),
+    name: String(name ?? '').trim(),
+    username: item?.username || '',
+    email: item?.email || '',
+  }
+}
+
 const getVisiblePages = (currentPage, totalPages) => {
   const pages = []
 
@@ -378,6 +409,10 @@ export default function Assets() {
   })
 
   const [assets, setAssets] = useState([])
+  const [locations, setLocations] = useState([])
+  const [technicians, setTechnicians] = useState([])
+  const [dropdownLoading, setDropdownLoading] = useState(false)
+  const [dropdownError, setDropdownError] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -431,6 +466,36 @@ export default function Assets() {
     if (appliedFilters.warrantySort?.trim()) count += 1
     return count
   }, [appliedFilters])
+
+
+  const loadDropdownData = useCallback(async () => {
+    try {
+      setDropdownLoading(true)
+      setDropdownError('')
+
+      const [locationResponse, technicianResponse] = await Promise.all([
+        axios.get(`${API_ROOT_URL}/locations/dropdown`, getAuthConfig()),
+        axios.get(`${API_ROOT_URL}/users/technicians`, getAuthConfig()),
+      ])
+
+      const nextLocations = Array.isArray(locationResponse?.data)
+        ? locationResponse.data.map(normalizeLocationOption).filter((item) => item.name)
+        : []
+
+      const nextTechnicians = Array.isArray(technicianResponse?.data)
+        ? technicianResponse.data.map(normalizeUserOption).filter((item) => item.name)
+        : []
+
+      setLocations(nextLocations)
+      setTechnicians(nextTechnicians)
+    } catch (err) {
+      setDropdownError(extractErrorMessage(err, 'Không thể tải dữ liệu vị trí/người phụ trách.'))
+      setLocations([])
+      setTechnicians([])
+    } finally {
+      setDropdownLoading(false)
+    }
+  }, [])
 
   const loadRootAssets = useCallback(async (page = 0, size = 5, filters = {}) => {
     try {
@@ -551,6 +616,10 @@ export default function Assets() {
       setDetailLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    loadDropdownData()
+  }, [loadDropdownData])
 
   useEffect(() => {
     loadData(pageNum, pageSize, appliedFilters)
@@ -1346,6 +1415,9 @@ export default function Assets() {
 
             <div className="drawer-body">
               {createError && <div className="assets-message assets-message--error">{createError}</div>}
+              {dropdownError && (
+                <div className="assets-message assets-message--error">{dropdownError}</div>
+              )}
 
               <div className="form-section">
                 <div className="detail-section__title">Thông tin chính</div>
@@ -1392,21 +1464,40 @@ export default function Assets() {
                   </FormField>
 
                   <FormField label="Vị trí">
-                    <input
-                      className="form-input"
+                    <select
+                      className="filter-select"
                       value={createForm.locationName}
                       onChange={(e) => handleCreateFormChange('locationName', e.target.value)}
-                      placeholder="Nhập vị trí"
-                    />
+                      disabled={dropdownLoading}
+                    >
+                      <option value="">
+                        {dropdownLoading ? 'Đang tải vị trí...' : '-- Chọn vị trí --'}
+                      </option>
+                      {locations.map((location) => (
+                        <option key={location.id} value={location.name}>
+                          {location.name}
+                        </option>
+                      ))}
+                    </select>
                   </FormField>
 
                   <FormField label="Người phụ trách">
-                    <input
-                      className="form-input"
+                    <select
+                      className="filter-select"
                       value={createForm.assignedTo}
                       onChange={(e) => handleCreateFormChange('assignedTo', e.target.value)}
-                      placeholder="Nhập người phụ trách"
-                    />
+                      disabled={dropdownLoading}
+                    >
+                      <option value="">
+                        {dropdownLoading ? 'Đang tải nhân viên...' : '-- Chọn người phụ trách --'}
+                      </option>
+                      {technicians.map((user) => (
+                        <option key={user.id} value={user.name}>
+                          {user.name}
+                          {user.username ? ` (${user.username})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </FormField>
 
                   <FormField label="Ngày bảo hành">
@@ -1540,6 +1631,9 @@ export default function Assets() {
 
             <div className="drawer-body">
               {editError && <div className="assets-message assets-message--error">{editError}</div>}
+              {dropdownError && (
+                <div className="assets-message assets-message--error">{dropdownError}</div>
+              )}
 
               <div className="form-section">
                 <div className="detail-section__title">Thông tin chính</div>

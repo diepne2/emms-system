@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import './AssetDowntimes.css'
 import {
@@ -19,10 +19,13 @@ import {
   FiFilter,
   FiRotateCcw,
   FiSave,
+  FiChevronDown,
 } from 'react-icons/fi'
 
-const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/asset-downtimes'
-const ASSET_API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/assets'
+const ROOT_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://emms-system-production-4239.up.railway.app'
+const API_BASE_URL = `${ROOT_API_BASE_URL}/api/asset-downtimes`
+const ASSET_API_BASE_URL = `${ROOT_API_BASE_URL}/api/assets`
+const WORK_ORDER_API_BASE_URL = `${ROOT_API_BASE_URL}/api/work-orders`
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -41,9 +44,7 @@ const getToken = () =>
 
 const getAuthConfig = () => {
   const token = getToken()
-  return {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  }
+  return { headers: token ? { Authorization: `Bearer ${token}` } : {} }
 }
 
 const safeJsonParse = (value, fallback) => {
@@ -143,25 +144,39 @@ const REASON_OPTIONS = [
 
 const FORM_REASON_OPTIONS = REASON_OPTIONS.filter((item) => item.value)
 
-const getReasonLabel = (reason) => {
-  const found = REASON_OPTIONS.find((item) => item.value === reason)
-  return found?.label || reason || 'Không xác định'
+const emptyForm = {
+  assetId: '',
+  workOrderId: '',
+  reason: 'BREAKDOWN',
+  startsOn: '',
+  endsOn: '',
+  note: '',
 }
 
-const getDateSortLabel = (value) => {
-  switch (value) {
-    case 'newest':
-      return 'Ngày gần nhất'
-    case 'oldest':
-      return 'Ngày xa nhất'
-    default:
-      return 'Mặc định'
-  }
-}
-
+const getReasonLabel = (reason) => REASON_OPTIONS.find((item) => item.value === reason)?.label || reason || 'Không xác định'
+const getDateSortLabel = (value) => (value === 'oldest' ? 'Ngày xa nhất' : 'Ngày gần nhất')
 const getOpenStatusLabel = (isOpen) => (isOpen ? 'Đang mở' : 'Đã đóng')
-
 const getOpenBadgeClass = (isOpen) => (isOpen ? 'badge badge--warning' : 'badge badge--success')
+
+const toDateTimeLocal = (value) => {
+  if (!value) return ''
+  return String(value).slice(0, 16)
+}
+
+const formatDateTime = (value) => {
+  if (!value) return '-'
+  return String(value).replace('T', ' ')
+}
+
+const formatDuration = (seconds) => {
+  if (seconds === null || seconds === undefined || Number.isNaN(Number(seconds))) return '-'
+  const totalSeconds = Number(seconds)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  if (hours <= 0) return `${minutes} phút`
+  if (minutes === 0) return `${hours} giờ`
+  return `${hours} giờ ${minutes} phút`
+}
 
 const getVisiblePages = (currentPage, totalPages) => {
   const pages = []
@@ -179,13 +194,32 @@ const getVisiblePages = (currentPage, totalPages) => {
   return pages
 }
 
-const emptyForm = {
-  assetId: '',
-  workOrderId: '',
-  reason: 'BREAKDOWN',
-  startsOn: '',
-  endsOn: '',
-  note: '',
+const getAssetId = (asset) => asset?.id || asset?.assetId || asset?.assetID
+const getAssetLabel = (asset) => {
+  if (!asset) return ''
+  const name = asset.name || asset.assetName || asset.code || asset.barcode || `Asset #${getAssetId(asset)}`
+  const code = asset.code || asset.assetCode || asset.barcode
+  return code && !String(name).includes(String(code)) ? `${name} (${code})` : String(name)
+}
+
+const getWorkOrderId = (wo) => wo?.id || wo?.workOrderId || wo?.workOrderID
+const getWorkOrderCode = (wo) => wo?.code || wo?.workOrderCode || wo?.woCode || wo?.number || wo?.title
+const getWorkOrderLabel = (wo) => {
+  if (!wo) return ''
+  const id = getWorkOrderId(wo)
+  const code = getWorkOrderCode(wo)
+  const name = wo.name || wo.title || wo.summary || wo.description || wo.assetName || ''
+  if (code && name && String(code) !== String(name)) return `${code} - ${name}`
+  if (code) return String(code)
+  if (name) return String(name)
+  return id ? `Work Order #${id}` : ''
+}
+
+const getItemWorkOrderName = (item, workOrderOptions = []) => {
+  const direct = item?.workOrderName || item?.workOrderTitle || item?.workOrderCode || item?.woCode || item?.workOrder?.name || item?.workOrder?.title || item?.workOrder?.code
+  if (direct) return direct
+  const found = workOrderOptions.find((wo) => String(getWorkOrderId(wo)) === String(item?.workOrderId || ''))
+  return found ? getWorkOrderLabel(found) : item?.workOrderId ? `Work Order #${item.workOrderId}` : '-'
 }
 
 function DetailItem({ icon, label, value, full = false, compact = false }) {
@@ -209,24 +243,89 @@ function FormField({ label, children, full = false }) {
   )
 }
 
-const toDateTimeLocal = (value) => {
-  if (!value) return ''
-  return String(value).slice(0, 16)
-}
+function SearchableSelect({ value, options, onChange, placeholder = 'Chọn dữ liệu', searchPlaceholder = 'Tìm kiếm...', disabled = false }) {
+  const [open, setOpen] = useState(false)
+  const [keyword, setKeyword] = useState('')
+  const wrapRef = useRef(null)
 
-const formatDateTime = (value) => {
-  if (!value) return '-'
-  return String(value).replace('T', ' ')
-}
+  const selectedOption = useMemo(
+    () => options.find((option) => String(option.value) === String(value || '')),
+    [options, value],
+  )
 
-const formatDuration = (seconds) => {
-  if (seconds === null || seconds === undefined || Number.isNaN(Number(seconds))) return '-'
-  const totalSeconds = Number(seconds)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  if (hours <= 0) return `${minutes} phút`
-  if (minutes === 0) return `${hours} giờ`
-  return `${hours} giờ ${minutes} phút`
+  const filteredOptions = useMemo(() => {
+    const kw = keyword.trim().toLowerCase()
+    if (!kw) return options
+    return options.filter((option) => `${option.label} ${option.subLabel || ''}`.toLowerCase().includes(kw))
+  }, [keyword, options])
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapRef.current && !wrapRef.current.contains(event.target)) {
+        setOpen(false)
+        setKeyword('')
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="searchable-select" ref={wrapRef}>
+      <button
+        className={`searchable-select__button ${disabled ? 'is-disabled' : ''}`}
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className={selectedOption ? 'searchable-select__value' : 'searchable-select__placeholder'}>
+          {selectedOption?.label || placeholder}
+        </span>
+        <FiChevronDown size={16} />
+      </button>
+
+      {open && !disabled && (
+        <div className="searchable-select__menu">
+          <div className="searchable-select__search">
+            <FiSearch size={15} />
+            <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={searchPlaceholder} autoFocus />
+          </div>
+          <div className="searchable-select__list">
+            <button
+              type="button"
+              className={`searchable-select__option ${!value ? 'is-selected' : ''}`}
+              onClick={() => {
+                onChange('')
+                setOpen(false)
+                setKeyword('')
+              }}
+            >
+              <span>{placeholder}</span>
+            </button>
+            {filteredOptions.length === 0 ? (
+              <div className="searchable-select__empty">Không tìm thấy dữ liệu</div>
+            ) : (
+              filteredOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  className={`searchable-select__option ${String(option.value) === String(value || '') ? 'is-selected' : ''}`}
+                  onClick={() => {
+                    onChange(option.value)
+                    setOpen(false)
+                    setKeyword('')
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {option.subLabel && <small>{option.subLabel}</small>}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AssetDowntimes() {
@@ -238,21 +337,12 @@ export default function AssetDowntimes() {
   const canEdit = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER'])
   const canDelete = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER'])
 
-  const [filterForm, setFilterForm] = useState({
-    keyword: '',
-    reason: '',
-    dateSort: 'newest',
-    openOnly: '',
-  })
-  const [appliedFilters, setAppliedFilters] = useState({
-    keyword: '',
-    reason: '',
-    dateSort: 'newest',
-    openOnly: '',
-  })
+  const [filterForm, setFilterForm] = useState({ keyword: '', reason: '', dateSort: 'newest', openOnly: '' })
+  const [appliedFilters, setAppliedFilters] = useState({ keyword: '', reason: '', dateSort: 'newest', openOnly: '' })
 
   const [downtimes, setDowntimes] = useState([])
   const [assetOptions, setAssetOptions] = useState([])
+  const [workOrderOptions, setWorkOrderOptions] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -280,16 +370,18 @@ export default function AssetDowntimes() {
   const [deleteLoadingId, setDeleteLoadingId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  const pageTitle = 'Asset Downtime'
+  const assetSelectOptions = useMemo(
+    () => assetOptions.map((asset) => ({ value: String(getAssetId(asset)), label: getAssetLabel(asset), subLabel: asset.locationName || asset.status || '' })).filter((item) => item.value),
+    [assetOptions],
+  )
+
+  const workOrderSelectOptions = useMemo(
+    () => workOrderOptions.map((wo) => ({ value: String(getWorkOrderId(wo)), label: getWorkOrderLabel(wo), subLabel: wo.status || wo.assetName || wo.priority || '' })).filter((item) => item.value),
+    [workOrderOptions],
+  )
 
   const hasActiveFilters = useMemo(
-    () =>
-      Boolean(
-        appliedFilters.keyword?.trim() ||
-          appliedFilters.reason?.trim() ||
-          appliedFilters.dateSort?.trim() ||
-          appliedFilters.openOnly?.trim(),
-      ),
+    () => Boolean(appliedFilters.keyword?.trim() || appliedFilters.reason?.trim() || appliedFilters.dateSort?.trim() || appliedFilters.openOnly?.trim()),
     [appliedFilters],
   )
 
@@ -313,6 +405,16 @@ export default function AssetDowntimes() {
       setAssetOptions(content)
     } catch {
       setAssetOptions([])
+    }
+  }, [])
+
+  const loadWorkOrderOptions = useCallback(async () => {
+    try {
+      const response = await axios.get(WORK_ORDER_API_BASE_URL, getAuthConfig())
+      const content = Array.isArray(response?.data) ? response.data : []
+      setWorkOrderOptions(content)
+    } catch {
+      setWorkOrderOptions([])
     }
   }, [])
 
@@ -347,7 +449,8 @@ export default function AssetDowntimes() {
 
   useEffect(() => {
     loadAssetOptions()
-  }, [loadAssetOptions])
+    loadWorkOrderOptions()
+  }, [loadAssetOptions, loadWorkOrderOptions])
 
   useEffect(() => {
     loadData()
@@ -355,7 +458,6 @@ export default function AssetDowntimes() {
 
   const filteredDowntimes = useMemo(() => {
     let result = [...downtimes]
-
     const keyword = appliedFilters.keyword?.trim().toLowerCase()
     const reason = appliedFilters.reason?.trim()
     const openOnly = appliedFilters.openOnly?.trim()
@@ -368,6 +470,7 @@ export default function AssetDowntimes() {
           item.reason,
           item.note,
           item.id ? String(item.id) : '',
+          getItemWorkOrderName(item, workOrderOptions),
           item.workOrderId ? String(item.workOrderId) : '',
         ]
           .filter(Boolean)
@@ -375,15 +478,9 @@ export default function AssetDowntimes() {
       )
     }
 
-    if (reason) {
-      result = result.filter((item) => String(item.reason || '').toUpperCase() === reason.toUpperCase())
-    }
-
-    if (openOnly === 'OPEN') {
-      result = result.filter((item) => Boolean(item.open))
-    } else if (openOnly === 'CLOSED') {
-      result = result.filter((item) => !item.open)
-    }
+    if (reason) result = result.filter((item) => String(item.reason || '').toUpperCase() === reason.toUpperCase())
+    if (openOnly === 'OPEN') result = result.filter((item) => Boolean(item.open))
+    else if (openOnly === 'CLOSED') result = result.filter((item) => !item.open)
 
     result.sort((a, b) => {
       const timeA = a?.startsOn ? new Date(a.startsOn).getTime() : 0
@@ -392,37 +489,22 @@ export default function AssetDowntimes() {
     })
 
     return result
-  }, [downtimes, appliedFilters])
+  }, [downtimes, appliedFilters, workOrderOptions])
 
   const totalElements = filteredDowntimes.length
   const totalPages = totalElements === 0 ? 0 : Math.ceil(totalElements / pageSize)
-  const lastPage = totalPages === 0 ? true : pageNum >= totalPages - 1
-
-  const pagedDowntimes = useMemo(() => {
-    const start = pageNum * pageSize
-    return filteredDowntimes.slice(start, start + pageSize)
-  }, [filteredDowntimes, pageNum, pageSize])
+  const lastPage = totalPages === 0 || pageNum >= totalPages - 1
+  const pagedDowntimes = useMemo(() => filteredDowntimes.slice(pageNum * pageSize, pageNum * pageSize + pageSize), [filteredDowntimes, pageNum, pageSize])
 
   useEffect(() => {
-    if (pageNum > 0 && pageNum >= totalPages && totalPages > 0) {
-      setPageNum(totalPages - 1)
-    }
+    if (pageNum > 0 && pageNum >= totalPages && totalPages > 0) setPageNum(totalPages - 1)
   }, [pageNum, totalPages])
 
-  const handleFilterChange = (field, value) => {
-    setFilterForm((prev) => ({ ...prev, [field]: value }))
-  }
-
+  const handleFilterChange = (field, value) => setFilterForm((prev) => ({ ...prev, [field]: value }))
   const handleSearch = () => {
     setPageNum(0)
-    setAppliedFilters({
-      keyword: filterForm.keyword.trim(),
-      reason: filterForm.reason,
-      dateSort: filterForm.dateSort || 'newest',
-      openOnly: filterForm.openOnly,
-    })
+    setAppliedFilters({ keyword: filterForm.keyword.trim(), reason: filterForm.reason, dateSort: filterForm.dateSort || 'newest', openOnly: filterForm.openOnly })
   }
-
   const handleResetFilters = () => {
     const reset = { keyword: '', reason: '', dateSort: 'newest', openOnly: '' }
     setFilterForm(reset)
@@ -436,9 +518,8 @@ export default function AssetDowntimes() {
   }
 
   const handlePageSizeChange = (e) => {
-    const nextSize = Number(e.target.value)
     setPageNum(0)
-    setPageSize(nextSize)
+    setPageSize(Number(e.target.value))
   }
 
   const handleViewDetails = (item) => {
@@ -458,10 +539,6 @@ export default function AssetDowntimes() {
     setCreateOpen(false)
     setCreateError('')
     setCreateForm(emptyForm)
-  }
-
-  const handleCreateFormChange = (field, value) => {
-    setCreateForm((prev) => ({ ...prev, [field]: value }))
   }
 
   const buildPayload = (form) => ({
@@ -493,8 +570,8 @@ export default function AssetDowntimes() {
     setEditError('')
     setEditingDowntimeId(item?.id)
     setEditForm({
-      assetId: item?.assetId || '',
-      workOrderId: item?.workOrderId || '',
+      assetId: item?.assetId ? String(item.assetId) : '',
+      workOrderId: item?.workOrderId ? String(item.workOrderId) : '',
       reason: item?.reason || 'BREAKDOWN',
       startsOn: toDateTimeLocal(item?.startsOn),
       endsOn: toDateTimeLocal(item?.endsOn),
@@ -509,10 +586,6 @@ export default function AssetDowntimes() {
     setEditError('')
     setEditingDowntimeId(null)
     setEditForm(emptyForm)
-  }
-
-  const handleEditFormChange = (field, value) => {
-    setEditForm((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleEditSubmit = async () => {
@@ -571,6 +644,55 @@ export default function AssetDowntimes() {
   const endItem = totalElements === 0 ? 0 : Math.min((pageNum + 1) * pageSize, totalElements)
   const showAnyAction = canViewDetail || canEdit || canDelete
 
+  const renderDowntimeForm = (form, setForm, loadingState) => (
+    <div className="form-section">
+      <div className="detail-section__title">Thông tin downtime</div>
+      <div className="form-grid">
+        <FormField label="Thiết bị">
+          <SearchableSelect
+            value={form.assetId}
+            options={assetSelectOptions}
+            onChange={(value) => setForm((prev) => ({ ...prev, assetId: value }))}
+            placeholder="Chọn thiết bị"
+            searchPlaceholder="Tìm thiết bị theo tên / mã..."
+            disabled={loadingState}
+          />
+        </FormField>
+
+        <FormField label="Work Order">
+          <SearchableSelect
+            value={form.workOrderId}
+            options={workOrderSelectOptions}
+            onChange={(value) => setForm((prev) => ({ ...prev, workOrderId: value }))}
+            placeholder="Chọn Work Order"
+            searchPlaceholder="Tìm theo tên / mã Work Order..."
+            disabled={loadingState}
+          />
+        </FormField>
+
+        <FormField label="Nguyên nhân">
+          <select className="form-input" value={form.reason} onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))} disabled={loadingState}>
+            {FORM_REASON_OPTIONS.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </FormField>
+
+        <FormField label="Bắt đầu">
+          <input type="datetime-local" className="form-input" value={form.startsOn} onChange={(e) => setForm((prev) => ({ ...prev, startsOn: e.target.value }))} disabled={loadingState} />
+        </FormField>
+
+        <FormField label="Kết thúc">
+          <input type="datetime-local" className="form-input" value={form.endsOn} onChange={(e) => setForm((prev) => ({ ...prev, endsOn: e.target.value }))} disabled={loadingState} />
+        </FormField>
+
+        <FormField label="Ghi chú" full>
+          <textarea className="form-input form-textarea" value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="Nhập ghi chú downtime" disabled={loadingState} />
+        </FormField>
+      </div>
+    </div>
+  )
+
   return (
     <>
       <div className="assets-page">
@@ -578,27 +700,22 @@ export default function AssetDowntimes() {
           <div className="assets-header">
             <div className="assets-header__top">
               <div className="assets-header__intro">
-                <div className="assets-header__mini-title">{pageTitle}</div>
+                <div className="assets-header__mini-title">Asset Downtime</div>
               </div>
             </div>
 
             <div className="filters-panel">
               <div className="filters-panel__header">
                 <div className="filters-panel__title-wrap">
-                  <div className="filters-panel__icon">
-                    <FiFilter size={18} />
-                  </div>
-                  <div>
-                    <div className="filters-panel__title">Bộ lọc downtime</div>
-                  </div>
+                  <div className="filters-panel__icon"><FiFilter size={18} /></div>
+                  <div><div className="filters-panel__title">Bộ lọc downtime</div></div>
                 </div>
 
                 <div className="filters-panel__header-right">
                   {hasActiveFilters && <div className="filters-active-chip">Đang áp dụng {activeFilterCount} bộ lọc</div>}
                   {canCreate && (
                     <button className="btn btn-soft-blue btn-create-header" onClick={openCreateModal} type="button">
-                      <FiPlus size={16} />
-                      <span>Thêm mới</span>
+                      <FiPlus size={16} /><span>Thêm mới</span>
                     </button>
                   )}
                 </div>
@@ -609,22 +726,14 @@ export default function AssetDowntimes() {
                   <label className="filter-label">Từ khóa</label>
                   <div className="search-box">
                     <FiSearch size={16} />
-                    <input
-                      type="text"
-                      placeholder="Tìm kiếm"
-                      value={filterForm.keyword}
-                      onChange={(e) => handleFilterChange('keyword', e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    />
+                    <input type="text" placeholder="Tìm thiết bị, Work Order, ghi chú..." value={filterForm.keyword} onChange={(e) => handleFilterChange('keyword', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
                   </div>
                 </div>
 
                 <div className="filter-field">
                   <label className="filter-label">Nguyên nhân</label>
                   <select className="filter-select" value={filterForm.reason} onChange={(e) => handleFilterChange('reason', e.target.value)}>
-                    {REASON_OPTIONS.map((option) => (
-                      <option key={option.value || 'all'} value={option.value}>{option.label}</option>
-                    ))}
+                    {REASON_OPTIONS.map((option) => <option key={option.value || 'all'} value={option.value}>{option.label}</option>)}
                   </select>
                 </div>
 
@@ -648,31 +757,18 @@ export default function AssetDowntimes() {
                 <div className="filter-field filter-field--actions">
                   <label className="filter-label filter-label--ghost">Thao tác</label>
                   <div className="filter-actions-row">
-                    <button className="btn btn-primary btn-search-compact" onClick={handleSearch} type="button">
-                      <FiSearch size={15} />
-                      <span>Tìm kiếm</span>
-                    </button>
-                    <button className="btn btn-light btn-icon-only" onClick={handleResetFilters} title="Xóa bộ lọc" aria-label="Xóa bộ lọc" type="button">
-                      <FiRotateCcw size={16} />
-                    </button>
+                    <button className="btn btn-primary btn-search-compact" onClick={handleSearch} type="button"><FiSearch size={15} /><span>Tìm kiếm</span></button>
+                    <button className="btn btn-light btn-icon-only" onClick={handleResetFilters} title="Xóa bộ lọc" aria-label="Xóa bộ lọc" type="button"><FiRotateCcw size={16} /></button>
                   </div>
                 </div>
               </div>
 
               {hasActiveFilters && (
                 <div className="applied-filters">
-                  {appliedFilters.keyword && (
-                    <span className="applied-filter-chip">Từ khóa: <strong>{appliedFilters.keyword}</strong></span>
-                  )}
-                  {appliedFilters.reason && (
-                    <span className="applied-filter-chip">Nguyên nhân: <strong>{getReasonLabel(appliedFilters.reason)}</strong></span>
-                  )}
-                  {appliedFilters.openOnly && (
-                    <span className="applied-filter-chip">Trạng thái: <strong>{appliedFilters.openOnly === 'OPEN' ? 'Đang mở' : 'Đã đóng'}</strong></span>
-                  )}
-                  {appliedFilters.dateSort && (
-                    <span className="applied-filter-chip">Sắp xếp ngày: <strong>{getDateSortLabel(appliedFilters.dateSort)}</strong></span>
-                  )}
+                  {appliedFilters.keyword && <span className="applied-filter-chip">Từ khóa: <strong>{appliedFilters.keyword}</strong></span>}
+                  {appliedFilters.reason && <span className="applied-filter-chip">Nguyên nhân: <strong>{getReasonLabel(appliedFilters.reason)}</strong></span>}
+                  {appliedFilters.openOnly && <span className="applied-filter-chip">Trạng thái: <strong>{appliedFilters.openOnly === 'OPEN' ? 'Đang mở' : 'Đã đóng'}</strong></span>}
+                  {appliedFilters.dateSort && <span className="applied-filter-chip">Sắp xếp ngày: <strong>{getDateSortLabel(appliedFilters.dateSort)}</strong></span>}
                 </div>
               )}
             </div>
@@ -686,11 +782,7 @@ export default function AssetDowntimes() {
             <div className="assets-message">Không có downtime nào{hasActiveFilters ? ' phù hợp với bộ lọc hiện tại.' : '.'}</div>
           ) : (
             <div className="list-section">
-              <div className="list-section__title">
-                Lịch sử downtime
-                <span className="list-badge">{totalElements}</span>
-              </div>
-
+              <div className="list-section__title">Lịch sử downtime <span className="list-badge">{totalElements}</span></div>
               <div className="table-wrap">
                 <table className="assets-table asset-downtime-table">
                   <thead>
@@ -726,29 +818,20 @@ export default function AssetDowntimes() {
                         <td>{formatDateTime(item.startsOn)}</td>
                         <td>{formatDateTime(item.endsOn)}</td>
                         <td>{formatDuration(item.durationSeconds)}</td>
-                        <td>{item.workOrderId || '-'}</td>
+                        <td>
+                          <div className="asset-name-cell">
+                            <strong>{getItemWorkOrderName(item, workOrderOptions)}</strong>
+                            {item.workOrderId && <small>ID: {item.workOrderId}</small>}
+                          </div>
+                        </td>
                         <td>
                           {showAnyAction ? (
                             <div className="action-group">
-                              {canViewDetail && (
-                                <button className="icon-btn" onClick={() => handleViewDetails(item)} title="Xem chi tiết" type="button">
-                                  <FiEye size={16} />
-                                </button>
-                              )}
-                              {canEdit && (
-                                <button className="icon-btn" onClick={() => openEditModal(item)} title="Sửa" type="button">
-                                  <FiEdit2 size={16} />
-                                </button>
-                              )}
-                              {canDelete && (
-                                <button className="icon-btn icon-btn--danger" onClick={() => openDeleteModal(item)} title="Xóa" disabled={deleteLoadingId === item.id} type="button">
-                                  {deleteLoadingId === item.id ? <FiAlertTriangle size={16} /> : <FiTrash2 size={16} />}
-                                </button>
-                              )}
+                              {canViewDetail && <button className="icon-btn" onClick={() => handleViewDetails(item)} title="Xem chi tiết" type="button"><FiEye size={16} /></button>}
+                              {canEdit && <button className="icon-btn" onClick={() => openEditModal(item)} title="Sửa" type="button"><FiEdit2 size={16} /></button>}
+                              {canDelete && <button className="icon-btn icon-btn--danger" onClick={() => openDeleteModal(item)} title="Xóa" disabled={deleteLoadingId === item.id} type="button">{deleteLoadingId === item.id ? <FiAlertTriangle size={16} /> : <FiTrash2 size={16} />}</button>}
                             </div>
-                          ) : (
-                            <span className="text-muted">-</span>
-                          )}
+                          ) : <span className="text-muted">-</span>}
                         </td>
                       </tr>
                     ))}
@@ -757,22 +840,12 @@ export default function AssetDowntimes() {
               </div>
 
               <div className="pagination-bar">
-                <div className="pagination-info">
-                  Hiển thị <strong>{startItem}</strong> - <strong>{endItem}</strong> / <strong>{totalElements}</strong> bản ghi
-                </div>
+                <div className="pagination-info">Hiển thị <strong>{startItem}</strong> - <strong>{endItem}</strong> / <strong>{totalElements}</strong> bản ghi</div>
                 <div className="pagination-right">
                   {totalPages > 0 && (
                     <div className="pagination-controls">
                       <button className="page-btn" disabled={pageNum === 0} onClick={() => handlePageChange(pageNum - 1)} type="button"><FiChevronLeft size={16} /></button>
-                      {visiblePages.map((page, index) =>
-                        typeof page === 'string' ? (
-                          <span key={`${page}-${index}`} className="page-ellipsis">...</span>
-                        ) : (
-                          <button key={page} className={`page-number ${page === pageNum ? 'active' : ''}`} onClick={() => handlePageChange(page)} type="button">
-                            {page + 1}
-                          </button>
-                        ),
-                      )}
+                      {visiblePages.map((page, index) => typeof page === 'string' ? <span key={`${page}-${index}`} className="page-ellipsis">...</span> : <button key={page} className={`page-number ${page === pageNum ? 'active' : ''}`} onClick={() => handlePageChange(page)} type="button">{page + 1}</button>)}
                       <button className="page-btn" disabled={lastPage || totalPages === 0} onClick={() => handlePageChange(pageNum + 1)} type="button"><FiChevronRight size={16} /></button>
                     </div>
                   )}
@@ -792,42 +865,30 @@ export default function AssetDowntimes() {
         <div className="drawer-overlay" onClick={closeDetail}>
           <div className="drawer" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
-              <div>
-                <h2>Chi tiết downtime</h2>
-                <p>Xem thông tin đầy đủ của downtime thiết bị</p>
-              </div>
+              <div><h2>Chi tiết downtime</h2><p>Xem thông tin đầy đủ của downtime thiết bị</p></div>
               <button className="drawer-close" onClick={closeDetail} type="button"><FiX size={22} /></button>
             </div>
-
-            {detailLoading ? (
-              <div className="drawer-message">Đang tải chi tiết...</div>
-            ) : detailError ? (
-              <div className="drawer-message drawer-message--error">{detailError}</div>
-            ) : !selectedDowntime ? (
-              <div className="drawer-message">Không có dữ liệu chi tiết.</div>
-            ) : (
+            {detailLoading ? <div className="drawer-message">Đang tải chi tiết...</div> : detailError ? <div className="drawer-message drawer-message--error">{detailError}</div> : !selectedDowntime ? <div className="drawer-message">Không có dữ liệu chi tiết.</div> : (
               <div className="drawer-body">
                 <div className="detail-hero">
                   <div className="detail-hero__left">
-                    <div className="detail-hero__icon"><FiClock size={30} /></div>
+                    <div className="detail-hero__icon"><FiClock size={26} /></div>
                     <div className="detail-hero__content">
                       <h3>{selectedDowntime.assetName || 'Asset Downtime'}</h3>
                       <p>{getReasonLabel(selectedDowntime.reason)}</p>
                       <div className="detail-hero__meta">
                         <span className={getOpenBadgeClass(selectedDowntime.open)}>{getOpenStatusLabel(selectedDowntime.open)}</span>
-                        <span className="hero-chip"><FiTool size={14} />Asset ID: {selectedDowntime.assetId || '-'}</span>
-                        <span className="hero-chip"><FiTag size={14} />WO: {selectedDowntime.workOrderId || '-'}</span>
+                        <span className="hero-chip"><FiClock size={14} />{formatDuration(selectedDowntime.durationSeconds)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-
                 <div className="detail-section">
                   <div className="detail-section__title">Thông tin downtime</div>
                   <div className="detail-grid detail-grid--2">
                     <DetailItem icon={<FiTool size={16} />} label="Thiết bị" value={selectedDowntime.assetName} compact />
                     <DetailItem icon={<FiTag size={16} />} label="Asset ID" value={selectedDowntime.assetId} compact />
-                    <DetailItem icon={<FiTag size={16} />} label="Work Order ID" value={selectedDowntime.workOrderId} compact />
+                    <DetailItem icon={<FiTag size={16} />} label="Work Order" value={getItemWorkOrderName(selectedDowntime, workOrderOptions)} compact />
                     <DetailItem icon={<FiInfo size={16} />} label="Nguyên nhân" value={getReasonLabel(selectedDowntime.reason)} compact />
                     <DetailItem icon={<FiCalendar size={16} />} label="Bắt đầu" value={formatDateTime(selectedDowntime.startsOn)} compact />
                     <DetailItem icon={<FiCalendar size={16} />} label="Kết thúc" value={formatDateTime(selectedDowntime.endsOn)} compact />
@@ -845,54 +906,10 @@ export default function AssetDowntimes() {
       {createOpen && (
         <div className="drawer-overlay" onClick={closeCreateModal}>
           <div className="drawer drawer--wide" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
-              <div>
-                <h2>Thêm mới downtime</h2>
-                <p>Tạo downtime mới theo đúng BE hiện tại</p>
-              </div>
-              <button className="drawer-close" onClick={closeCreateModal} type="button"><FiX size={22} /></button>
-            </div>
+            <div className="drawer-header"><div><h2>Thêm mới downtime</h2><p>Tạo downtime mới theo đúng API backend</p></div><button className="drawer-close" onClick={closeCreateModal} type="button"><FiX size={22} /></button></div>
             <div className="drawer-body">
               {createError && <div className="drawer-message drawer-message--error drawer-message--inline">{createError}</div>}
-              <div className="form-section">
-                <div className="detail-section__title">Thông tin downtime</div>
-                <div className="form-grid">
-                  <FormField label="Thiết bị">
-                    <select className="form-input" value={createForm.assetId} onChange={(e) => handleCreateFormChange('assetId', e.target.value)}>
-                      <option value="">Chọn thiết bị</option>
-                      {assetOptions.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.name || asset.barcode || `Asset #${asset.id}`}
-                        </option>
-                      ))}
-                    </select>
-                  </FormField>
-
-                  <FormField label="Work Order ID">
-                    <input className="form-input" value={createForm.workOrderId} onChange={(e) => handleCreateFormChange('workOrderId', e.target.value)} placeholder="Có thể bỏ trống" />
-                  </FormField>
-
-                  <FormField label="Nguyên nhân">
-                    <select className="form-input" value={createForm.reason} onChange={(e) => handleCreateFormChange('reason', e.target.value)}>
-                      {FORM_REASON_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>{item.label}</option>
-                      ))}
-                    </select>
-                  </FormField>
-
-                  <FormField label="Bắt đầu">
-                    <input type="datetime-local" className="form-input" value={createForm.startsOn} onChange={(e) => handleCreateFormChange('startsOn', e.target.value)} />
-                  </FormField>
-
-                  <FormField label="Kết thúc">
-                    <input type="datetime-local" className="form-input" value={createForm.endsOn} onChange={(e) => handleCreateFormChange('endsOn', e.target.value)} />
-                  </FormField>
-
-                  <FormField label="Ghi chú" full>
-                    <textarea className="form-input form-textarea" value={createForm.note} onChange={(e) => handleCreateFormChange('note', e.target.value)} placeholder="Nhập ghi chú downtime" />
-                  </FormField>
-                </div>
-              </div>
+              {renderDowntimeForm(createForm, setCreateForm, createLoading)}
             </div>
             <div className="drawer-footer">
               <button className="btn btn-secondary" onClick={closeCreateModal} disabled={createLoading} type="button">Hủy</button>
@@ -905,54 +922,10 @@ export default function AssetDowntimes() {
       {editOpen && (
         <div className="drawer-overlay" onClick={closeEditModal}>
           <div className="drawer drawer--wide" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
-              <div>
-                <h2>Cập nhật downtime</h2>
-                <p>Chỉnh sửa downtime và gửi đúng API backend</p>
-              </div>
-              <button className="drawer-close" onClick={closeEditModal} type="button"><FiX size={22} /></button>
-            </div>
+            <div className="drawer-header"><div><h2>Cập nhật downtime</h2><p>Chỉnh sửa downtime và gửi đúng API backend</p></div><button className="drawer-close" onClick={closeEditModal} type="button"><FiX size={22} /></button></div>
             <div className="drawer-body">
               {editError && <div className="drawer-message drawer-message--error drawer-message--inline">{editError}</div>}
-              <div className="form-section">
-                <div className="detail-section__title">Thông tin downtime</div>
-                <div className="form-grid">
-                  <FormField label="Thiết bị">
-                    <select className="form-input" value={editForm.assetId} onChange={(e) => handleEditFormChange('assetId', e.target.value)}>
-                      <option value="">Chọn thiết bị</option>
-                      {assetOptions.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.name || asset.barcode || `Asset #${asset.id}`}
-                        </option>
-                      ))}
-                    </select>
-                  </FormField>
-
-                  <FormField label="Work Order ID">
-                    <input className="form-input" value={editForm.workOrderId} onChange={(e) => handleEditFormChange('workOrderId', e.target.value)} placeholder="Có thể bỏ trống" />
-                  </FormField>
-
-                  <FormField label="Nguyên nhân">
-                    <select className="form-input" value={editForm.reason} onChange={(e) => handleEditFormChange('reason', e.target.value)}>
-                      {FORM_REASON_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>{item.label}</option>
-                      ))}
-                    </select>
-                  </FormField>
-
-                  <FormField label="Bắt đầu">
-                    <input type="datetime-local" className="form-input" value={editForm.startsOn} onChange={(e) => handleEditFormChange('startsOn', e.target.value)} />
-                  </FormField>
-
-                  <FormField label="Kết thúc">
-                    <input type="datetime-local" className="form-input" value={editForm.endsOn} onChange={(e) => handleEditFormChange('endsOn', e.target.value)} />
-                  </FormField>
-
-                  <FormField label="Ghi chú" full>
-                    <textarea className="form-input form-textarea" value={editForm.note} onChange={(e) => handleEditFormChange('note', e.target.value)} placeholder="Nhập ghi chú downtime" />
-                  </FormField>
-                </div>
-              </div>
+              {renderDowntimeForm(editForm, setEditForm, editLoading)}
             </div>
             <div className="drawer-footer">
               <button className="btn btn-secondary" onClick={closeEditModal} disabled={editLoading} type="button">Hủy</button>
@@ -965,21 +938,12 @@ export default function AssetDowntimes() {
       {deleteOpen && (
         <div className="drawer-overlay" onClick={closeDeleteModal}>
           <div className="drawer drawer--small" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
-              <div>
-                <h2>Xóa downtime</h2>
-                <p>Xác nhận xóa bản ghi downtime này</p>
-              </div>
-              <button className="drawer-close" onClick={closeDeleteModal} type="button"><FiX size={22} /></button>
-            </div>
+            <div className="drawer-header"><div><h2>Xóa downtime</h2><p>Xác nhận xóa bản ghi downtime này</p></div><button className="drawer-close" onClick={closeDeleteModal} type="button"><FiX size={22} /></button></div>
             <div className="drawer-body">
               {deleteError && <div className="drawer-message drawer-message--error drawer-message--inline">{deleteError}</div>}
               <div className="delete-box">
                 <div className="delete-box__icon"><FiAlertTriangle size={28} /></div>
-                <div className="delete-box__content">
-                  <h3>{deleteTarget?.assetName || 'Asset Downtime'}</h3>
-                  <p>Bạn có chắc muốn xóa downtime với nguyên nhân <strong>{getReasonLabel(deleteTarget?.reason)}</strong> không?</p>
-                </div>
+                <div className="delete-box__content"><h3>{deleteTarget?.assetName || 'Asset Downtime'}</h3><p>Bạn có chắc muốn xóa downtime với nguyên nhân <strong>{getReasonLabel(deleteTarget?.reason)}</strong> không?</p></div>
               </div>
             </div>
             <div className="drawer-footer">

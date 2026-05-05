@@ -153,6 +153,7 @@ export default function PreventiveMaintenanceDetail() {
     }
   }
 
+  
   const loadSchedule = async () => {
     try {
       const res = await api.get(`/api/schedules/by-preventive-maintenance/${id}`)
@@ -190,7 +191,7 @@ export default function PreventiveMaintenanceDetail() {
     try {
       setLoading(true)
       try {
-        const pmRes = await api.get(`/api/preventive-maintenances/${id}`)
+        const pmRes = await api.get(`/preventive-maintenances/${id}`)
         setPm(pmRes.data)
       } catch (err) {
         message.error(errMsg(err, 'Không tải được thông tin kế hoạch'))

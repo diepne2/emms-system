@@ -33,6 +33,7 @@ public class WorkOrderCreationJob extends QuartzJobBean {
     @Transactional
     protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
         Long scheduleId = getScheduleId(context);
+
         if (scheduleId == null) {
             log.warn("WorkOrderCreationJob skipped: missing scheduleId");
             return;
@@ -40,6 +41,7 @@ public class WorkOrderCreationJob extends QuartzJobBean {
 
         try {
             Schedule schedule = scheduleRepository.findById(scheduleId).orElse(null);
+
             if (schedule == null) {
                 log.warn("WorkOrderCreationJob skipped: schedule not found, id={}", scheduleId);
                 return;
@@ -50,13 +52,16 @@ public class WorkOrderCreationJob extends QuartzJobBean {
                 return;
             }
 
-            boolean shouldGenerate = scheduleService.shouldGenerateOnDate(schedule, LocalDate.now());
+            LocalDate today = LocalDate.now();
+
+            boolean shouldGenerate = scheduleService.shouldGenerateOnDate(schedule, today);
             if (!shouldGenerate) {
                 log.info("WorkOrderCreationJob skipped: schedule does not match today, id={}", scheduleId);
                 return;
             }
 
             PreventiveMaintenance preventiveMaintenance = schedule.getPreventiveMaintenance();
+
             if (preventiveMaintenance == null) {
                 log.warn("WorkOrderCreationJob skipped: preventiveMaintenance is null, scheduleId={}", scheduleId);
                 return;
@@ -73,13 +78,15 @@ public class WorkOrderCreationJob extends QuartzJobBean {
 
             WorkOrder savedWorkOrder = workOrderService.createFromPreventiveMaintenance(
                     preventiveMaintenance,
-                    schedule
+                    schedule,
+                    today
             );
 
             List<Task> pmTasks = taskService.findByPreventiveMaintenance(preventiveMaintenance.getId());
 
             for (Task sourceTask : pmTasks) {
                 Task copiedTask = new Task();
+
                 copiedTask.setTaskBase(sourceTask.getTaskBase());
                 copiedTask.setWorkOrder(savedWorkOrder);
                 copiedTask.setPreventiveMaintenance(null);
@@ -116,9 +123,11 @@ public class WorkOrderCreationJob extends QuartzJobBean {
         if (value instanceof Long longValue) {
             return longValue;
         }
+
         if (value instanceof Integer intValue) {
             return intValue.longValue();
         }
+
         if (value instanceof String stringValue) {
             try {
                 return Long.parseLong(stringValue);
