@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -38,4 +39,14 @@ public interface PreventiveMaintenanceRepository
 
     @Query("SELECT COUNT(p) > :threshold FROM PreventiveMaintenance p")
     boolean hasMoreThan(@Param("threshold") long threshold);
+
+    @Query("""
+        SELECT COUNT(pm)
+        FROM PreventiveMaintenance pm
+        WHERE pm.active = true
+        AND pm.schedule IS NOT NULL
+        AND pm.schedule.startsOn <= :toDate
+        AND (pm.schedule.endsOn IS NULL OR pm.schedule.endsOn >= :fromDate)
+    """)
+    long countUpcomingPM(LocalDate fromDate, LocalDate toDate);
 }

@@ -1,62 +1,52 @@
 import React from 'react'
 import { useLocation } from 'react-router-dom'
 import { CBreadcrumb, CBreadcrumbItem } from '@coreui/react'
-import routes from '../routes'
+
+const PAGE_NAME_MAP = {
+  '/dashboard': 'Dashboard',
+  '/dashboard1': 'Bảng điều khiển bảo trì',
+
+  '/assets/list': 'Danh sách thiết bị',
+  '/assets/downtimes': 'Nhật ký dừng máy',
+  '/assets': 'Thiết bị',
+
+  '/preventive-maintenance': 'Bảo trì định kỳ',
+  '/preventive-maintenance/work-orders/my': 'Work Orders của tôi',
+
+  '/meter': 'Meter',
+  '/checklist': 'Checklist',
+  '/request': 'Yêu cầu sửa chữa',
+  '/requests': 'Yêu cầu sửa chữa',
+  '/work-orders': 'Work Orders',
+  '/inventory': 'Kho vật tư',
+  '/location': 'Vị trí',
+  '/hr': 'Nhân sự',
+  '/analytics': 'Phân tích & Báo cáo',
+  '/profile': 'Thông tin người dùng',
+}
+
+const formatFallbackName = (pathname) => {
+  const lastSegment = pathname.split('/').filter(Boolean).pop()
+
+  if (!lastSegment) return null
+
+  return lastSegment
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
 
 const AppBreadcrumb = () => {
-  const currentLocation = useLocation().pathname
+  const { pathname } = useLocation()
 
-  const normalizeRoutePath = (path) => {
-    return path?.replace(/\/\*$/, '') || ''
-  }
-
-  const getRouteName = (pathname, routes) => {
-    const currentRoute = routes.find((route) => normalizeRoutePath(route.path) === pathname)
-    return currentRoute ? currentRoute.name : null
-  }
-
-  const getBreadcrumbs = (pathname) => {
-    const breadcrumbs = []
-    const pathSegments = pathname.split('/').filter(Boolean)
-
-    let currentPath = ''
-
-    pathSegments.forEach((segment, index) => {
-      currentPath += `/${segment}`
-      const routeName = getRouteName(currentPath, routes)
-
-      if (
-        routeName &&
-        currentPath !== '/dashboard' &&
-        currentPath !== '/logo'
-      ) {
-        breadcrumbs.push({
-          pathname: currentPath,
-          name: routeName,
-          active: index === pathSegments.length - 1,
-        })
-      }
-    })
-
-    return breadcrumbs
-  }
-
-  const breadcrumbs = getBreadcrumbs(currentLocation)
+  const pageName = PAGE_NAME_MAP[pathname] || formatFallbackName(pathname)
 
   return (
-    <CBreadcrumb
-      className="emms-breadcrumb"
-    >
-      <CBreadcrumbItem href="#/dashboard1">Trang chủ</CBreadcrumbItem>
+    <CBreadcrumb className="emms-breadcrumb">
+      <CBreadcrumbItem href="#/dashboard">Trang chủ</CBreadcrumbItem>
 
-      {breadcrumbs.map((breadcrumb, index) => (
-        <CBreadcrumbItem
-          key={index}
-          {...(breadcrumb.active ? { active: true } : { href: `#${breadcrumb.pathname}` })}
-        >
-          {breadcrumb.name}
-        </CBreadcrumbItem>
-      ))}
+      {pathname !== '/dashboard' && pageName && (
+        <CBreadcrumbItem active>{pageName}</CBreadcrumbItem>
+      )}
     </CBreadcrumb>
   )
 }

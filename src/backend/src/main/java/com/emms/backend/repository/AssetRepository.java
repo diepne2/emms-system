@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,4 +47,12 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
     Optional<Asset> findByBarcodeIgnoreCase(String barcode);
     
     Optional<Asset> findBySerialNumberIgnoreCase(String serialNumber);
+    @Query("""
+        SELECT COUNT(a)
+        FROM Asset a
+        WHERE a.status = 'DOWN'
+        OR a.status = 'MAINTENANCE'
+        OR a.status = 'EMERGENCY_SHUTDOWN'
+    """)
+    long countAssetsDown();
 }

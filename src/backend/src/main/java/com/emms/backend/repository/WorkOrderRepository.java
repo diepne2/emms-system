@@ -1,12 +1,13 @@
 package com.emms.backend.repository;
 
+import com.emms.backend.dto.dashboard.DashboardCountDTO;
 import com.emms.backend.entity.WorkOrder;
 import com.emms.backend.entity.WorkOrder.WorkOrderPriority;
 import com.emms.backend.entity.WorkOrder.WorkOrderStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,10 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
-
-    // =========================
-    // EXISTING APP METHODS
-    // =========================
 
     List<WorkOrder> findAllByOrderByCreatedAtDesc();
 
@@ -79,10 +76,6 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             Long pmId,
             LocalDate dueDate
     );
-
-    // =========================
-    // DASHBOARD - ASSET COST
-    // =========================
 
     @Query("""
         select coalesce(sum(w.totalCost), 0)
@@ -162,10 +155,6 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
-
-    // =========================
-    // DASHBOARD - WORK ORDER KPI
-    // =========================
 
     @Query("""
         select count(w)
@@ -247,10 +236,6 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
-    // =========================
-    // DASHBOARD - USER / ASSET GROUP
-    // =========================
-
     @Query("""
         select u.userId,
                u.username,
@@ -307,10 +292,6 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
-    // =========================
-    // DASHBOARD - PRIORITY
-    // =========================
-
     @Query("""
         select count(w)
         from WorkOrder w
@@ -337,37 +318,113 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
-    
     @Query("""
-    select a.id, a.name, count(wo.id)
-    from WorkOrder wo
-    join wo.asset a
-    where wo.createdAt >= :from and wo.createdAt < :to
-    group by a.id, a.name
-    order by count(wo.id) desc
-""")
-List<Object[]> top10RepairedAssets(
-        @Param("from") LocalDateTime from,
-        @Param("to") LocalDateTime to,
-        Pageable pageable
-);
+        select a.id, a.name, count(wo.id)
+        from WorkOrder wo
+        join wo.asset a
+        where wo.createdAt >= :from and wo.createdAt < :to
+        group by a.id, a.name
+        order by count(wo.id) desc
+    """)
+    List<Object[]> top10RepairedAssets(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            Pageable pageable
+    );
 
-@Query("""
-    select u.userId,
-           u.username,
-           concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, '')),
-           count(wo.id)
-    from WorkOrder wo
-    join wo.assignedTo u
-    where wo.status = :status
-      and wo.completedOn >= :from and wo.completedOn < :to
-    group by u.userId, u.username, u.firstName, u.lastName
-    order by count(wo.id) desc
-""")
-List<Object[]> top10CompletedUsers(
-        @Param("status") WorkOrderStatus status,
-        @Param("from") LocalDateTime from,
-        @Param("to") LocalDateTime to,
-        Pageable pageable
-);
+    @Query("""
+        select u.userId,
+               u.username,
+               concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, '')),
+               count(wo.id)
+        from WorkOrder wo
+        join wo.assignedTo u
+        where wo.status = :status
+          and wo.completedOn >= :from and wo.completedOn < :to
+        group by u.userId, u.username, u.firstName, u.lastName
+        order by count(wo.id) desc
+    """)
+    List<Object[]> top10CompletedUsers(
+            @Param("status") WorkOrderStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            Pageable pageable
+    );
+
+
+
+    @Query("""
+        select count(w)
+        from WorkOrder w
+        where (:fromDate is null or w.createdAt >= :fromDate)
+          and (:toDate is null or w.createdAt < :toDate)
+    """)
+    long countByDateRange(
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
+    );
+
+    @Query("""
+        select count(w)
+        from WorkOrder w
+        where w.status = :status
+          and (:fromDate is null or w.createdAt >= :fromDate)
+          and (:toDate is null or w.createdAt < :toDate)
+    """)
+    long countByStatusAndDateRange(
+            @Param("status") WorkOrderStatus status,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
+    );
+
+    @Query("""
+        select count(w)
+        from WorkOrder w
+        where w.dueDate is not null
+          and w.dueDate < :today
+          and w.status not in :doneStatuses
+    """)
+    long countOverdue(
+            @Param("today") LocalDate today,
+            @Param("doneStatuses") Collection<WorkOrderStatus> doneStatuses
+    );
+
+    @Query("""
+        select new com.emms.backend.dto.dashboard.DashboardCountDTO(
+            cast(w.status as string),
+            count(w)
+        )
+        from WorkOrder w
+        where (:fromDate is null or w.createdAt >= :fromDate)
+          and (:toDate is null or w.createdAt < :toDate)
+        group by w.status
+        order by count(w) desc
+    """)
+    List<DashboardCountDTO> countGroupByStatus(
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
+    );
+
+    @Query("""
+        select new com.emms.backend.dto.dashboard.DashboardCountDTO(
+            case
+                when w.preventiveMaintenance is not null then 'PREVENTIVE'
+                else 'CORRECTIVE'
+            end,
+            count(w)
+        )
+        from WorkOrder w
+        where (:fromDate is null or w.createdAt >= :fromDate)
+          and (:toDate is null or w.createdAt < :toDate)
+        group by
+            case
+                when w.preventiveMaintenance is not null then 'PREVENTIVE'
+                else 'CORRECTIVE'
+            end
+        order by count(w) desc
+    """)
+    List<DashboardCountDTO> countGroupByMaintenanceType(
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
+    );
 }

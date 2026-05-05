@@ -53,7 +53,7 @@ const _nav = [
     items: [
       {
         component: CNavItem,
-        name: 'Danh sách PM',
+        name: 'Kế hoạch bảo trì',
         to: '/preventive-maintenance',
       },
       {
