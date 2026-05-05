@@ -13,7 +13,6 @@ import {
   Legend,
 } from "recharts";
 import "./dashboard1.css";
-import { clearAuth } from "../../api/auth";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
@@ -25,10 +24,7 @@ const API = {
   maintenanceType: "/api/dashboard/maintenance-type",
   alerts: "/api/dashboard/alerts",
   topRepairedAssets: "/api/dashboard/work-orders/top-repaired-assets",
-  topCompletedUsers: "/api/dashboard/work-orders/top-completed-users",
 };
-
-const today = new Date().toISOString().slice(0, 10);
 
 const STATUS_COLORS = ["#4aa579", "#4f83d9", "#c1842e", "#8b8b83", "#d9534f"];
 const TYPE_COLORS = ["#5146bd", "#d0643f", "#4aa579", "#d9534f", "#8b8b83"];
@@ -37,28 +33,36 @@ const getToken = () =>
   localStorage.getItem("token") ||
   localStorage.getItem("accessToken") ||
   localStorage.getItem("access_token") ||
-  localStorage.getItem("jwt");
+  localStorage.getItem("jwt") ||
+  "";
 
-async function apiGet(path) {
+const authHeaders = () => {
   const token = getToken();
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
 
-  if (res.status === 401 || res.status === 403) {
-    clearAuth();
-    window.location.href = "/#/login";
-    return null;
-  }
+async function apiGet(path) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "GET",
+    headers: authHeaders(),
+  });
 
   const text = await res.text();
 
+  if (res.status === 401) {
+    throw new Error("401 - Token không hợp lệ hoặc đã hết hạn. Hãy đăng nhập lại.");
+  }
+
+  if (res.status === 403) {
+    throw new Error("403 - Tài khoản không có quyền xem dashboard.");
+  }
+
   if (!res.ok) {
-    throw new Error(`${res.status} - ${path}`);
+    throw new Error(`${res.status} - Không tải được dữ liệu: ${path}`);
   }
 
   if (!text) return null;
@@ -91,6 +95,7 @@ function labelStatus(name) {
     ON_HOLD: "Tạm dừng",
     PENDING: "Chờ duyệt",
     DONE: "Hoàn thành",
+    COMPLETED: "Hoàn thành",
     CANCELLED: "Huỷ bỏ",
   };
   return map[name] || name || "Khác";
@@ -118,7 +123,7 @@ function normalizeCount(rows, labelFn) {
 
 function normalizeTopAssets(rows) {
   return asArray(rows).map((x) => ({
-    name: x.name || x.assetName || x.assetCode || "Unknown",
+    name: x.name || x.assetName || x.assetCode || "Không rõ",
     count: num(x.count || x.totalCount || x.repairCount),
     location: x.locationName || x.location || "Chưa có",
   }));
@@ -218,6 +223,7 @@ export default function Dashboard1() {
   const view = useMemo(() => {
     const kpi = data.kpi || {};
     const alerts = data.alerts || {};
+
     const statusData = normalizeCount(data.woStatus, labelStatus);
     const typeData = normalizeCount(data.maintenanceType, labelMaintenanceType);
     const topAssets = normalizeTopAssets(data.topRepairedAssets);
@@ -230,12 +236,12 @@ export default function Dashboard1() {
     const rate = num(kpi.completionRate);
 
     const trend = [
-      { month: "T1", created: Math.max(0, Math.round(total * 0.11)), done: Math.max(0, Math.round(completed * 0.1)) },
-      { month: "T2", created: Math.max(0, Math.round(total * 0.13)), done: Math.max(0, Math.round(completed * 0.13)) },
-      { month: "T3", created: Math.max(0, Math.round(total * 0.1)), done: Math.max(0, Math.round(completed * 0.11)) },
-      { month: "T4", created: Math.max(0, Math.round(total * 0.16)), done: Math.max(0, Math.round(completed * 0.17)) },
-      { month: "T5", created: Math.max(0, Math.round(total * 0.15)), done: Math.max(0, Math.round(completed * 0.16)) },
-      { month: "T6", created: Math.max(0, Math.round(total * 0.14)), done: Math.max(0, Math.round(completed * 0.15)) },
+      { month: "T1", created: Math.round(total * 0.11), done: Math.round(completed * 0.1) },
+      { month: "T2", created: Math.round(total * 0.13), done: Math.round(completed * 0.13) },
+      { month: "T3", created: Math.round(total * 0.1), done: Math.round(completed * 0.11) },
+      { month: "T4", created: Math.round(total * 0.16), done: Math.round(completed * 0.17) },
+      { month: "T5", created: Math.round(total * 0.15), done: Math.round(completed * 0.16) },
+      { month: "T6", created: Math.round(total * 0.14), done: Math.round(completed * 0.15) },
     ];
 
     return {
@@ -262,6 +268,7 @@ export default function Dashboard1() {
       <section className="d1-topbar">
         <div>
           <h1>Quản lý thiết bị & bảo trì</h1>
+          <p>Tổng quan vận hành hệ thống EMMS</p>
         </div>
 
         <div className="d1-filter-inline">
@@ -296,40 +303,11 @@ export default function Dashboard1() {
       {err && <div className="d1-error">{err}</div>}
 
       <section className="d1-kpi-grid">
-        <KpiCard
-          title="Tổng work order"
-          value={view.total}
-          sub={`▲ ${view.rate}% hoàn thành`}
-          tone="blue"
-        />
-
-        <KpiCard
-          title="Hoàn thành"
-          value={view.completed}
-          sub={`${view.rate}% tỉ lệ`}
-          tone="green"
-        />
-
-        <KpiCard
-          title="Đang xử lý"
-          value={view.inProgress}
-          sub={`${view.overdue} quá hạn`}
-          tone="gray"
-        />
-
-        <KpiCard
-          title="Cảnh báo"
-          value={view.overdue}
-          sub={`${view.alerts.upcomingPM} PM sắp tới`}
-          tone="red"
-        />
-
-        <KpiCard
-          title="Thiết bị lỗi"
-          value={view.assetsDown}
-          sub="DOWN / bảo trì"
-          tone="brown"
-        />
+        <KpiCard title="Tổng work order" value={view.total} sub={`${view.rate}% hoàn thành`} tone="blue" />
+        <KpiCard title="Hoàn thành" value={view.completed} sub="Work order đã đóng" tone="green" />
+        <KpiCard title="Đang xử lý" value={view.inProgress} sub={`${view.overdue} quá hạn`} tone="gray" />
+        <KpiCard title="Cảnh báo" value={view.overdue} sub={`${view.alerts.upcomingPM} PM sắp tới`} tone="red" />
+        <KpiCard title="Thiết bị lỗi" value={view.assetsDown} sub="DOWN / bảo trì" tone="brown" />
       </section>
 
       <section className="d1-grid d1-grid--2">
@@ -339,19 +317,9 @@ export default function Dashboard1() {
               <div className="d1-donut">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={view.statusData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={48}
-                      outerRadius={78}
-                      paddingAngle={2}
-                    >
+                    <Pie data={view.statusData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={78} paddingAngle={2}>
                       {view.statusData.map((_, index) => (
-                        <Cell
-                          key={index}
-                          fill={STATUS_COLORS[index % STATUS_COLORS.length]}
-                        />
+                        <Cell key={index} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -371,19 +339,9 @@ export default function Dashboard1() {
               <div className="d1-donut">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={view.typeData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={48}
-                      outerRadius={78}
-                      paddingAngle={2}
-                    >
+                    <Pie data={view.typeData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={78} paddingAngle={2}>
                       {view.typeData.map((_, index) => (
-                        <Cell
-                          key={index}
-                          fill={TYPE_COLORS[index % TYPE_COLORS.length]}
-                        />
+                        <Cell key={index} fill={TYPE_COLORS[index % TYPE_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -403,38 +361,13 @@ export default function Dashboard1() {
           <div className="d1-trend">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={view.trend} margin={{ top: 20, right: 28, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="createdFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#5146bd" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#5146bd" stopOpacity={0.03} />
-                  </linearGradient>
-                  <linearGradient id="doneFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4aa579" stopOpacity={0.16} />
-                    <stop offset="95%" stopColor="#4aa579" stopOpacity={0.03} />
-                  </linearGradient>
-                </defs>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" />
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="created"
-                  name="Tạo mới"
-                  stroke="#5146bd"
-                  fill="url(#createdFill)"
-                  strokeWidth={3}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="done"
-                  name="Hoàn thành"
-                  stroke="#4aa579"
-                  fill="url(#doneFill)"
-                  strokeWidth={3}
-                  strokeDasharray="6 5"
-                />
+                <Area type="monotone" dataKey="created" name="Tạo mới" stroke="#5146bd" fill="#5146bd" fillOpacity={0.12} strokeWidth={3} />
+                <Area type="monotone" dataKey="done" name="Hoàn thành" stroke="#4aa579" fill="#4aa579" fillOpacity={0.12} strokeWidth={3} strokeDasharray="6 5" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -489,15 +422,7 @@ export default function Dashboard1() {
                     <td>{item.name}</td>
                     <td>{item.location}</td>
                     <td>
-                      <span
-                        className={
-                          index === 0
-                            ? "d1-status red"
-                            : index === 1
-                              ? "d1-status yellow"
-                              : "d1-status green"
-                        }
-                      >
+                      <span className={index === 0 ? "d1-status red" : index === 1 ? "d1-status yellow" : "d1-status green"}>
                         {index === 0 ? "Hỏng" : index === 1 ? "Cảnh báo" : "Theo dõi"}
                       </span>
                     </td>
