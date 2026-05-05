@@ -157,18 +157,18 @@ const extractErrorMessage = (err, fallback) => {
     const data = err.response.data
 
     if (typeof data === 'string' && data.trim()) {
-      return `HTTP ${err.response.status}: ${data}`
+      return data
     }
 
     if (data?.message) {
-      return `HTTP ${err.response.status}: ${data.message}`
+      return data.message
     }
 
     if (data?.error) {
-      return `HTTP ${err.response.status}: ${data.error}`
+      return data.error
     }
 
-    return `HTTP ${err.response.status}: ${fallback}`
+    return fallback
   }
 
   if (err.request) {

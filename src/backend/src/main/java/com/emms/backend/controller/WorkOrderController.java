@@ -136,9 +136,9 @@ public class WorkOrderController {
         return ResponseEntity.ok(result);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id}/hard-delete")
     @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
-    public ResponseEntity<Void> delete(
+    public ResponseEntity<Void> hardDelete(
             @PathVariable Long id,
             HttpServletRequest request
     ) {
@@ -160,5 +160,16 @@ public class WorkOrderController {
         return ResponseEntity.ok(entity);
     }
 
-    
+    @PatchMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
+    public ResponseEntity<WorkOrderShowDTO> cancel(
+        @PathVariable Long id,
+        HttpServletRequest request
+    ) {
+        User currentUser = userService.whoami(request);
+        workOrderService.checkAccessToWorkOrderId(id, currentUser);
+        
+        WorkOrderShowDTO result = workOrderService.cancel(id);
+        return ResponseEntity.ok(result);
+    }
 }

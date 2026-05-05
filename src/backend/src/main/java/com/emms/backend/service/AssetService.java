@@ -311,12 +311,14 @@ public class AssetService {
             return;
         }
 
-        assetRepository.findByNameIgnoreCase(name)
-                .ifPresent(existing -> {
-                    if (currentId == null || !existing.getId().equals(currentId)) {
-                        throw new CustomException("Tên asset đã tồn tại: " + name, HttpStatus.BAD_REQUEST);
-                    }
-                });
+        boolean exists = currentId == null
+                ? assetRepository.existsByNameIgnoreCase(name)
+                : assetRepository.existsByNameIgnoreCaseAndIdNot(name, currentId);
+        if (exists) {
+            throw new CustomException("Tên thiết bị đã tồn tại: " + name, HttpStatus.BAD_REQUEST);
+        }
+
+
     }
 
     private void validateDuplicateBarcode(Asset asset, Long currentId) {
@@ -326,12 +328,12 @@ public class AssetService {
             return;
         }
 
-        assetRepository.findByBarcodeIgnoreCase(barcode)
-                .ifPresent(existing -> {
-                    if (currentId == null || !existing.getId().equals(currentId)) {
-                        throw new CustomException("Mã code đã tồn tại: " + barcode, HttpStatus.BAD_REQUEST);
-                    }
-                });
+        boolean exists = currentId == null
+            ? assetRepository.existsByBarcodeIgnoreCase(barcode)
+            : assetRepository.existsByBarcodeIgnoreCaseAndIdNot(barcode, currentId);
+        if (exists) {
+            throw new CustomException("Mã / Barcode đã tồn tại: " + barcode, HttpStatus.BAD_REQUEST);
+        }
     }
 
     private void validateDuplicateSerialNumber(Asset asset, Long currentId) {
@@ -341,12 +343,13 @@ public class AssetService {
             return;
         }
 
-        assetRepository.findBySerialNumberIgnoreCase(serialNumber)
-                .ifPresent(existing -> {
-                    if (currentId == null || !existing.getId().equals(currentId)) {
-                        throw new CustomException("Serial number đã tồn tại: " + serialNumber, HttpStatus.BAD_REQUEST);
-                    }
-                });
+        boolean exists = currentId == null
+            ? assetRepository.existsBySerialNumberIgnoreCase(serialNumber)
+            : assetRepository.existsBySerialNumberIgnoreCaseAndIdNot(serialNumber, currentId);
+            
+        if (exists) {
+            throw new CustomException("Serial Number đã tồn tại: " + serialNumber, HttpStatus.BAD_REQUEST);
+        }
     }
 
     private void normalize(Asset asset) {

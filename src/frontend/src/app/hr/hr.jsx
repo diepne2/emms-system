@@ -13,6 +13,9 @@ api.interceptors.request.use((config) => {
     localStorage.getItem('accessToken') ||
     localStorage.getItem('token') ||
     localStorage.getItem('jwtToken') ||
+    sessionStorage.getItem('accessToken') ||
+    sessionStorage.getItem('token') ||
+    sessionStorage.getItem('jwtToken') ||
     ''
 
   if (token) {
@@ -35,6 +38,44 @@ const EMPTY_EDIT_FORM = {
 
 function normalizeText(value) {
   return (value || '').toString().trim()
+}
+
+function extractErrorMessage(err, fallback = 'Thao tác thất bại.') {
+  const data = err?.response?.data
+  const raw =
+    typeof data === 'string'
+      ? data
+      : data?.message || data?.error || err?.message || fallback
+
+  if (!raw) return fallback
+
+  if (err?.response?.status === 401) {
+    return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+  }
+
+  if (err?.response?.status === 403) {
+    return 'Bạn không có quyền thực hiện thao tác này.'
+  }
+
+  if (
+    raw.includes('violates foreign key constraint') &&
+    raw.includes('work_orders')
+  ) {
+    return 'Không thể xóa nhân sự vì nhân sự này đã được gán trong Work Order. Hãy khóa hoặc ngưng hoạt động tài khoản thay vì xóa.'
+  }
+
+  if (
+    raw.includes('delete from users') ||
+    raw.includes('still referenced from table')
+  ) {
+    return 'Không thể xóa nhân sự vì nhân sự đã phát sinh dữ liệu trong hệ thống.'
+  }
+
+  if (raw.includes('Request processing failed')) {
+    return fallback
+  }
+
+  return raw
 }
 
 function toBoolean(value) {
@@ -268,6 +309,7 @@ const HR = () => {
   const [editOpen, setEditOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM)
   const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM)
@@ -290,6 +332,7 @@ const HR = () => {
   const clearMessages = () => {
     setError('')
     setSuccess('')
+    setDeleteError('')
   }
 
   const loadMe = useCallback(async () => {
@@ -334,10 +377,7 @@ const HR = () => {
       } else if (statusCode === 403) {
         setError('Bạn không có quyền truy cập màn hình Nhân sự.')
       } else {
-        setError(
-          err?.response?.data?.message ||
-            'Không tải được danh sách nhân sự. Kiểm tra token hoặc endpoint backend.'
-        )
+        setError(extractErrorMessage(err, 'Không tải được danh sách nhân sự. Kiểm tra token hoặc endpoint backend.'))
       }
 
       setUsers([])
@@ -410,7 +450,7 @@ const HR = () => {
       if (statusCode === 403) {
         setError('Bạn không có quyền xem chi tiết nhân sự này.')
       } else {
-        setError(err?.response?.data?.message || 'Không tải được chi tiết nhân sự.')
+        setError(extractErrorMessage(err, 'Không tải được chi tiết nhân sự.'))
       }
     } finally {
       setSubmitting(false)
@@ -448,7 +488,7 @@ const HR = () => {
       if (statusCode === 403) {
         setError('Bạn không có quyền cập nhật kích hoạt nhân sự.')
       } else {
-        setError(err?.response?.data?.message || 'Không cập nhật được trạng thái kích hoạt.')
+        setError(extractErrorMessage(err, 'Không cập nhật được trạng thái kích hoạt.'))
       }
     } finally {
       setSubmitting(false)
@@ -478,7 +518,7 @@ const HR = () => {
       if (statusCode === 403) {
         setError('Bạn không có quyền cập nhật trạng thái nhân sự.')
       } else {
-        setError(err?.response?.data?.message || 'Không cập nhật được trạng thái.')
+        setError(extractErrorMessage(err, 'Không cập nhật được trạng thái.'))
       }
     } finally {
       setSubmitting(false)
@@ -508,7 +548,7 @@ const HR = () => {
       if (statusCode === 403) {
         setError('Bạn không có quyền cập nhật vai trò nhân sự.')
       } else {
-        setError(err?.response?.data?.message || 'Không cập nhật được vai trò.')
+        setError(extractErrorMessage(err, 'Không cập nhật được vai trò.'))
       }
     } finally {
       setSubmitting(false)
@@ -517,6 +557,7 @@ const HR = () => {
 
   const handleOpenDelete = (user) => {
     setSelectedUser(user)
+    setDeleteError('')
     setDeleteOpen(true)
     clearMessages()
   }
@@ -535,13 +576,9 @@ const HR = () => {
       loadUsers()
     } catch (err) {
       console.error(err)
-      const statusCode = err?.response?.status
-
-      if (statusCode === 403) {
-        setError('Bạn không có quyền xóa nhân sự.')
-      } else {
-        setError(err?.response?.data?.message || 'Không xóa được nhân sự.')
-      }
+      const message = extractErrorMessage(err, 'Không xóa được nhân sự.')
+      setDeleteError(message)
+      setError(message)
     } finally {
       setSubmitting(false)
     }
@@ -579,7 +616,7 @@ const HR = () => {
       if (statusCode === 403) {
         setError('Bạn không có quyền mời nhân sự.')
       } else {
-        setError(err?.response?.data?.message || 'Không gửi được lời mời.')
+        setError(extractErrorMessage(err, 'Không gửi được lời mời.'))
       }
     } finally {
       setSubmitting(false)
@@ -1131,33 +1168,64 @@ const HR = () => {
       )}
 
       {deleteOpen && selectedUser && allowDelete && (
-        <div className="drawer-overlay" onClick={() => setDeleteOpen(false)}>
+        <div
+          className="drawer-overlay"
+          onClick={() => {
+            if (!submitting) {
+              setDeleteOpen(false)
+              setDeleteError('')
+            }
+          }}
+        >
           <div className="drawer drawer--small" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
               <div>
                 <h2>Xóa nhân sự</h2>
                 <p>Thao tác này chỉ dành cho Admin.</p>
               </div>
-              <button className="drawer-close" onClick={() => setDeleteOpen(false)}>
+              <button
+                className="drawer-close"
+                onClick={() => {
+                  if (!submitting) {
+                    setDeleteOpen(false)
+                    setDeleteError('')
+                  }
+                }}
+                disabled={submitting}
+              >
                 ✕
               </button>
             </div>
 
             <div className="drawer-body">
+              {deleteError ? (
+                <div className="drawer-message drawer-message--error drawer-message--inline">
+                  {deleteError}
+                </div>
+              ) : null}
+
               <div className="delete-box">
                 <div className="delete-box__icon">⚠️</div>
                 <div className="delete-box__content">
                   <h3>Bạn có chắc muốn xóa?</h3>
                   <p>
-                    Nhân sự <strong>{getDisplayName(selectedUser)}</strong> sẽ bị xóa khỏi hệ thống.
-                    Hãy kiểm tra kỹ trước khi xác nhận.
+                    Nhân sự <strong>{getDisplayName(selectedUser)}</strong> sẽ bị xóa khỏi hệ thống nếu chưa phát sinh dữ liệu. Nếu đã được gán Work Order, hệ thống sẽ không cho xóa và bạn nên chuyển trạng thái sang INACTIVE hoặc tắt kích hoạt.
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="drawer-footer">
-              <button className="btn btn-light" onClick={() => setDeleteOpen(false)}>
+              <button
+                className="btn btn-light"
+                onClick={() => {
+                  if (!submitting) {
+                    setDeleteOpen(false)
+                    setDeleteError('')
+                  }
+                }}
+                disabled={submitting}
+              >
                 Hủy
               </button>
               <button className="btn btn-danger-solid" onClick={handleDeleteUser} disabled={submitting}>

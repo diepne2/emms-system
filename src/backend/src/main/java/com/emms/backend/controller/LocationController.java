@@ -40,8 +40,10 @@ public class LocationController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<LocationShowDTO>> getAll() {
-        return ResponseEntity.ok(locationService.getAll());
+    public ResponseEntity<List<LocationShowDTO>> getAll(
+            @RequestParam(required = false) String keyword
+    ) {
+        return ResponseEntity.ok(locationService.search(keyword));
     }
 
     @GetMapping("/{id}")

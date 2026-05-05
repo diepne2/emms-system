@@ -888,7 +888,6 @@ export default function Part() {
                         <td>
                           <div className="asset-name-cell">
                             <strong>{formatText(part.name)}</strong>
-                            <small>{formatText(part.description)}</small>
                           </div>
                         </td>
                         <td>{formatText(part.barcode)}</td>

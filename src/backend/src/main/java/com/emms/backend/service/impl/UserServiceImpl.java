@@ -264,7 +264,14 @@ public class UserServiceImpl implements UserService {
     @Override
     public void deleteUser(Long id) {
         User existing = findEntityById(id);
-        userRepository.delete(existing);
+        try {
+            userRepository.delete(existing);
+        } catch (Exception e) {
+            throw new CustomException(
+                "Không thể xóa người dùng vì đã được gán trong Work Order",
+                HttpStatus.CONFLICT
+            );
+        }
     }
 
     @Override
@@ -420,7 +427,14 @@ public class UserServiceImpl implements UserService {
     @Override
     public void deleteById(Long id) {
         User existing = findEntityById(id);
-        userRepository.delete(existing);
+        try {
+            userRepository.delete(existing);
+        } catch (Exception ex) {
+            throw new CustomException(
+                "Không thể xóa người dùng vì đã được sử dụng trong hệ thống",
+                HttpStatus.CONFLICT
+            );
+        }
     }
 
     @Override

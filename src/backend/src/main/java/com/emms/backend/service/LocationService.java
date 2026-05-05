@@ -8,14 +8,14 @@ import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.LocationMapper;
 import com.emms.backend.repository.LocationRepository;
 import jakarta.persistence.EntityManager;
-import org.springframework.context.MessageSource;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.lang.reflect.Method;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -23,82 +23,129 @@ public class LocationService {
 
     private final LocationRepository locationRepository;
     private final LocationMapper locationMapper;
-    private final MessageSource messageSource;
     private final EntityManager em;
 
     public LocationService(
             LocationRepository locationRepository,
             LocationMapper locationMapper,
-            MessageSource messageSource,
             EntityManager em
     ) {
         this.locationRepository = locationRepository;
         this.locationMapper = locationMapper;
-        this.messageSource = messageSource;
         this.em = em;
     }
 
+    public LocationShowDTO create(LocationDTO dto) {
+        if (dto == null) {
+            throw new CustomException("Dữ liệu vị trí không được để trống", HttpStatus.BAD_REQUEST);
+        }
 
-    public Location create(Location location) {
-        validateEntity(location);
-        validateDuplicateNameForCreate(location.getName());
+        Location entity = locationMapper.fromDto(dto);
 
-        Location saved = locationRepository.saveAndFlush(location);
+        validateEntity(entity);
+        validateDuplicateNameForCreate(entity.getName());
+
+        Location saved = locationRepository.saveAndFlush(entity);
         em.refresh(saved);
-        return saved;
+
+        return locationMapper.toShowDto(saved);
     }
 
-    public Location update(Long id, Location location) {
+    public LocationShowDTO update(Long id, LocationDTO dto) {
         if (id == null) {
-            throw new CustomException(getMessage("location.id.required", "ID địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID vị trí không được để trống", HttpStatus.BAD_REQUEST);
         }
-        if (location == null) {
-            throw new CustomException(getMessage("location.data.required", "Dữ liệu địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
+
+        if (dto == null) {
+            throw new CustomException("Dữ liệu vị trí không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         Location existing = findEntityById(id);
-        applyEntityPatch(existing, location);
+
+        locationMapper.updateLocationFromDto(dto, existing);
+
         validateEntity(existing);
         validateDuplicateNameForUpdate(existing.getName(), id);
 
         Location saved = locationRepository.saveAndFlush(existing);
         em.refresh(saved);
-        return saved;
-    }
 
-    @Transactional(readOnly = true)
-    public List<Location> getAllEntities() {
-        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
+        return locationMapper.toShowDto(saved);
     }
 
     public void delete(Long id) {
         if (id == null) {
-            throw new CustomException(getMessage("location.id.required", "ID địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID vị trí không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         Location existing = findEntityById(id);
-        locationRepository.delete(existing);
+
+        try {
+            locationRepository.delete(existing);
+            locationRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new CustomException(
+                    "Không thể xóa vị trí vì đang được sử dụng bởi thiết bị, meter hoặc dữ liệu liên quan.",
+                    HttpStatus.CONFLICT
+            );
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public LocationShowDTO getById(Long id) {
+        return locationMapper.toShowDto(findEntityById(id));
     }
 
     @Transactional(readOnly = true)
     public Optional<Location> findById(Long id) {
         if (id == null) {
-            throw new CustomException(getMessage("location.id.required", "ID địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID vị trí không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         return locationRepository.findById(id);
     }
 
     @Transactional(readOnly = true)
     public Location findEntityById(Long id) {
         if (id == null) {
-            throw new CustomException(getMessage("location.id.required", "ID địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
+            throw new CustomException("ID vị trí không được để trống", HttpStatus.BAD_REQUEST);
         }
 
         return locationRepository.findById(id)
                 .orElseThrow(() -> new CustomException(
-                        getMessage("location.notfound", "Location not found"),
+                        "Không tìm thấy vị trí",
                         HttpStatus.NOT_FOUND
                 ));
+    }
+
+    @Transactional(readOnly = true)
+    public List<LocationShowDTO> getAll() {
+        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"))
+                .stream()
+                .map(locationMapper::toShowDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<LocationSummaryDTO> getAllSummary() {
+        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"))
+                .stream()
+                .map(locationMapper::toSummaryDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<LocationShowDTO> search(String keyword) {
+        String q = keyword == null ? "" : keyword.trim();
+
+        if (q.isBlank()) {
+            return getAll();
+        }
+
+        return locationRepository.searchByKeyword(q)
+                .stream()
+                .map(locationMapper::toShowDto)
+                .toList();
     }
 
     public Location save(Location location) {
@@ -125,110 +172,44 @@ public class LocationService {
         locationRepository.saveAll(entities);
     }
 
-
-    public LocationShowDTO create(LocationDTO dto) {
-        if (dto == null) {
-            throw new CustomException(getMessage("location.data.required", "Dữ liệu địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
-        }
-
-        Location entity = locationMapper.fromDto(dto);
-        Location saved = create(entity);
-        return locationMapper.toShowDto(saved);
-    }
-
-    public LocationShowDTO update(Long locationId, LocationDTO dto) {
-        if (locationId == null) {
-            throw new CustomException(getMessage("location.id.required", "ID địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
-        }
-        if (dto == null) {
-            throw new CustomException(getMessage("location.data.required", "Dữ liệu địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
-        }
-
-        Location existing = findEntityById(locationId);
-        locationMapper.updateLocationFromDto(dto, existing);
-        validateEntity(existing);
-        validateDuplicateNameForUpdate(existing.getName(), locationId);
-
-        Location saved = locationRepository.saveAndFlush(existing);
-        em.refresh(saved);
-        return locationMapper.toShowDto(saved);
-    }
-
     @Transactional(readOnly = true)
-    public LocationShowDTO getById(Long locationId) {
-        return locationMapper.toShowDto(findEntityById(locationId));
-    }
-
-    @Transactional(readOnly = true)
-    public List<LocationShowDTO> getAll() {
-        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"))
-                .stream()
-                .map(locationMapper::toShowDto)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<LocationSummaryDTO> getAllSummary() {
-        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"))
-                .stream()
-                .map(locationMapper::toSummaryDto)
-                .toList();
+    public List<Location> getAllEntities() {
+        return locationRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
     }
 
     private void validateEntity(Location location) {
         if (location == null) {
-            throw new CustomException(getMessage("location.data.required", "Dữ liệu địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
+            throw new CustomException("Dữ liệu vị trí không được để trống", HttpStatus.BAD_REQUEST);
         }
-        if (location.getName() == null || location.getName().isBlank()) {
-            throw new CustomException(getMessage("location.name.required", "Tên địa điểm không được để trống"), HttpStatus.BAD_REQUEST);
+
+        if (location.getName() == null || location.getName().trim().isBlank()) {
+            throw new CustomException("Tên vị trí không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        location.setName(location.getName().trim());
+
+        if (location.getAddress() != null) {
+            location.setAddress(location.getAddress().trim());
+        }
+
+        if (location.getParentLocation() != null) {
+            location.setParentLocation(location.getParentLocation().trim());
         }
     }
 
     private void validateDuplicateNameForCreate(String name) {
         String normalized = trim(name);
+
         if (normalized != null && locationRepository.existsByNameIgnoreCase(normalized)) {
-            throw new CustomException(
-                    getMessage("location.name.exists", "Tên địa điểm đã tồn tại"),
-                    HttpStatus.BAD_REQUEST
-            );
+            throw new CustomException("Tên vị trí đã tồn tại", HttpStatus.BAD_REQUEST);
         }
     }
 
     private void validateDuplicateNameForUpdate(String name, Long id) {
         String normalized = trim(name);
+
         if (normalized != null && locationRepository.existsByNameIgnoreCaseAndIdNot(normalized, id)) {
-            throw new CustomException(
-                    getMessage("location.name.exists", "Tên địa điểm đã tồn tại"),
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-    }
-
-    private void applyEntityPatch(Location existing, Location request) {
-        if (request.getName() != null) {
-            existing.setName(request.getName());
-        }
-        if (request.getAddress() != null) {
-            existing.setAddress(request.getAddress());
-        }
-        if (request.getParentLocation() != null) {
-            existing.setParentLocation(request.getParentLocation());
-        }
-        if (request.getVendors() != null) {
-            existing.setVendors(request.getVendors());
-        }
-        if (request.getContractors() != null) {
-            existing.setContractors(request.getContractors());
-        }
-    }
-
-    private String invokeStringGetter(Object target, String methodName) {
-        try {
-            Method method = target.getClass().getMethod(methodName);
-            Object value = method.invoke(target);
-            return value == null ? null : value.toString();
-        } catch (Exception e) {
-            return null;
+            throw new CustomException("Tên vị trí đã tồn tại", HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -236,15 +217,8 @@ public class LocationService {
         if (value == null) {
             return null;
         }
+
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
-    }
-
-    private String getMessage(String code, String defaultMessage) {
-        try {
-            return messageSource.getMessage(code, null, Locale.getDefault());
-        } catch (Exception ex) {
-            return defaultMessage;
-        }
     }
 }

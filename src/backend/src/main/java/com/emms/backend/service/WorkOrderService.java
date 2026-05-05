@@ -331,7 +331,15 @@ public class WorkOrderService {
 
     public void delete(Long id) {
         WorkOrder existing = findEntityById(id);
+
+        if (existing.getStatus() != WorkOrder.WorkOrderStatus.CANCELLED) {
+            throw new CustomException( 
+                "Chỉ được xóa vĩnh viễn Work Order đã hủy",
+                HttpStatus.CONFLICT
+            );
+        }
         workOrderRepository.delete(existing);
+
     }
 
     public WorkOrderShowDTO markCompleted(Long id, Long completedByUserId, String feedback) {
@@ -1062,5 +1070,47 @@ public class WorkOrderService {
             throw new CustomException("Work order là bắt buộc", HttpStatus.BAD_REQUEST);
         }
         return workOrderRepository.save(workOrder);
+    }
+
+    public WorkOrderShowDTO cancel(Long id) {
+        WorkOrder existing = findEntityById(id);
+        
+        if (existing.getStatus() == WorkOrder.WorkOrderStatus.DONE) {
+            throw new CustomException(
+                "Không thể hủy Work Order đã hoàn thành",
+                HttpStatus.CONFLICT
+            );
+        }
+        
+        if (existing.getStatus() == WorkOrder.WorkOrderStatus.CANCELLED) {
+            existing.setArchived(true);
+            WorkOrder saved = workOrderRepository.save(existing);
+            return workOrderMapper.toShowDto(saved);
+        }
+        
+        WorkOrder.WorkOrderStatus oldStatus = existing.getStatus();
+        
+        existing.setStatus(WorkOrder.WorkOrderStatus.CANCELLED);
+        existing.setArchived(true);
+        
+        if (existing.getCompletedOn() == null) {
+            existing.setCompletedOn(LocalDateTime.now());
+        }
+        
+        syncAssetStatusFromWorkOrder(existing);
+        WorkOrder saved = workOrderRepository.save(existing);
+        
+        saveWorkOrderHistorySnapshot(
+            saved,
+            "CANCELLED",
+            buildStatusHistoryNote(oldStatus, WorkOrder.WorkOrderStatus.CANCELLED, "Work Order đã được hủy")
+        );
+        
+        notifyAssignedUser(
+            saved,
+            "Work Order đã bị hủy",
+            "Work Order \"" + safeTitle(saved.getTitle()) + "\" đã bị hủy."
+        );
+        return workOrderMapper.toShowDto(saved);
     }
 }

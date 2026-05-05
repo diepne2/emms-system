@@ -25,8 +25,21 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
     boolean existsByParentAssetName(String parentName);
 
     List<Asset> findByLocationName(String locationName);
+    boolean existsByNameIgnoreCase(String name);
 
     List<Asset> findByNameIgnoreCaseAndStatus(String name, AssetStatus status);
+
+    boolean existsByBarcodeIgnoreCase(String barcode);
+
+    boolean existsBySerialNumberIgnoreCase(String serialNumber);
+    
+    
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
+    
+    boolean existsByBarcodeIgnoreCaseAndIdNot(String barcode, Long id);
+    
+    boolean existsBySerialNumberIgnoreCaseAndIdNot(String serialNumber, Long id);
+
 
     Optional<Asset> findByNameIgnoreCase(String name);
 

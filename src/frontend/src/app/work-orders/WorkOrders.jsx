@@ -23,6 +23,7 @@ import {
   FiSave,
   FiCheckCircle,
   FiArchive,
+  FiSlash,
 } from 'react-icons/fi'
 
 const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api/work-orders'
@@ -134,10 +135,10 @@ const extractErrorMessage = (err, fallback) => {
 
   if (err.response) {
     const data = err.response.data
-    if (typeof data === 'string' && data.trim()) return `HTTP ${err.response.status}: ${data}`
-    if (data?.message) return `HTTP ${err.response.status}: ${data.message}`
-    if (data?.error) return `HTTP ${err.response.status}: ${data.error}`
-    return `HTTP ${err.response.status}: ${fallback}`
+    if (typeof data === 'string' && data.trim()) return data
+    if (data?.message) return data.message
+    if (data?.error) return data.error
+    return fallback
   }
 
   if (err.request) {
@@ -354,7 +355,8 @@ export default function WorkOrders() {
   const canViewDetail = isAuthenticated
   const canCreate = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER', 'TECHNICIAN', 'OPERATOR'])
   const canEdit = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER'])
-  const canDelete = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER'])
+  const canCancel = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER'])
+  const canHardDelete = hasAnyGrant(grants, ['ADMIN'])
   const canArchive = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER'])
 
   const [filterForm, setFilterForm] = useState({
@@ -907,7 +909,10 @@ export default function WorkOrders() {
   }
 
   const openDeleteModal = (item) => {
-    if (!canDelete) return
+    const isCancelled = String(item?.status || '').toUpperCase() === 'CANCELLED'
+
+    if ((!isCancelled && !canCancel) || (isCancelled && !canHardDelete)) return
+
     setDeleteError('')
     setDeleteTarget(item)
     setDeleteOpen(true)
@@ -924,14 +929,37 @@ export default function WorkOrders() {
     const id = deleteTarget?.id
     if (!id) return
 
+    const isCancelled = String(deleteTarget?.status || '').toUpperCase() === 'CANCELLED'
+
+    if (!isCancelled && !canCancel) {
+      setDeleteError('Bạn không có quyền hủy Work Order.')
+      return
+    }
+
+    if (isCancelled && !canHardDelete) {
+      setDeleteError('Chỉ ADMIN mới được xóa vĩnh viễn Work Order đã hủy.')
+      return
+    }
+
     try {
       setDeleteLoadingId(id)
       setDeleteError('')
-      await api.delete(`/${id}`, getAuthConfig())
+
+      if (isCancelled) {
+        await api.delete(`/${id}/hard-delete`, getAuthConfig())
+      } else {
+        await api.patch(`/${id}/cancel`, {}, getAuthConfig())
+      }
+
       closeDeleteModal()
       await loadData()
     } catch (err) {
-      setDeleteError(extractErrorMessage(err, 'Không thể xóa work order.'))
+      setDeleteError(
+        extractErrorMessage(
+          err,
+          isCancelled ? 'Không thể xóa vĩnh viễn Work Order.' : 'Không thể hủy Work Order.',
+        ),
+      )
     } finally {
       setDeleteLoadingId(null)
     }
@@ -1243,10 +1271,14 @@ export default function WorkOrders() {
                   </thead>
                   <tbody>
                     {pagedWorkOrders.map((item, index) => {
+                      const isCancelled = String(item.status || '').toUpperCase() === 'CANCELLED'
+                      const canCancelItem = canCancel && !isCancelled
+                      const canHardDeleteItem = canHardDelete && isCancelled
                       const showAnyActionForItem =
                         canViewDetail ||
                         canEdit ||
-                        canDelete ||
+                        canCancelItem ||
+                        canHardDeleteItem ||
                         canArchive ||
                         canChangeStatusItem(item) ||
                         canCompleteItem(item)
@@ -1333,11 +1365,26 @@ export default function WorkOrders() {
                                     <FiArchive size={16} />
                                   </button>
                                 )}
-                                {canDelete && (
+                                {canCancelItem && (
                                   <button
                                     className="icon-btn icon-btn--danger"
                                     onClick={() => openDeleteModal(item)}
-                                    title="Xóa"
+                                    title="Hủy Work Order"
+                                    disabled={deleteLoadingId === item.id}
+                                    type="button"
+                                  >
+                                    {deleteLoadingId === item.id ? (
+                                      <FiAlertTriangle size={16} />
+                                    ) : (
+                                      <FiSlash size={16} />
+                                    )}
+                                  </button>
+                                )}
+                                {canHardDeleteItem && (
+                                  <button
+                                    className="icon-btn icon-btn--danger"
+                                    onClick={() => openDeleteModal(item)}
+                                    title="Xóa vĩnh viễn"
                                     disabled={deleteLoadingId === item.id}
                                     type="button"
                                   >
@@ -2143,14 +2190,40 @@ export default function WorkOrders() {
           <div className="drawer drawer--small" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
               <div>
-                <h2>Xóa work order</h2>
+                <h2>
+                  {String(deleteTarget?.status || '').toUpperCase() === 'CANCELLED'
+                    ? 'Xóa vĩnh viễn Work Order'
+                    : 'Hủy Work Order'}
+                </h2>
                 <p>
-                  Bạn có chắc muốn xóa work order <strong>{deleteTarget?.id || '-'}</strong> không?
+                  {String(deleteTarget?.status || '').toUpperCase() === 'CANCELLED'
+                    ? 'Thao tác này sẽ xóa thật khỏi cơ sở dữ liệu và không thể hoàn tác.'
+                    : 'Work Order sẽ được chuyển sang trạng thái Đã hủy và lưu trữ, không bị xóa khỏi cơ sở dữ liệu.'}
                 </p>
               </div>
               <button className="drawer-close" onClick={closeDeleteModal} type="button">
                 <FiX size={22} />
               </button>
+            </div>
+
+            <div className="drawer-body">
+              {deleteError && (
+                <div className="drawer-message drawer-message--error drawer-message--inline">
+                  {deleteError}
+                </div>
+              )}
+
+              <div className="delete-box">
+                <div className="filters-panel__icon">
+                  <FiAlertTriangle size={18} />
+                </div>
+                <div className="delete-box__content">
+                  <h3>WO #{deleteTarget?.id || '-'}</h3>
+                  <p>
+                    {deleteTarget?.title || 'Không có tiêu đề'}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="drawer-footer">
@@ -2160,7 +2233,7 @@ export default function WorkOrders() {
                 disabled={Boolean(deleteLoadingId)}
                 type="button"
               >
-                Hủy
+                Đóng
               </button>
               <button
                 className="btn btn-danger-solid"
@@ -2168,8 +2241,18 @@ export default function WorkOrders() {
                 disabled={Boolean(deleteLoadingId)}
                 type="button"
               >
-                <FiTrash2 size={16} />
-                <span>{deleteLoadingId ? 'Đang xóa...' : 'Xóa work order'}</span>
+                {String(deleteTarget?.status || '').toUpperCase() === 'CANCELLED' ? (
+                  <FiTrash2 size={16} />
+                ) : (
+                  <FiSlash size={16} />
+                )}
+                <span>
+                  {deleteLoadingId
+                    ? 'Đang xử lý...'
+                    : String(deleteTarget?.status || '').toUpperCase() === 'CANCELLED'
+                      ? 'Xóa vĩnh viễn'
+                      : 'Hủy Work Order'}
+                </span>
               </button>
             </div>
           </div>
