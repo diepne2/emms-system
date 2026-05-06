@@ -28,10 +28,18 @@ import {
   GripVertical,
   MoreHorizontal,
   Send,
+  Eye,
+  X,
+  MessageSquare,
+  MapPin,
+  Hash,
+  AlertCircle,
 } from 'lucide-react';
 import './WorkOrdersDashboard.css';
 
-const API_BASE_URL = 'https://emms-system-production-4239.up.railway.app/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/api`
+  : 'https://emms-system-production-4239.up.railway.app/api';
 
 const STATUS_COLUMNS = [
   { key: 'OPEN', label: 'TO DO', icon: <ClipboardList size={16} /> },
@@ -40,6 +48,15 @@ const STATUS_COLUMNS = [
   { key: 'PENDING', label: 'PENDING', icon: <Clock3 size={16} /> },
   { key: 'DONE', label: 'DONE', icon: <CheckCircle2 size={16} />, done: true },
 ];
+
+const STATUS_LABEL = {
+  OPEN: 'Mở mới',
+  IN_PROGRESS: 'Đang thực hiện',
+  ON_HOLD: 'Tạm dừng',
+  PENDING: 'Chờ duyệt',
+  DONE: 'Hoàn thành',
+  CANCELLED: 'Đã hủy',
+};
 
 const PRIORITY_CLASS_MAP = {
   LOW: 'wo-board-card__priority--low',
@@ -52,7 +69,6 @@ const TECHNICIAN_TRANSITIONS = {
   OPEN: [
     { to: 'IN_PROGRESS', label: 'Bắt đầu', icon: <PlayCircle size={14} /> },
     { to: 'ON_HOLD', label: 'Tạm dừng', icon: <PauseCircle size={14} /> },
-    
   ],
   IN_PROGRESS: [
     { to: 'ON_HOLD', label: 'Tạm dừng', icon: <PauseCircle size={14} /> },
@@ -186,10 +202,7 @@ const extractErrorMessage = (err, fallback) => {
     return `HTTP ${err.response.status}: ${fallback}`;
   }
 
-  if (err.request) {
-    return 'Không nhận được phản hồi từ backend. Kiểm tra backend/CORS/network.';
-  }
-
+  if (err.request) return 'Không nhận được phản hồi từ backend. Kiểm tra backend/CORS/network.';
   return err.message || fallback;
 };
 
@@ -198,6 +211,11 @@ const formatDate = (value) => {
   const str = String(value);
   if (str.includes('T')) return str.split('T')[0];
   return str.length >= 10 ? str.slice(0, 10) : str;
+};
+
+const formatDateTime = (value) => {
+  if (!value) return '-';
+  return String(value).replace('T', ' ').slice(0, 16);
 };
 
 const compareWorkOrders = (a, b) => {
@@ -211,12 +229,11 @@ const compareWorkOrders = (a, b) => {
 };
 
 const getAssetName = (wo) => wo?.asset?.name || wo?.assetName || '-';
+const getLocationName = (wo) => wo?.locationName || wo?.asset?.locationName || wo?.asset?.location?.name || '-';
 
 const getAssigneeName = (wo) => {
   const user = wo?.assignedTo;
-  if (!user) {
-    return wo?.assignedToName || 'Chưa phân công';
-  }
+  if (!user) return wo?.assignedToName || 'Chưa phân công';
 
   return (
     user.fullName ||
@@ -229,15 +246,8 @@ const getAssigneeName = (wo) => {
 
 const getAllowedActions = (workOrder, context) => {
   const currentStatus = normalizeStatus(workOrder?.status);
-
-  if (context.isManager) {
-    return MANAGER_TRANSITIONS[currentStatus] || [];
-  }
-
-  if (context.isTechnician) {
-    return TECHNICIAN_TRANSITIONS[currentStatus] || [];
-  }
-
+  if (context.isManager) return MANAGER_TRANSITIONS[currentStatus] || [];
+  if (context.isTechnician) return TECHNICIAN_TRANSITIONS[currentStatus] || [];
   return [];
 };
 
@@ -257,37 +267,15 @@ const getFallbackActions = (workOrder, context) => {
   }
 
   if (currentStatus === 'PENDING') {
-    if (context.isManager) {
-      return [
-        {
-          to: 'PENDING',
-          label: 'Chờ xử lý',
-          icon: <Clock3 size={14} />,
-          disabled: true,
-          reason: 'Đang chờ quản lý xử lý.',
-        },
-      ];
-    }
-
     return [
       {
         to: 'PENDING',
-        label: 'Chờ duyệt',
+        label: context.isManager ? 'Chờ xử lý' : 'Chờ duyệt',
         icon: <Clock3 size={14} />,
         disabled: true,
-        reason: 'Work order đang chờ quản lý duyệt.',
-      },
-    ];
-  }
-
-  if (context.isTechnician) {
-    return [
-      {
-        to: currentStatus,
-        label: 'Không có thao tác',
-        icon: <MoreHorizontal size={14} />,
-        disabled: true,
-        reason: 'Không có thao tác hợp lệ cho trạng thái hiện tại.',
+        reason: context.isManager
+          ? 'Đang chờ quản lý xử lý.'
+          : 'Work order đang chờ quản lý duyệt.',
       },
     ];
   }
@@ -320,8 +308,11 @@ export default function WorkOrdersDashboard() {
   const [loading, setLoading] = useState(false);
   const [changingId, setChangingId] = useState(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
+  const [feedbackModal, setFeedbackModal] = useState({ open: false, workOrder: null, nextStatus: '', feedback: '' });
 
   const token = getToken();
   const { grants } = useMemo(() => getUserContext(), [token]);
@@ -353,6 +344,11 @@ export default function WorkOrdersDashboard() {
     [isManager, isTechnician, isOperator],
   );
 
+  const showNotice = useCallback((type, message) => {
+    setNotice({ type, message });
+    window.setTimeout(() => setNotice(null), 3200);
+  }, []);
+
   const fetchWorkOrders = useCallback(async () => {
     try {
       setLoading(true);
@@ -373,21 +369,20 @@ export default function WorkOrdersDashboard() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setContextMenu(null);
-      }
+      if (menuRef.current && !menuRef.current.contains(event.target)) setContextMenu(null);
     };
-
     const handleScrollClose = () => setContextMenu(null);
-
     const handleEscape = (event) => {
-      if (event.key === 'Escape') setContextMenu(null);
+      if (event.key === 'Escape') {
+        setContextMenu(null);
+        setDetailItem(null);
+        setFeedbackModal({ open: false, workOrder: null, nextStatus: '', feedback: '' });
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('scroll', handleScrollClose, true);
     document.addEventListener('keydown', handleEscape);
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('scroll', handleScrollClose, true);
@@ -397,12 +392,10 @@ export default function WorkOrdersDashboard() {
 
   const groupedWorkOrders = useMemo(() => {
     const groups = { OPEN: [], IN_PROGRESS: [], ON_HOLD: [], PENDING: [], DONE: [] };
-
     workOrders.forEach((wo) => {
       const status = normalizeStatus(wo?.status);
       if (groups[status]) groups[status].push(wo);
     });
-
     Object.keys(groups).forEach((key) => groups[key].sort(compareWorkOrders));
     return groups;
   }, [workOrders]);
@@ -412,14 +405,12 @@ export default function WorkOrdersDashboard() {
     return workOrders.find((item) => String(item.id) === String(activeId)) || null;
   }, [activeId, workOrders]);
 
-  const handleChangeStatus = useCallback(
-    async (workOrder, nextStatus) => {
+  const openFeedbackModal = useCallback(
+    (workOrder, nextStatus) => {
       if (!workOrder?.id || !nextStatus) return;
 
       const actions = getAllowedActions(workOrder, buildActionContext());
-      const allowed = actions.some(
-        (action) => normalizeStatus(action.to) === normalizeStatus(nextStatus),
-      );
+      const allowed = actions.some((action) => normalizeStatus(action.to) === normalizeStatus(nextStatus));
 
       if (!allowed) {
         setError('Bạn không được phép chuyển trạng thái này.');
@@ -428,39 +419,58 @@ export default function WorkOrdersDashboard() {
 
       if (normalizeStatus(workOrder.status) === normalizeStatus(nextStatus)) return;
 
-      try {
-        setChangingId(workOrder.id);
-        setError('');
-        setContextMenu(null);
-
-        await axiosInstance.patch(`/work-orders/${workOrder.id}/status`, {
-          status: nextStatus,
-          feedback: null,
-        });
-
-        setWorkOrders((prev) =>
-          prev.map((item) =>
-            item.id === workOrder.id
-              ? {
-                  ...item,
-                  status: nextStatus,
-                  completedOn:
-                    nextStatus === 'DONE' || nextStatus === 'PENDING'
-                      ? item.completedOn || new Date().toISOString()
-                      : null,
-                }
-              : item,
-          ),
-        );
-      } catch (err) {
-        setError(extractErrorMessage(err, 'Cập nhật trạng thái thất bại'));
-        await fetchWorkOrders();
-      } finally {
-        setChangingId(null);
-      }
+      setContextMenu(null);
+      setFeedbackModal({
+        open: true,
+        workOrder,
+        nextStatus,
+        feedback: workOrder?.feedback || '',
+      });
     },
-    [axiosInstance, buildActionContext, fetchWorkOrders],
+    [buildActionContext],
   );
+
+  const submitStatusChange = useCallback(async () => {
+    const { workOrder, nextStatus, feedback } = feedbackModal;
+    if (!workOrder?.id || !nextStatus) return;
+
+    try {
+      setChangingId(workOrder.id);
+      setError('');
+
+      const payloadFeedback = feedback?.trim() || '';
+      await axiosInstance.patch(`/work-orders/${workOrder.id}/status`, {
+        status: nextStatus,
+        feedback: payloadFeedback,
+      });
+
+      setWorkOrders((prev) =>
+        prev.map((item) =>
+          item.id === workOrder.id
+            ? {
+                ...item,
+                status: nextStatus,
+                feedback: payloadFeedback || item.feedback,
+                completedOn:
+                  nextStatus === 'DONE' || nextStatus === 'PENDING'
+                    ? item.completedOn || new Date().toISOString()
+                    : null,
+              }
+            : item,
+        ),
+      );
+
+      setFeedbackModal({ open: false, workOrder: null, nextStatus: '', feedback: '' });
+      showNotice('success', `Đã chuyển Work Order #${workOrder.id} sang ${STATUS_LABEL[nextStatus] || nextStatus}.`);
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Cập nhật trạng thái thất bại');
+      setError(message);
+      showNotice('error', message);
+      await fetchWorkOrders();
+    } finally {
+      setChangingId(null);
+    }
+  }, [axiosInstance, feedbackModal, fetchWorkOrders, showNotice]);
 
   const handleDragStart = useCallback((event) => {
     if (!event?.active?.id) return;
@@ -472,7 +482,6 @@ export default function WorkOrdersDashboard() {
     async (event) => {
       const { active, over } = event;
       setActiveId(null);
-
       if (!active || !over) return;
 
       const dragged = workOrders.find((item) => String(item.id) === String(active.id));
@@ -492,13 +501,15 @@ export default function WorkOrdersDashboard() {
         return;
       }
 
-      await handleChangeStatus(dragged, targetStatus);
+      openFeedbackModal(dragged, targetStatus);
     },
-    [workOrders, buildActionContext, handleChangeStatus],
+    [workOrders, buildActionContext, openFeedbackModal],
   );
 
   return (
     <div className="wo-jira-page">
+      {notice ? <div className={`wo-toast wo-toast--${notice.type}`}>{notice.message}</div> : null}
+
       <div className="wo-jira-toolbar">
         <div className="wo-jira-toolbar__left">
           <h2>Work Orders Dashboard</h2>
@@ -510,12 +521,7 @@ export default function WorkOrdersDashboard() {
         </div>
 
         <div className="wo-jira-toolbar__right">
-          <button
-            type="button"
-            className="wo-board-card__mini-btn"
-            onClick={fetchWorkOrders}
-            disabled={loading}
-          >
+          <button type="button" className="wo-board-card__mini-btn" onClick={fetchWorkOrders} disabled={loading}>
             <RefreshCw size={14} style={{ marginRight: 6 }} />
             {loading ? 'Đang tải...' : 'Làm mới'}
           </button>
@@ -534,7 +540,6 @@ export default function WorkOrdersDashboard() {
         <div className="wo-jira-board wo-jira-board--five-cols">
           {STATUS_COLUMNS.map((column) => {
             const items = groupedWorkOrders[column.key] || [];
-
             return (
               <KanbanColumn
                 key={column.key}
@@ -546,16 +551,14 @@ export default function WorkOrdersDashboard() {
                 {items.length === 0 ? (
                   <div className="wo-jira-column__empty">Không có work order nào</div>
                 ) : (
-                  <SortableContext
-                    items={items.map((item) => String(item.id))}
-                    strategy={verticalListSortingStrategy}
-                  >
+                  <SortableContext items={items.map((item) => String(item.id))} strategy={verticalListSortingStrategy}>
                     {items.map((wo) => (
                       <SortableWorkOrderCard
                         key={wo.id}
                         workOrder={wo}
                         changing={changingId === wo.id}
-                        onChangeStatus={handleChangeStatus}
+                        onChangeStatus={openFeedbackModal}
+                        onViewDetail={setDetailItem}
                         actionContext={buildActionContext()}
                         contextMenu={contextMenu}
                         setContextMenu={setContextMenu}
@@ -569,10 +572,19 @@ export default function WorkOrdersDashboard() {
           })}
         </div>
 
-        <DragOverlay>
-          {activeWorkOrder ? <WorkOrderCardPreview workOrder={activeWorkOrder} /> : null}
-        </DragOverlay>
+        <DragOverlay>{activeWorkOrder ? <WorkOrderCardPreview workOrder={activeWorkOrder} /> : null}</DragOverlay>
       </DndContext>
+
+      {detailItem ? <WorkOrderDetailModal workOrder={detailItem} onClose={() => setDetailItem(null)} /> : null}
+
+      {feedbackModal.open ? (
+        <FeedbackModal
+          feedbackModal={feedbackModal}
+          setFeedbackModal={setFeedbackModal}
+          changing={Boolean(changingId)}
+          onSubmit={submitStatusChange}
+        />
+      ) : null}
     </div>
   );
 }
@@ -602,11 +614,8 @@ function KanbanColumn({ column, items, children, activeWorkOrder, actionContext 
           {column.icon}
           <span>{column.label}</span>
         </div>
-        <span className={`wo-jira-column__count ${column.done ? 'wo-jira-column__count--done' : ''}`}>
-          {items.length}
-        </span>
+        <span className={`wo-jira-column__count ${column.done ? 'wo-jira-column__count--done' : ''}`}>{items.length}</span>
       </div>
-
       <div className="wo-jira-column__body">{children}</div>
     </div>
   );
@@ -616,6 +625,7 @@ function SortableWorkOrderCard({
   workOrder,
   changing,
   onChangeStatus,
+  onViewDetail,
   actionContext,
   contextMenu,
   setContextMenu,
@@ -669,31 +679,24 @@ function SortableWorkOrderCard({
       <div className="wo-board-card__top">
         <div className="wo-board-card__title-wrap">
           {dragAllowed ? (
-            <button
-              type="button"
-              className="wo-board-card__drag-handle"
-              aria-label="Kéo thả"
-              {...attributes}
-              {...listeners}
-            >
+            <button type="button" className="wo-board-card__drag-handle" aria-label="Kéo thả" {...attributes} {...listeners}>
               <GripVertical size={16} />
             </button>
           ) : (
             <div className="wo-board-card__drag-placeholder" />
           )}
 
-          <div className="wo-board-card__title-box">
-            <div className="wo-board-card__title">
-              {workOrder?.title || `Work Order #${workOrder?.id}`}
-            </div>
+          <button type="button" className="wo-board-card__title-box wo-board-card__title-box--button" onClick={() => onViewDetail(workOrder)}>
+            <div className="wo-board-card__title">{workOrder?.title || `Work Order #${workOrder?.id}`}</div>
             <div className="wo-board-card__id">#{workOrder?.id}</div>
-          </div>
+          </button>
         </div>
 
         <div className="wo-board-card__top-right">
-          <span className={`wo-board-card__priority ${PRIORITY_CLASS_MAP[priority] || ''}`}>
-            {priority}
-          </span>
+          <span className={`wo-board-card__priority ${PRIORITY_CLASS_MAP[priority] || ''}`}>{priority}</span>
+          <button type="button" className="wo-board-card__more-btn" onClick={() => onViewDetail(workOrder)} title="Xem chi tiết">
+            <Eye size={16} />
+          </button>
           <button
             type="button"
             className="wo-board-card__more-btn"
@@ -707,6 +710,13 @@ function SortableWorkOrderCard({
       </div>
 
       <div className="wo-board-card__desc">{description}</div>
+
+      {workOrder?.feedback ? (
+        <div className="wo-board-card__feedback">
+          <MessageSquare size={13} />
+          <span>{workOrder.feedback}</span>
+        </div>
+      ) : null}
 
       <div className="wo-board-card__meta-list">
         <div className="wo-board-card__meta-row">
@@ -741,16 +751,10 @@ function SortableWorkOrderCard({
         ))}
       </div>
 
-      {!actions.length && displayActions[0]?.reason ? (
-        <div className="wo-board-card__action-note">{displayActions[0].reason}</div>
-      ) : null}
+      {!actions.length && displayActions[0]?.reason ? <div className="wo-board-card__action-note">{displayActions[0].reason}</div> : null}
 
       {menuOpen ? (
-        <div
-          ref={menuRef}
-          className="wo-card-menu"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-        >
+        <div ref={menuRef} className="wo-card-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
           {contextMenu.actions.map((action) => (
             <button
               key={`${workOrder.id}-${action.to}-menu`}
@@ -771,27 +775,116 @@ function SortableWorkOrderCard({
 
 function WorkOrderCardPreview({ workOrder }) {
   const priority = normalizePriority(workOrder?.priority);
-
   return (
     <div className="wo-board-card wo-board-card--drag-preview">
       <div className="wo-board-card__top">
         <div className="wo-board-card__title-wrap">
-          <div className="wo-board-card__drag-handle">
-            <GripVertical size={16} />
-          </div>
+          <div className="wo-board-card__drag-handle"><GripVertical size={16} /></div>
           <div className="wo-board-card__title-box">
-            <div className="wo-board-card__title">
-              {workOrder?.title || `Work Order #${workOrder?.id}`}
-            </div>
+            <div className="wo-board-card__title">{workOrder?.title || `Work Order #${workOrder?.id}`}</div>
             <div className="wo-board-card__id">#{workOrder?.id}</div>
           </div>
         </div>
-        <span className={`wo-board-card__priority ${PRIORITY_CLASS_MAP[priority] || ''}`}>
-          {priority}
-        </span>
+        <span className={`wo-board-card__priority ${PRIORITY_CLASS_MAP[priority] || ''}`}>{priority}</span>
       </div>
-      <div className="wo-board-card__desc">
-        {workOrder?.description?.trim() || 'Không có mô tả'}
+      <div className="wo-board-card__desc">{workOrder?.description?.trim() || 'Không có mô tả'}</div>
+    </div>
+  );
+}
+
+function WorkOrderDetailModal({ workOrder, onClose }) {
+  const status = normalizeStatus(workOrder?.status);
+  const priority = normalizePriority(workOrder?.priority);
+
+  return (
+    <div className="wo-modal-overlay" onClick={onClose}>
+      <div className="wo-detail-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="wo-detail-modal__header">
+          <div>
+            <div className="wo-detail-modal__eyebrow">WO #{workOrder?.id}</div>
+            <h3>{workOrder?.title || 'Không có tiêu đề'}</h3>
+            <p>{workOrder?.description || 'Không có mô tả'}</p>
+          </div>
+          <button type="button" className="wo-detail-modal__close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="wo-detail-modal__body">
+          <div className="wo-detail-grid">
+            <DetailItem icon={<Hash size={15} />} label="Trạng thái" value={STATUS_LABEL[status] || status || '-'} />
+            <DetailItem icon={<AlertCircle size={15} />} label="Ưu tiên" value={priority} />
+            <DetailItem icon={<Wrench size={15} />} label="Thiết bị" value={getAssetName(workOrder)} />
+            <DetailItem icon={<MapPin size={15} />} label="Vị trí" value={getLocationName(workOrder)} />
+            <DetailItem icon={<User size={15} />} label="Người phụ trách" value={getAssigneeName(workOrder)} />
+            <DetailItem icon={<CalendarDays size={15} />} label="Hạn xử lý" value={formatDate(workOrder?.dueDate)} />
+            <DetailItem icon={<CalendarDays size={15} />} label="Ngày tạo" value={formatDateTime(workOrder?.createdAt || workOrder?.dateCreated)} />
+            <DetailItem icon={<CalendarDays size={15} />} label="Hoàn thành lúc" value={formatDateTime(workOrder?.completedOn)} />
+            <DetailItem icon={<MessageSquare size={15} />} label="Feedback" value={workOrder?.feedback || 'Chưa có feedback'} full />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailItem({ icon, label, value, full = false }) {
+  return (
+    <div className={`wo-detail-item ${full ? 'wo-detail-item--full' : ''}`}>
+      <div className="wo-detail-item__label">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <div className="wo-detail-item__value">{value || '-'}</div>
+    </div>
+  );
+}
+
+function FeedbackModal({ feedbackModal, setFeedbackModal, changing, onSubmit }) {
+  const { workOrder, nextStatus, feedback } = feedbackModal;
+
+  const close = () => {
+    if (changing) return;
+    setFeedbackModal({ open: false, workOrder: null, nextStatus: '', feedback: '' });
+  };
+
+  return (
+    <div className="wo-modal-overlay" onClick={close}>
+      <div className="wo-feedback-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="wo-feedback-modal__header">
+          <div>
+            <h3>Thêm feedback</h3>
+            <p>
+              WO #{workOrder?.id} chuyển sang <strong>{STATUS_LABEL[nextStatus] || nextStatus}</strong>
+            </p>
+          </div>
+          <button type="button" className="wo-detail-modal__close" onClick={close}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="wo-feedback-modal__body">
+          <label className="wo-feedback-label">Feedback / ghi chú xử lý</label>
+          <textarea
+            className="wo-feedback-textarea"
+            value={feedback}
+            onChange={(event) =>
+              setFeedbackModal((prev) => ({ ...prev, feedback: event.target.value }))
+            }
+            placeholder="Nhập lý do, kết quả xử lý hoặc ghi chú cho quản lý/kỹ thuật viên..."
+            rows={5}
+          />
+          <div className="wo-feedback-hint">Feedback sẽ được lưu vào Work Order và history khi cập nhật trạng thái.</div>
+        </div>
+
+        <div className="wo-feedback-modal__footer">
+          <button type="button" className="wo-feedback-btn wo-feedback-btn--secondary" onClick={close} disabled={changing}>
+            Hủy
+          </button>
+          <button type="button" className="wo-feedback-btn wo-feedback-btn--primary" onClick={onSubmit} disabled={changing}>
+            {changing ? 'Đang lưu...' : 'Cập nhật trạng thái'}
+          </button>
+        </div>
       </div>
     </div>
   );

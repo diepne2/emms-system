@@ -3,6 +3,8 @@ package com.emms.backend.dto.preventiveMaintenance;
 import com.emms.backend.entity.enums.Priority;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.time.LocalDate;
+
 @Schema(description = "Summary DTO for preventive maintenance")
 public class PreventiveMaintenanceSummaryDTO {
 
@@ -20,6 +22,10 @@ public class PreventiveMaintenanceSummaryDTO {
 
     private Priority priority;
 
+    private LocalDate startsOn;
+    private LocalDate endsOn;
+    private RecurrenceRule recurrenceRule;
+
     public PreventiveMaintenanceSummaryDTO() {
     }
 
@@ -33,7 +39,10 @@ public class PreventiveMaintenanceSummaryDTO {
             String assetName,
             Long assignedToId,
             String assignedToName,
-            Priority priority
+            Priority priority,
+            LocalDate startsOn,
+            LocalDate endsOn,
+            RecurrenceRule recurrenceRule
     ) {
         this.id = id;
         this.code = trim(code);
@@ -45,6 +54,9 @@ public class PreventiveMaintenanceSummaryDTO {
         this.assignedToId = assignedToId;
         this.assignedToName = trim(assignedToName);
         this.priority = priority;
+        this.startsOn = startsOn;
+        this.endsOn = endsOn;
+        this.recurrenceRule = recurrenceRule;
     }
 
     public Long getId() { return id; }
@@ -76,6 +88,15 @@ public class PreventiveMaintenanceSummaryDTO {
 
     public Priority getPriority() { return priority; }
     public void setPriority(Priority priority) { this.priority = priority; }
+
+    public LocalDate getStartsOn() { return startsOn; }
+    public void setStartsOn(LocalDate startsOn) { this.startsOn = startsOn; }
+
+    public LocalDate getEndsOn() { return endsOn; }
+    public void setEndsOn(LocalDate endsOn) { this.endsOn = endsOn; }
+
+    public RecurrenceRule getRecurrenceRule() { return recurrenceRule; }
+    public void setRecurrenceRule(RecurrenceRule recurrenceRule) { this.recurrenceRule = recurrenceRule; }
 
     private String trim(String value) {
         if (value == null) return null;

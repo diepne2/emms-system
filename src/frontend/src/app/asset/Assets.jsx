@@ -1108,9 +1108,22 @@ export default function Assets() {
                           </td>
                           <td>{asset.category || '-'}</td>
                           <td>
-                            <span className={getStatusBadgeClass(asset.status)}>
-                              {getStatusLabel(asset.status)}
-                            </span>
+                            {String(asset?.status || '').toUpperCase() === 'BREAKDOWN' ? (
+                              <button
+                                className={`${getStatusBadgeClass(asset.status)} badge-button`}
+                                type="button"
+                                onClick={() => {
+                                  window.location.hash = `/asset-downtimes?assetId=${getAssetId(asset)}`
+                                }}
+                                title="Xem nhật ký dừng máy"
+                              >
+                                {getStatusLabel(asset.status)}
+                              </button>
+                            ) : (
+                              <span className={getStatusBadgeClass(asset.status)}>
+                                {getStatusLabel(asset.status)}
+                              </span>
+                            )}
                           </td>
                           <td>{asset.locationName || '-'}</td>
                           <td>{asset.assignedTo || '-'}</td>

@@ -14,7 +14,7 @@ const emptyForm = {
   name: '',
   address: '',
   description: '',
-  parentLocationId: '',
+  parentLocation: '',
 }
 
 const getToken = () =>
@@ -104,7 +104,7 @@ const Location = () => {
       name: location.name || '',
       address: location.address || '',
       description: location.description || '',
-      parentLocationId: location.parentLocationId || '',
+      parentLocation: location.parentLocation || '',
     })
     setDrawerMode('edit')
   }
@@ -126,9 +126,7 @@ const Location = () => {
       name: form.name.trim(),
       address: form.address.trim(),
       description: form.description.trim(),
-      parentLocationId: form.parentLocationId
-        ? Number(form.parentLocationId)
-        : null,
+      parentLocation: form.parentLocation.trim(),
     }
 
     try {
@@ -460,8 +458,8 @@ const Location = () => {
                       <label className="form-label">Vị trí cha</label>
                       <select
                         className="form-input"
-                        name="parentLocationId"
-                        value={form.parentLocationId}
+                        name="parentLocation"
+                        value={form.parentLocation}
                         onChange={handleChange}
                       >
                         <option value="">Không có</option>

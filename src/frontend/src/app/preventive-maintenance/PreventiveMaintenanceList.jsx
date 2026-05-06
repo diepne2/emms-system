@@ -159,12 +159,33 @@ const initialsOf = (name) => {
   return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
 }
 
+const normalizeRecurrenceType = (value) => {
+  if (!value) return ''
+
+  const raw = String(value).trim().toUpperCase()
+
+  if (raw.includes('WEEK')) return 'WEEKLY'
+  if (raw.includes('MONTH')) return 'MONTHLY'
+  if (raw.includes('YEAR')) return 'YEARLY'
+  if (raw.includes('DAY')) return 'DAILY'
+
+  if (raw.includes('TUẦN')) return 'WEEKLY'
+  if (raw.includes('THÁNG')) return 'MONTHLY'
+  if (raw.includes('NĂM')) return 'YEARLY'
+  if (raw.includes('NGÀY')) return 'DAILY'
+
+  return raw
+}
+
 const getRecurrenceType = (record) =>
-  record?.recurrenceRule?.type ||
-  record?.schedule?.recurrenceType ||
-  record?.schedule?.type ||
-  record?.type ||
-  ''
+  normalizeRecurrenceType(
+    record?.recurrenceRule?.type ||
+      record?.recurrenceType ||
+      record?.schedule?.recurrenceType ||
+      record?.schedule?.type ||
+      record?.type ||
+      '',
+  )
 
 const getFrequencyText = (record) => {
   const type = getRecurrenceType(record)
@@ -234,7 +255,6 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
 
   useEffect(() => {
     if (autoOpenCreate) openCreateModal()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenCreate])
 
   useEffect(() => {
@@ -245,7 +265,6 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
     if (item) openEditModal(item)
 
     navigate('/preventive-maintenance', { replace: true, state: null })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, items])
 
   const closeModal = () => {

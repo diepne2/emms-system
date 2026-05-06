@@ -1,227 +1,193 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
-import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api'
+import { useEffect, useMemo, useState } from 'react'
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import './location.css'
 
-const api = axios.create({
-  baseURL: 'https://emms-system-production-4239.up.railway.app/api',
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://emms-system-production-4239.up.railway.app'
+
+const LOCATIONS_API = `${API_BASE}/api/locations`
+
+delete L.Icon.Default.prototype._getIconUrl
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl:
+    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl:
+    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
 const getToken = () =>
-  localStorage.getItem('accessToken') ||
   localStorage.getItem('token') ||
+  localStorage.getItem('accessToken') ||
   localStorage.getItem('access_token') ||
-  sessionStorage.getItem('accessToken') ||
-  sessionStorage.getItem('token') ||
-  sessionStorage.getItem('access_token') ||
+  localStorage.getItem('jwt') ||
   ''
 
-const getAuthConfig = () => {
+const getAuthHeaders = () => {
   const token = getToken()
-  return {
-    headers: token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : {},
-  }
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY'
+const getLat = (item) =>
+  Number(item?.latitude || item?.lat || item?.mapLat || 21.0285)
 
-const defaultCenter = {
-  lat: 10.9804,
-  lng: 106.6519,
-}
-
-const fakeGeocode = (address = '', index = 0) => {
-  const text = String(address).toLowerCase()
-
-  if (text.includes('bình dương') || text.includes('thuận an')) {
-    return { lat: 10.8797 + index * 0.002, lng: 106.7523 + index * 0.002 }
-  }
-
-  if (text.includes('nghệ an')) {
-    return { lat: 18.6796 + index * 0.002, lng: 105.6813 + index * 0.002 }
-  }
-
-  if (text.includes('hà nội')) {
-    return { lat: 21.0285 + index * 0.002, lng: 105.8542 + index * 0.002 }
-  }
-
-  if (text.includes('hồ chí minh') || text.includes('tp hcm')) {
-    return { lat: 10.7769 + index * 0.002, lng: 106.7009 + index * 0.002 }
-  }
-
-  return { lat: defaultCenter.lat + index * 0.002, lng: defaultCenter.lng + index * 0.002 }
-}
+const getLng = (item) =>
+  Number(item?.longitude || item?.lng || item?.mapLng || 105.8542)
 
 export default function LocationMap() {
   const [locations, setLocations] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [keyword, setKeyword] = useState('')
+
+  const loadLocations = async () => {
+    try {
+      setLoading(true)
+      setError('')
+
+      const res = await fetch(LOCATIONS_API, {
+        headers: getAuthHeaders(),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data?.message || 'Không tải được danh sách vị trí.')
+      }
+
+      setLocations(Array.isArray(data) ? data : data?.content || data?.data || [])
+    } catch (err) {
+      setError(err.message || 'Không tải được danh sách vị trí.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        setLoading(true)
-        setError('')
-        const res = await api.get('/locations', getAuthConfig())
-        setLocations(Array.isArray(res.data) ? res.data : [])
-      } catch (err) {
-        setError(
-          err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            'Không tải được danh sách vị trí.',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchLocations()
+    loadLocations()
   }, [])
 
   const filteredLocations = useMemo(() => {
-    const keyword = search.trim().toLowerCase()
-    if (!keyword) return locations
+    const q = keyword.trim().toLowerCase()
+    if (!q) return locations
 
     return locations.filter((item) =>
-      [item?.name, item?.address, item?.parentLocation, item?.vendors, item?.contractors].some(
-        (field) => String(field || '').toLowerCase().includes(keyword),
-      ),
+      [
+        item.name,
+        item.address,
+        item.description,
+        item.parentLocation,
+        item.vendors,
+        item.contractors,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
     )
-  }, [locations, search])
+  }, [locations, keyword])
 
-  const mapLocations = useMemo(() => {
-    return filteredLocations.map((item, index) => {
-      const position =
-        item.latitude && item.longitude
-          ? { lat: Number(item.latitude), lng: Number(item.longitude) }
-          : fakeGeocode(item.address, index)
+  const handleSearch = () => {
+    setKeyword(searchInput)
+  }
 
-      return {
-        ...item,
-        position,
-      }
-    })
-  }, [filteredLocations])
-
-  const center = mapLocations.length > 0 ? mapLocations[0].position : defaultCenter
+  const handleReset = () => {
+    setSearchInput('')
+    setKeyword('')
+  }
 
   return (
-    <div className="location-page">
-      <div className="card">
-        <div className="assets-header">
-          <div className="assets-header__top">
-            <div className="assets-header__intro">
-              <div className="assets-header__mini-title">Bản đồ vị trí</div>
+    <div className="location-map-page">
+      <div className="location-map-card">
+        <h2>Bản đồ vị trí</h2>
+
+        <div className="location-map-filter">
+          <div className="location-map-filter-header">
+            <div className="location-map-icon">📍</div>
+            <div>
+              <h3>OpenStreetMap</h3>
             </div>
           </div>
 
-          <div className="filters-panel">
-            <div className="filters-panel__header">
-              <div className="filters-panel__title-wrap">
-                <div className="filters-panel__icon">📍</div>
-                <div>
-                  <div className="filters-panel__title">Google Map</div>
-                </div>
-              </div>
-            </div>
+          <label>Tìm kiếm</label>
+          <div className="location-map-search-row">
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Tìm kiếm"
+            />
 
-            <div className="filters-grid filters-grid--1">
-              <div className="filter-field">
-                <label className="filter-label">Tìm kiếm</label>
-                <div className="search-box">
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
+            <button
+              className="location-map-search-btn"
+              type="button"
+              onClick={handleSearch}
+            >
+              Tìm kiếm
+            </button>
+
+            <button
+              className="location-map-reset-btn"
+              type="button"
+              onClick={handleReset}
+            >
+              Làm mới
+            </button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="assets-message">Đang tải bản đồ...</div>
-        ) : error ? (
-          <div className="assets-message assets-message--error">{error}</div>
-        ) : (
-          <div className="map-card">
-            <div className="map-card__sidebar">
-              <div className="list-section__title">
-                Danh sách vị trí
-                <span className="list-badge">{mapLocations.length}</span>
-              </div>
+        {loading && <div className="location-map-message">Đang tải dữ liệu...</div>}
 
-              <div className="map-location-list">
-                {mapLocations.length > 0 ? (
-                  mapLocations.map((item) => (
-                    <div
-                      className="map-location-item"
-                      key={item.id}
-                      onClick={() => setSelected(item)}
-                    >
-                      <div className="map-location-item__name">{item.name || '-'}</div>
-                      <div className="map-location-item__meta">{item.address || '-'}</div>
-                      <div className="map-location-item__meta">
-                        Parent: {item.parentLocation || '-'}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="assets-message">Không có dữ liệu vị trí.</div>
-                )}
-              </div>
+        {error && <div className="location-map-error">{error}</div>}
+
+        {!loading && !error && (
+          <>
+            <div className="location-map-summary">
+              Đang hiển thị <strong>{filteredLocations.length}</strong> vị trí
             </div>
 
-            <div className="map-card__content">
-              <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
-                <GoogleMap
-                  mapContainerClassName="location-map"
-                  center={selected?.position || center}
-                  zoom={11}
-                  options={{
-                    streetViewControl: false,
-                    mapTypeControl: true,
-                    fullscreenControl: true,
-                  }}
-                >
-                  {mapLocations.map((item) => (
-                    <Marker
-                      key={item.id}
-                      position={item.position}
-                      onClick={() => setSelected(item)}
-                    />
-                  ))}
+            <div className="location-map-box">
+              <MapContainer
+                center={[21.0285, 105.8542]}
+                zoom={12}
+                scrollWheelZoom
+                style={{ height: '520px', width: '100%' }}
+              >
+                <TileLayer
+                  attribution="&copy; OpenStreetMap contributors"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
 
-                  {selected && (
-                    <InfoWindow
-                      position={selected.position}
-                      onCloseClick={() => setSelected(null)}
-                    >
-                      <div className="map-popup">
-                        <strong>{selected.name || '-'}</strong>
-                        <div>{selected.address || '-'}</div>
-                        <div>Parent: {selected.parentLocation || '-'}</div>
-                        <div>Vendors: {selected.vendors || '-'}</div>
-                        <div>Contractors: {selected.contractors || '-'}</div>
-                      </div>
-                    </InfoWindow>
-                  )}
-                </GoogleMap>
-              </LoadScript>
+                {filteredLocations.map((item) => {
+                  const id = item.id || item.locationId || item.name
+                  const lat = getLat(item)
+                  const lng = getLng(item)
+
+                  return (
+                    <Marker key={id} position={[lat, lng]}>
+                      <Popup>
+                        <strong>{item.name || 'Vị trí'}</strong>
+                        <br />
+                        {item.address || 'Chưa có địa chỉ'}
+                        {item.description && (
+                          <>
+                            <br />
+                            {item.description}
+                          </>
+                        )}
+                      </Popup>
+                    </Marker>
+                  )
+                })}
+              </MapContainer>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

@@ -6,6 +6,7 @@ public class LocationSummaryDTO {
     private String name;
     private String address;
     private String parentLocation;
+    private String description;
 
     public LocationSummaryDTO() {
     }
@@ -48,5 +49,13 @@ public class LocationSummaryDTO {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+    
+    public void setDescription(String description) {
+        this.description = trimToNull(description);
     }
 }

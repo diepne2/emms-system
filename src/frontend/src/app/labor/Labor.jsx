@@ -71,9 +71,9 @@ function formatDate(value) {
   });
 }
 
-function formatCurrency(value) {
+function formatHours(value) {
   const number = Number(value || 0);
-  return number.toLocaleString("vi-VN") + " đ/giờ";
+  return `${number.toLocaleString("vi-VN")} giờ`;
 }
 
 function statusLabel(status) {
@@ -312,14 +312,14 @@ export default function Labor() {
                 onChange={handleChange}
               />
 
-              <label>Đơn giá theo giờ</label>
+              <label>Số giờ làm việc</label>
               <input
                 type="number"
                 name="hourlyRate"
                 min="0"
                 value={form.hourlyRate}
                 onChange={handleChange}
-                placeholder="VD: 50000"
+                placeholder="Nhập số giờ làm việc"
               />
 
               <button onClick={handleCreate} disabled={loading}>
@@ -364,7 +364,7 @@ export default function Labor() {
                       <th>Trạng thái</th>
                       <th>Bắt đầu</th>
                       <th>Kết thúc</th>
-                      <th>Đơn giá</th>
+                      <th>Số giờ</th>
                     </tr>
                   </thead>
 
@@ -388,7 +388,7 @@ export default function Labor() {
                         </td>
                         <td>{formatDate(item.startedAt)}</td>
                         <td>{formatDate(item.endedAt)}</td>
-                        <td>{formatCurrency(item.hourlyRate)}</td>
+                        <td>{formatHours(item.hourlyRate)}</td>
                       </tr>
                     ))}
                   </tbody>

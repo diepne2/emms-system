@@ -457,6 +457,32 @@ export default function WorkOrders() {
     return `${name}${barcode}${serial}`
   }, [])
 
+  const getAssetLocationName = useCallback((asset) => {
+    if (!asset) return ''
+
+    const rawLocation =
+      asset.locationName ||
+      asset.location?.name ||
+      asset.location?.title ||
+      asset.location ||
+      ''
+
+    return typeof rawLocation === 'string' ? rawLocation.trim() : ''
+  }, [])
+
+  const getAssetCategoryName = useCallback((asset) => {
+    if (!asset) return ''
+
+    const rawCategory =
+      asset.category ||
+      asset.categoryName ||
+      asset.assetCategory ||
+      asset.category?.name ||
+      ''
+
+    return typeof rawCategory === 'string' ? rawCategory.trim() : ''
+  }, [])
+
   const loadAssetOptions = useCallback(async (keyword = '') => {
     try {
       setAssetOptionsLoading(true)
@@ -1755,7 +1781,16 @@ export default function WorkOrders() {
                                     type="button"
                                     className={`asset-combobox__item ${isSelected ? 'is-selected' : ''}`}
                                     onClick={() => {
-                                      handleCreateFormChange('assetId', asset.id)
+                                      const locationName = getAssetLocationName(asset)
+                                      const categoryName = getAssetCategoryName(asset)
+
+                                      setCreateForm((prev) => ({
+                                        ...prev,
+                                        assetId: asset.id ? String(asset.id) : '',
+                                        locationName: locationName || prev.locationName || '',
+                                        category: categoryName || prev.category || '',
+                                      }))
+
                                       setCreateAssetOpen(false)
                                     }}
                                   >
@@ -2024,7 +2059,16 @@ export default function WorkOrders() {
                                     type="button"
                                     className={`asset-combobox__item ${isSelected ? 'is-selected' : ''}`}
                                     onClick={() => {
-                                      handleEditFormChange('assetId', asset.id)
+                                      const locationName = getAssetLocationName(asset)
+                                      const categoryName = getAssetCategoryName(asset)
+
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        assetId: asset.id ? String(asset.id) : '',
+                                        locationName: locationName || prev.locationName || '',
+                                        category: categoryName || prev.category || '',
+                                      }))
+
                                       setEditAssetOpen(false)
                                     }}
                                   >

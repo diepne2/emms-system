@@ -202,6 +202,19 @@ const getAssetLabel = (asset) => {
   return code && !String(name).includes(String(code)) ? `${name} (${code})` : String(name)
 }
 
+
+const getItemAssetId = (item) => item?.assetId || item?.asset?.id || item?.assetID
+const getItemAssetName = (item, assetOptions = []) => {
+  if (item?.assetName) return item.assetName
+  if (item?.asset?.name) return item.asset.name
+
+  const found = assetOptions.find(
+    (asset) => String(getAssetId(asset)) === String(getItemAssetId(item)),
+  )
+
+  return found ? getAssetLabel(found) : '-'
+}
+
 const getWorkOrderId = (wo) => wo?.id || wo?.workOrderId || wo?.workOrderID
 const getWorkOrderCode = (wo) => wo?.code || wo?.workOrderCode || wo?.woCode || wo?.number || wo?.title
 const getWorkOrderLabel = (wo) => {
@@ -552,6 +565,13 @@ export default function AssetDowntimes() {
 
   const handleCreateSubmit = async () => {
     if (!canCreate) return
+
+    const message = validateDowntimeForm(createForm)
+    if (message) {
+      setCreateError(message)
+      return
+    }
+
     try {
       setCreateLoading(true)
       setCreateError('')
@@ -570,7 +590,7 @@ export default function AssetDowntimes() {
     setEditError('')
     setEditingDowntimeId(item?.id)
     setEditForm({
-      assetId: item?.assetId ? String(item.assetId) : '',
+      assetId: getItemAssetId(item) ? String(getItemAssetId(item)) : '',
       workOrderId: item?.workOrderId ? String(item.workOrderId) : '',
       reason: item?.reason || 'BREAKDOWN',
       startsOn: toDateTimeLocal(item?.startsOn),
@@ -590,6 +610,13 @@ export default function AssetDowntimes() {
 
   const handleEditSubmit = async () => {
     if (!editingDowntimeId || !canEdit) return
+
+    const message = validateDowntimeForm(editForm)
+    if (message) {
+      setEditError(message)
+      return
+    }
+
     try {
       setEditLoading(true)
       setEditError('')
@@ -804,8 +831,8 @@ export default function AssetDowntimes() {
                         <td>{pageNum * pageSize + index + 1}</td>
                         <td>
                           <div className="asset-name-cell">
-                            <strong>{item.assetName || '-'}</strong>
-                            <small>Asset ID: {item.assetId || '-'}</small>
+                            <strong>{getItemAssetName(item, assetOptions)}</strong>
+                            <small>Asset ID: {getItemAssetId(item) || '-'}</small>
                           </div>
                         </td>
                         <td>
@@ -874,7 +901,7 @@ export default function AssetDowntimes() {
                   <div className="detail-hero__left">
                     <div className="detail-hero__icon"><FiClock size={26} /></div>
                     <div className="detail-hero__content">
-                      <h3>{selectedDowntime.assetName || 'Asset Downtime'}</h3>
+                      <h3>{getItemAssetName(selectedDowntime, assetOptions) || 'Asset Downtime'}</h3>
                       <p>{getReasonLabel(selectedDowntime.reason)}</p>
                       <div className="detail-hero__meta">
                         <span className={getOpenBadgeClass(selectedDowntime.open)}>{getOpenStatusLabel(selectedDowntime.open)}</span>
@@ -886,8 +913,8 @@ export default function AssetDowntimes() {
                 <div className="detail-section">
                   <div className="detail-section__title">Thông tin downtime</div>
                   <div className="detail-grid detail-grid--2">
-                    <DetailItem icon={<FiTool size={16} />} label="Thiết bị" value={selectedDowntime.assetName} compact />
-                    <DetailItem icon={<FiTag size={16} />} label="Asset ID" value={selectedDowntime.assetId} compact />
+                    <DetailItem icon={<FiTool size={16} />} label="Thiết bị" value={getItemAssetName(selectedDowntime, assetOptions)} compact />
+                    <DetailItem icon={<FiTag size={16} />} label="Asset ID" value={getItemAssetId(selectedDowntime)} compact />
                     <DetailItem icon={<FiTag size={16} />} label="Work Order" value={getItemWorkOrderName(selectedDowntime, workOrderOptions)} compact />
                     <DetailItem icon={<FiInfo size={16} />} label="Nguyên nhân" value={getReasonLabel(selectedDowntime.reason)} compact />
                     <DetailItem icon={<FiCalendar size={16} />} label="Bắt đầu" value={formatDateTime(selectedDowntime.startsOn)} compact />
@@ -943,7 +970,7 @@ export default function AssetDowntimes() {
               {deleteError && <div className="drawer-message drawer-message--error drawer-message--inline">{deleteError}</div>}
               <div className="delete-box">
                 <div className="delete-box__icon"><FiAlertTriangle size={28} /></div>
-                <div className="delete-box__content"><h3>{deleteTarget?.assetName || 'Asset Downtime'}</h3><p>Bạn có chắc muốn xóa downtime với nguyên nhân <strong>{getReasonLabel(deleteTarget?.reason)}</strong> không?</p></div>
+                <div className="delete-box__content"><h3>{getItemAssetName(deleteTarget, assetOptions) || 'Asset Downtime'}</h3><p>Bạn có chắc muốn xóa downtime với nguyên nhân <strong>{getReasonLabel(deleteTarget?.reason)}</strong> không?</p></div>
               </div>
             </div>
             <div className="drawer-footer">

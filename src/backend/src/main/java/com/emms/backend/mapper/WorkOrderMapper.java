@@ -1,6 +1,7 @@
 package com.emms.backend.mapper;
 
 import com.emms.backend.dto.category.CategorySummaryDTO;
+import com.emms.backend.dto.location.LocationSummaryDTO;
 import com.emms.backend.dto.user.UserSummaryDTO;
 import com.emms.backend.dto.workorder.WorkOrderDTO;
 import com.emms.backend.dto.workorder.WorkOrderPostDTO;
@@ -68,11 +69,11 @@ public interface WorkOrderMapper {
     @Mapping(target = "assignedTo", expression = "java(mapUser(entity.getAssignedTo()))")
     @Mapping(target = "category", expression = "java(mapCategory(entity.getCategory()))")
     @Mapping(target = "primaryUser", expression = "java(mapUser(entity.getPrimaryUser()))")
+    @Mapping(target = "location", expression = "java(mapLocation(entity.getLocationName()))")
     @Mapping(target = "assetName", expression = "java(entity.getAsset() != null ? entity.getAsset().getName() : entity.getAssetName())")
     @Mapping(target = "assignedToId", expression = "java(entity.getAssignedTo() != null ? entity.getAssignedTo().getUserId() : null)")
     @Mapping(target = "assetId", expression = "java(entity.getAsset() != null ? entity.getAsset().getId() : null)")
     @Mapping(target = "requiredSignature", source = "requiresSignature")
-    @Mapping(target = "location", ignore = true)
     @Mapping(target = "files", ignore = true)
     @Mapping(target = "image", ignore = true)
     @Mapping(target = "createdBy", ignore = true)
@@ -86,6 +87,16 @@ public interface WorkOrderMapper {
         }
 
         CategorySummaryDTO dto = new CategorySummaryDTO();
+        dto.setName(value.trim());
+        return dto;
+    }
+
+    default LocationSummaryDTO mapLocation(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+
+        LocationSummaryDTO dto = new LocationSummaryDTO();
         dto.setName(value.trim());
         return dto;
     }
@@ -118,6 +129,7 @@ public interface WorkOrderMapper {
         if (fullName.isEmpty()) {
             fullName = user.getFullName();
         }
+
         if (fullName == null || fullName.trim().isEmpty()) {
             fullName = user.getUsername();
         }

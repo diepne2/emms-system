@@ -91,6 +91,14 @@ function extractErrorMessage(err, fallback = 'Thao tác thất bại.') {
     return 'Không thể xóa nhân sự vì nhân sự đã phát sinh dữ liệu trong hệ thống.'
   }
 
+  if (raw.toLowerCase().includes('mail') || raw.toLowerCase().includes('smtp')) {
+    return 'Không gửi được email mời. Vui lòng kiểm tra cấu hình SMTP/email của backend.'
+  }
+
+  if (raw.toLowerCase().includes('link') || raw.toLowerCase().includes('token')) {
+    return 'Liên kết mời/đặt mật khẩu chưa hợp lệ hoặc đã hết hạn. Vui lòng gửi lại lời mời.'
+  }
+
   if (raw.includes('Request processing failed')) {
     return fallback
   }
@@ -228,6 +236,47 @@ function buildPageNumbers(currentPage, totalPages) {
   return pages
 }
 
+function parseSearchKeyword(value) {
+  const raw = normalizeText(value)
+  if (!raw) return { query: '', exact: false }
+
+  if (raw.startsWith('=')) {
+    return { query: normalizeText(raw.slice(1)), exact: true }
+  }
+
+  if (
+    (raw.startsWith('"') && raw.endsWith('"')) ||
+    (raw.startsWith("'") && raw.endsWith("'"))
+  ) {
+    return { query: normalizeText(raw.slice(1, -1)), exact: true }
+  }
+
+  return { query: raw, exact: false }
+}
+
+function userMatchesExact(user, keyword) {
+  const q = normalizeText(keyword).toLowerCase()
+  if (!q) return true
+
+  const id = getUserId(user)
+  const fullName = getDisplayName(user)
+
+  return [
+    id,
+    user?.username,
+    user?.email,
+    user?.phone,
+    user?.jobTitle,
+    fullName,
+  ]
+    .filter((value) => value !== null && value !== undefined && normalizeText(value) !== '')
+    .some((value) => normalizeText(value).toLowerCase() === q)
+}
+
+function sortUsersDescById(items) {
+  return [...items].sort((a, b) => Number(getUserId(b) || 0) - Number(getUserId(a) || 0))
+}
+
 function EyeIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -353,7 +402,14 @@ const HR = () => {
         sortDir,
       }
 
-      if (normalizeText(keyword)) params.keyword = keyword.trim()
+      const search = parseSearchKeyword(keyword)
+      if (search.query) {
+        params.keyword = search.query
+        if (search.exact) {
+          params.page = 0
+          params.size = Math.max(size, 500)
+        }
+      }
       if (normalizeText(roleCode)) params.roleCode = roleCode.trim()
       if (normalizeText(status)) params.status = status.trim()
       if (enabled !== '') params.enabled = enabled === 'true'
@@ -361,9 +417,22 @@ const HR = () => {
       const res = await api.get('/api/users', { params })
       const data = res?.data || {}
 
-      setUsers(Array.isArray(data?.content) ? data.content : [])
-      setTotalPages(Number(data?.totalPages || 0))
-      setTotalElements(Number(data?.totalElements || 0))
+      let nextUsers = Array.isArray(data?.content) ? data.content : []
+      nextUsers = sortUsersDescById(nextUsers)
+
+      if (search.exact && search.query) {
+        const exactUsers = nextUsers.filter((user) => userMatchesExact(user, search.query))
+        const start = page * size
+        const end = start + size
+
+        setUsers(exactUsers.slice(start, end))
+        setTotalPages(Math.max(1, Math.ceil(exactUsers.length / size)))
+        setTotalElements(exactUsers.length)
+      } else {
+        setUsers(nextUsers)
+        setTotalPages(Number(data?.totalPages || 0))
+        setTotalElements(Number(data?.totalElements || 0))
+      }
     } catch (err) {
       console.error(err)
       const statusCode = err?.response?.status
@@ -581,12 +650,16 @@ const HR = () => {
     clearMessages()
 
     try {
-      await api.post('/api/users/invite', {
+      const res = await api.post('/api/users/invite', {
         emails,
         roleName: inviteForm.roleName,
       })
 
-      setSuccess(`Đã gửi lời mời cho ${emails.length} email.`)
+      const responseMessage = typeof res?.data === 'string' ? res.data : res?.data?.message
+      setSuccess(
+        responseMessage ||
+          `Đã gửi lời mời cho ${emails.length} email. Nếu người nhận chưa thấy email, hãy kiểm tra SMTP backend hoặc thư mục spam.`
+      )
       setInviteForm(EMPTY_INVITE_FORM)
       setInviteOpen(false)
       loadUsers()
@@ -643,7 +716,7 @@ const HR = () => {
                   type="text"
                   value={keywordDraft}
                   onChange={(e) => setKeywordDraft(e.target.value)}
-                  placeholder="Nhập từ khóa"
+                  placeholder="Tìm kiếm"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSearch()
                   }}
@@ -720,7 +793,7 @@ const HR = () => {
             <div className="applied-filters">
               {keyword ? (
                 <div className="applied-filter-chip">
-                  Từ khóa: <strong>{keyword}</strong>
+                  Từ khóa: <strong>{parseSearchKeyword(keyword).exact ? `Chính xác: ${parseSearchKeyword(keyword).query}` : keyword}</strong>
                 </div>
               ) : null}
               {roleCode ? (
@@ -1157,7 +1230,7 @@ const HR = () => {
                 </div>
 
                 <div className="hr-edit-note">
-                  Hệ thống sẽ tạo tài khoản mới, gán vai trò đã chọn và gửi email mời đăng nhập.
+                  Hệ thống sẽ tạo tài khoản mới, gán vai trò đã chọn và gửi email mời đăng nhập. Nếu chưa nhận được email, cần kiểm tra cấu hình SMTP ở backend.
                 </div>
               </div>
 

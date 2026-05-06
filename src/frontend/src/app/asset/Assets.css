@@ -440,7 +440,7 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  min-width: 1500px;
+  min-width: 1680px;
 }
 
 .assets-table thead th {
@@ -470,23 +470,45 @@
 }
 
 /* Column widths */
+.assets-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 1680px;
+}
+
 .assets-table th:nth-child(1),
 .assets-table td:nth-child(1) { width: 64px; text-align: center; }
-.assets-table th:nth-child(2),
-.assets-table td:nth-child(2) { width: 220px; }
-.assets-table th:nth-child(3),
-.assets-table td:nth-child(3) { width: 160px; }
-.assets-table th:nth-child(4),
-.assets-table td:nth-child(4) { width: 160px; }
-.assets-table th:nth-child(5),
-.assets-table td:nth-child(5) { width: 140px; }
-.assets-table th:nth-child(6),
-.assets-table td:nth-child(6) { width: 160px; }
-.assets-table th:nth-child(7),
-.assets-table td:nth-child(7) { width: 140px; }
-.assets-table th:nth-child(8),
-.assets-table td:nth-child(8) { width: 180px; text-align: center; }
 
+.assets-table th:nth-child(2),
+.assets-table td:nth-child(2) { width: 170px; }
+
+.assets-table th:nth-child(3),
+.assets-table td:nth-child(3) { width: 260px; }
+
+.assets-table th:nth-child(4),
+.assets-table td:nth-child(4) { width: 170px; }
+
+.assets-table th:nth-child(5),
+.assets-table td:nth-child(5) { width: 170px; }
+
+.assets-table th:nth-child(6),
+.assets-table td:nth-child(6) { width: 190px; }
+
+.assets-table th:nth-child(7),
+.assets-table td:nth-child(7) { width: 190px; }
+
+.assets-table th:nth-child(8),
+.assets-table td:nth-child(8) {
+  width: 170px;
+  white-space: nowrap;
+}
+
+.assets-table th:nth-child(9),
+.assets-table td:nth-child(9) {
+  width: 230px;
+  text-align: center;
+}
 /* ── Status badges ── */
 .badge {
   display: inline-flex;
@@ -1016,4 +1038,15 @@
 
 .ant-select-dropdown {
   z-index: 9999 !important;
+}
+
+.badge-button {
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+}
+
+.badge-button:hover {
+  filter: brightness(0.96);
+  transform: translateY(-1px);
 }

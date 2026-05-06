@@ -280,78 +280,88 @@ public class UserServiceImpl implements UserService {
         if (emails == null || emails.isEmpty()) {
             throw new CustomException("Danh sách email không được để trống", HttpStatus.BAD_REQUEST);
         }
-
+        
         if (roleName == null || roleName.isBlank()) {
             throw new CustomException("Vai trò không được để trống", HttpStatus.BAD_REQUEST);
         }
-
-
+        
         String roleCode = roleName.trim().toUpperCase(Locale.ROOT);
         if (roleCode.startsWith("ROLE_")) {
             roleCode = roleCode.substring(5);
         }
-
+        
         RoleCode roleEnum;
-
         try {
             roleEnum = RoleCode.valueOf(roleCode);
         } catch (IllegalArgumentException ex) {
             throw new CustomException("Vai trò không hợp lệ: " + roleName, HttpStatus.BAD_REQUEST);
         }
-
+        
+        
         Role role = roleRepository.findByCode(roleEnum)
-                .orElseThrow(() -> new CustomException("Vai trò không tồn tại", HttpStatus.NOT_FOUND));
-
+            .orElseThrow(() -> new CustomException("Vai trò không tồn tại", HttpStatus.NOT_FOUND));
         int createdCount = 0;
-        int skippedCount = 0;
-
+        
         for (String rawEmail : emails) {
             String email = trim(rawEmail);
-
+            
             if (email == null || email.isBlank()) {
-                skippedCount++;
-                continue;
-            }
-
-            if (userRepository.existsByEmailIgnoreCase(email)) {
-                skippedCount++;
-                continue;
+                throw new CustomException("Email không được để trống", HttpStatus.BAD_REQUEST);
             }
             
+            if (userRepository.existsByEmailIgnoreCase(email)) {
+                throw new CustomException(
+                    "Email đã tồn tại trong hệ thống: " + email,
+                    HttpStatus.CONFLICT
+                );
+            }
             String tempPassword = generateTemporaryPassword();
-
+            
             User user = new User();
             user.setEmail(email);
             user.setUsername(generateUsernameFromEmail(email));
             user.setEnabled(true);
             user.setRole(role);
             user.setPassword(passwordEncoder.encode(tempPassword));
-
             user.setFirstName("User");
             user.setLastName("Invited");
-
+            
+            
             trySetDefaultActiveStatus(user);
-
+            
+            String loginLink = frontendUrl + "/#/login";
+            
+            
+            try {
+                mailService.sendSimpleMessage(
+                    new String[]{email},
+                    "Lời mời tham gia hệ thống EMMS",
+                    "Bạn đã được mời vào hệ thống Quản lý thiết bị và bảo trì EMMS.\n\n"
+                            + "Email đăng nhập: " + email + "\n"
+                            + "Mật khẩu tạm: " + tempPassword + "\n\n"
+                            + "Đăng nhập tại: " + loginLink + "\n\n"
+                            + "Vui lòng đổi mật khẩu sau khi đăng nhập."
+                );
+            } catch (Exception ex) {
+                log.error("Send invite mail failed for {}: {}", email, ex.getMessage(), ex);
+                    throw new CustomException(
+                        "Không gửi được email mời đến: " + email,
+                        HttpStatus.INTERNAL_SERVER_ERROR
+                    );
+            }
+            
             userRepository.save(user);
-            mailService.sendSimpleMessage(
-                new String[]{email},
-                "Lời mời tham gia hệ thống",
-                "Bạn đã được mời vào hệ thống Quản lý thiết bị và bảo trì\n\n"
-                        + "Email: " + email + "\n"
-                        + "Password tạm: " + tempPassword + "\n\n"
-                        + "Login: " + frontendUrl + "/#/login"
-            );
             createdCount++;
         }
-            log.info(
-                "Invited users by {}: created={}, skipped={}, total={}",
-                invitedBy,
-                createdCount,
-                skippedCount,
-                emails.size()
-            );
-
+        log.info(
+            "Invited users by {}: created={}, total={}",
+            invitedBy,
+            createdCount,
+            emails.size()
+        );
     }
+
+    
 
     @Override
     public User findEntityById(Long id) {

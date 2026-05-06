@@ -35,11 +35,6 @@ public class PreventiveMaintenanceService {
         validateUniqueCode(pm.getCode());
 
         PreventiveMaintenance saved = repository.save(pm);
-
-        if (saved.getSchedule() != null) {
-            saved.getSchedule().setPreventiveMaintenance(saved);
-        }
-
         return toSummaryDto(saved);
     }
 
@@ -47,6 +42,7 @@ public class PreventiveMaintenanceService {
         if (id == null) {
             throw new CustomException("ID bắt buộc", HttpStatus.BAD_REQUEST);
         }
+        validateUpdate(dto);
 
         PreventiveMaintenance pm = findEntityById(id);
         applyUpdate(pm, dto);
@@ -79,6 +75,9 @@ public class PreventiveMaintenanceService {
     }
 
     private PreventiveMaintenanceSummaryDTO toSummaryDto(PreventiveMaintenance pm) {
+        Schedule schedule = pm.getSchedule();
+        RecurrenceRule rule = toRecurrenceRule(schedule, pm.getPriority());
+
         return new PreventiveMaintenanceSummaryDTO(
                 pm.getId(),
                 pm.getCode(),
@@ -92,13 +91,31 @@ public class PreventiveMaintenanceService {
                 pm.getAssignedTo() != null ? pm.getAssignedTo().getUserId() : null,
                 pm.getAssignedTo() != null ? pm.getAssignedTo().getUsername() : null,
 
-                pm.getPriority()
+                pm.getPriority(),
+                schedule != null ? schedule.getStartsOn() : null,
+                schedule != null ? schedule.getEndsOn() : null,
+                rule
         );
     }
 
+    private RecurrenceRule toRecurrenceRule(Schedule schedule, Priority priority) {
+        if (schedule == null) {
+            return null;
+        }
+
+        RecurrenceRule rule = new RecurrenceRule();
+        rule.setType(schedule.getRecurrenceType());
+        rule.setBasedOn(schedule.getRecurrenceBasedOn());
+        rule.setFrequency(schedule.getFrequency());
+        rule.setDueDateDelay(schedule.getDueDateDelay());
+        rule.setDaysOfWeek(schedule.getDaysOfWeek());
+        rule.setPriority(priority);
+        return rule;
+    }
+
     private void applyCreate(PreventiveMaintenance pm, PreventiveMaintenancePostDTO dto) {
-        pm.setTitle(dto.getTitle());
-        pm.setDescription(dto.getDescription());
+        pm.setTitle(trim(dto.getTitle()));
+        pm.setDescription(trim(dto.getDescription()));
         pm.setEstimatedHours(dto.getEstimatedHours());
         pm.setActive(true);
 
@@ -111,31 +128,25 @@ public class PreventiveMaintenanceService {
         }
 
         RecurrenceRule rule = dto.getRecurrenceRule();
-
         pm.setPriority(rule.getPriority() != null ? rule.getPriority() : Priority.MEDIUM);
 
         Schedule schedule = new Schedule();
         schedule.setPreventiveMaintenance(pm);
         schedule.setDisabled(false);
-
         schedule.setStartsOn(dto.getStartsOn().toLocalDate());
-
-        if (dto.getEndsOn() != null) {
-            schedule.setEndsOn(dto.getEndsOn().toLocalDate());
-        }
-
+        schedule.setEndsOn(dto.getEndsOn() != null ? dto.getEndsOn().toLocalDate() : null);
         schedule.setFrequency(rule.getFrequency() != null ? rule.getFrequency() : 1);
-        schedule.setDueDateDelay(rule.getDueDateDelay());
+        schedule.setDueDateDelay(rule.getDueDateDelay() != null ? rule.getDueDateDelay() : 0);
         schedule.setRecurrenceType(rule.getType() != null ? rule.getType() : RecurrenceType.DAILY);
         schedule.setRecurrenceBasedOn(rule.getBasedOn());
-        schedule.setDaysOfWeek(rule.getDaysOfWeek());
+        schedule.setDaysOfWeek(rule.getType() == RecurrenceType.WEEKLY ? rule.getDaysOfWeek() : null);
 
         pm.setSchedule(schedule);
     }
 
     private void applyUpdate(PreventiveMaintenance pm, PreventiveMaintenanceDTO dto) {
-        if (dto.getTitle() != null) pm.setTitle(dto.getTitle());
-        if (dto.getDescription() != null) pm.setDescription(dto.getDescription());
+        if (dto.getTitle() != null) pm.setTitle(trim(dto.getTitle()));
+        if (dto.getDescription() != null) pm.setDescription(trim(dto.getDescription()));
         if (dto.getEstimatedHours() != null) pm.setEstimatedHours(dto.getEstimatedHours());
         if (dto.getPriority() != null) pm.setPriority(dto.getPriority());
 
@@ -147,46 +158,36 @@ public class PreventiveMaintenanceService {
             pm.setAssignedTo(userService.findEntityById(dto.getAssignedToId()));
         }
 
-        if (pm.getSchedule() != null) {
-            if (dto.getStartsOn() != null) {
-                pm.getSchedule().setStartsOn(dto.getStartsOn().toLocalDate());
+        Schedule schedule = pm.getSchedule();
+        if (schedule == null) {
+            schedule = new Schedule();
+            schedule.setPreventiveMaintenance(pm);
+            schedule.setDisabled(false);
+            pm.setSchedule(schedule);
+        }
+
+        if (dto.getStartsOn() != null) {
+            schedule.setStartsOn(dto.getStartsOn().toLocalDate());
+        }
+
+        // Cho phép xóa ngày kết thúc khi FE gửi endsOn = null.
+        schedule.setEndsOn(dto.getEndsOn() != null ? dto.getEndsOn().toLocalDate() : null);
+
+        RecurrenceRule rule = dto.getRecurrenceRule();
+        if (rule != null) {
+            if (rule.getPriority() != null) {
+                pm.setPriority(rule.getPriority());
             }
-
-            if (dto.getEndsOn() != null) {
-                pm.getSchedule().setEndsOn(dto.getEndsOn().toLocalDate());
-            }
-
-            RecurrenceRule rule = dto.getRecurrenceRule();
-
-            if (rule != null) {
-                if (rule.getFrequency() != null) {
-                    pm.getSchedule().setFrequency(rule.getFrequency());
-                }
-
-                if (rule.getDueDateDelay() != null) {
-                    pm.getSchedule().setDueDateDelay(rule.getDueDateDelay());
-                }
-
-                if (rule.getType() != null) {
-                    pm.getSchedule().setRecurrenceType(rule.getType());
-                }
-
-                if (rule.getBasedOn() != null) {
-                    pm.getSchedule().setRecurrenceBasedOn(rule.getBasedOn());
-                }
-
-                if (rule.getDaysOfWeek() != null) {
-                    pm.getSchedule().setDaysOfWeek(rule.getDaysOfWeek());
-                }
-            }
+            schedule.setFrequency(rule.getFrequency() != null ? rule.getFrequency() : 1);
+            schedule.setDueDateDelay(rule.getDueDateDelay() != null ? rule.getDueDateDelay() : 0);
+            schedule.setRecurrenceType(rule.getType() != null ? rule.getType() : RecurrenceType.DAILY);
+            schedule.setRecurrenceBasedOn(rule.getBasedOn());
+            schedule.setDaysOfWeek(rule.getType() == RecurrenceType.WEEKLY ? rule.getDaysOfWeek() : null);
         }
 
         if (dto.getActive() != null) {
             pm.setActive(dto.getActive());
-
-            if (pm.getSchedule() != null) {
-                pm.getSchedule().setDisabled(!dto.getActive());
-            }
+            schedule.setDisabled(!dto.getActive());
         }
     }
 
@@ -203,19 +204,35 @@ public class PreventiveMaintenanceService {
             throw new CustomException("Ngày bắt đầu là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
-        if (dto.getEndsOn() != null &&
-                dto.getEndsOn().toLocalDate().isBefore(dto.getStartsOn().toLocalDate())) {
+        validateDateRange(dto.getStartsOn(), dto.getEndsOn());
+        validateRecurrenceRule(dto.getRecurrenceRule());
+    }
+
+    private void validateUpdate(PreventiveMaintenanceDTO dto) {
+        if (dto == null) {
+            throw new CustomException("DTO null", HttpStatus.BAD_REQUEST);
+        }
+
+        validateDateRange(dto.getStartsOn(), dto.getEndsOn());
+
+        if (dto.getRecurrenceRule() != null) {
+            validateRecurrenceRule(dto.getRecurrenceRule());
+        }
+    }
+
+    private void validateDateRange(java.time.LocalDateTime startsOn, java.time.LocalDateTime endsOn) {
+        if (startsOn != null && endsOn != null && endsOn.toLocalDate().isBefore(startsOn.toLocalDate())) {
             throw new CustomException(
                     "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu",
                     HttpStatus.BAD_REQUEST
             );
         }
+    }
 
-        if (dto.getRecurrenceRule() == null) {
+    private void validateRecurrenceRule(RecurrenceRule rule) {
+        if (rule == null) {
             throw new CustomException("Quy tắc lặp lại là bắt buộc", HttpStatus.BAD_REQUEST);
         }
-
-        RecurrenceRule rule = dto.getRecurrenceRule();
 
         if (rule.getType() == RecurrenceType.WEEKLY &&
                 (rule.getDaysOfWeek() == null || rule.getDaysOfWeek().isEmpty())) {
@@ -248,5 +265,11 @@ public class PreventiveMaintenanceService {
         Schedule schedule = pm.getSchedule();
 
         workOrderService.createFromPreventiveMaintenance(pm, schedule);
+    }
+
+    private String trim(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

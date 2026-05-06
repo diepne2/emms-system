@@ -998,3 +998,121 @@
   color: var(--clr-text-muted);
   border-color: var(--clr-border);
 }
+
+
+/* ===== Part page fixes: filter layout + modal overflow ===== */
+.filters-panel {
+  overflow-x: visible;
+}
+
+.filters-grid--5 {
+  grid-template-columns:
+    minmax(220px, 1.45fr)
+    minmax(180px, 1.05fr)
+    minmax(155px, 0.85fr)
+    minmax(135px, 0.75fr)
+    minmax(150px, 170px);
+  gap: 14px;
+  align-items: end;
+}
+
+.filter-field--actions {
+  min-width: 150px;
+}
+
+.filter-actions-row {
+  width: 100%;
+  min-width: 0;
+}
+
+.btn-search-compact {
+  width: 100%;
+  min-width: 0;
+}
+
+.page-size-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.assets-table {
+  min-width: 1420px;
+}
+
+.drawer {
+  max-height: 88vh;
+}
+
+.drawer-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+@media (max-width: 1400px) {
+  .filters-grid--5 {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
+
+  .filter-field--actions {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters-grid--5 {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-field--actions {
+    grid-column: auto;
+  }
+}
+
+/* ===== Role/Filter cleanup: remove page-size from top filter ===== */
+.filters-grid--5 {
+  grid-template-columns:
+    minmax(260px, 1.5fr)
+    minmax(220px, 1.1fr)
+    minmax(180px, 0.9fr)
+    minmax(220px, 260px) !important;
+  gap: 14px;
+  align-items: end;
+}
+
+.filter-field--actions {
+  min-width: 220px;
+}
+
+.filter-actions-row {
+  width: 100%;
+}
+
+.btn-search-compact {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.pagination-right {
+  justify-content: flex-end;
+}
+
+@media (max-width: 1400px) {
+  .filters-grid--5 {
+    grid-template-columns: repeat(2, minmax(240px, 1fr)) !important;
+  }
+
+  .filter-field--actions {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters-grid--5 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .filter-field--actions {
+    grid-column: auto;
+  }
+}

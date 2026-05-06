@@ -9,6 +9,7 @@ const emptyForm = {
   name: "",
   description: "",
   category: "",
+  partNumber: "",
   barcode: "",
   vendor: "",
   locationName: "",
@@ -203,6 +204,7 @@ function normalizePayload(form) {
     name: form.name?.trim(),
     description: form.description?.trim() || null,
     category: form.category?.trim() || null,
+    partNumber: form.partNumber?.trim() || null,
     barcode: form.barcode?.trim() || null,
     vendor: form.vendor?.trim() || null,
     locationName: form.locationName?.trim() || null,
@@ -211,8 +213,6 @@ function normalizePayload(form) {
       form.quantity === "" || form.quantity === null ? 0 : Number(form.quantity),
     cost: form.cost === "" ? null : Number(form.cost),
     lastPrice: form.lastPrice === "" ? null : Number(form.lastPrice),
-    minimumQuantity:
-      form.minimumQuantity === "" ? null : Number(form.minimumQuantity),
     consumable: !!form.consumable,
   };
 }
@@ -351,7 +351,7 @@ export default function Part() {
   const [stockFilter, setStockFilter] = useState("ALL");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const pageSize = 10;
 
   const [selectedPart, setSelectedPart] = useState(null);
 
@@ -377,7 +377,7 @@ export default function Part() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, categoryFilter, stockFilter, pageSize]);
+  }, [search, categoryFilter, stockFilter]);
 
   async function loadParts() {
     try {
@@ -434,6 +434,7 @@ export default function Part() {
       name: part.name || "",
       description: part.description || "",
       category: part.category || "",
+      partNumber: part.partNumber || "",
       barcode: part.barcode || "",
       vendor: part.vendor || "",
       locationName: part.locationName || "",
@@ -480,8 +481,12 @@ export default function Part() {
 
     const payload = normalizePayload(form);
 
-    if (payload.quantity < 0) {
-      setPageError("Quantity không được âm.");
+    if (!payload.partNumber && payload.barcode) {
+      payload.partNumber = payload.barcode;
+    }
+
+    if (!Number.isFinite(payload.quantity) || payload.quantity < 0) {
+      setPageError("Quantity phải là số lớn hơn hoặc bằng 0.");
       return;
     }
 
@@ -711,16 +716,17 @@ export default function Part() {
               </div>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-primary btn-create-header"
-              onClick={openCreateModal}
-              disabled={!createAllowed}
-              title={createAllowed ? "Thêm mới" : "Bạn không có quyền thêm vật tư"}
-            >
-              <PlusIcon />
-              <span>Thêm mới</span>
-            </button>
+            {createAllowed && (
+              <button
+                type="button"
+                className="btn btn-primary btn-create-header"
+                onClick={openCreateModal}
+                title="Thêm mới"
+              >
+                <PlusIcon />
+                <span>Thêm mới</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -782,19 +788,6 @@ export default function Part() {
               </select>
             </div>
 
-            <div className="filter-field">
-              <label className="filter-label">Số dòng</label>
-              <select
-                className="page-size-select"
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-              >
-                <option value={5}>5 / trang</option>
-                <option value={10}>10 / trang</option>
-                <option value={20}>20 / trang</option>
-              </select>
-            </div>
-
             <div className="filter-field filter-field--actions">
               <label className="filter-label filter-label--ghost">Actions</label>
               <div className="filter-actions-row">
@@ -814,7 +807,6 @@ export default function Part() {
                     setSearch("");
                     setCategoryFilter("ALL");
                     setStockFilter("ALL");
-                    setPageSize(10);
                     setCurrentPage(1);
                     loadParts();
                   }}
@@ -920,57 +912,49 @@ export default function Part() {
                               <EyeIcon />
                             </button>
 
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              title={editAllowed ? "Sửa vật tư" : "Bạn không có quyền sửa vật tư"}
-                              disabled={!editAllowed}
-                              onClick={() => {
-                                if (!editAllowed) return;
-                                startEdit(part);
-                              }}
-                            >
-                              <EditIcon />
-                            </button>
+                            {editAllowed && (
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                title="Sửa vật tư"
+                                onClick={() => startEdit(part)}
+                              >
+                                <EditIcon />
+                              </button>
+                            )}
 
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              title={stockAllowed ? "Tăng tồn kho" : "Bạn không có quyền điều chỉnh tồn kho"}
-                              disabled={!stockAllowed}
-                              onClick={() => {
-                                if (!stockAllowed) return;
-                                openStockModal(part, "increase");
-                              }}
-                            >
-                              <ArrowUpIcon />
-                            </button>
+                            {stockAllowed && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  title="Tăng tồn kho"
+                                  onClick={() => openStockModal(part, "increase")}
+                                >
+                                  <ArrowUpIcon />
+                                </button>
 
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              title={stockAllowed ? "Giảm tồn kho" : "Bạn không có quyền điều chỉnh tồn kho"}
-                              disabled={!stockAllowed}
-                              onClick={() => {
-                                if (!stockAllowed) return;
-                                openStockModal(part, "decrease");
-                              }}
-                            >
-                              <ArrowDownIcon />
-                            </button>
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  title="Giảm tồn kho"
+                                  onClick={() => openStockModal(part, "decrease")}
+                                >
+                                  <ArrowDownIcon />
+                                </button>
+                              </>
+                            )}
 
-                            <button
-                              type="button"
-                              className="icon-btn icon-btn--danger"
-                              title={deleteAllowed ? "Xóa vật tư" : "Bạn không có quyền xóa vật tư"}
-                              disabled={!deleteAllowed}
-                              onClick={() => {
-                                if (!deleteAllowed) return;
-                                setDeleteTarget(part);
-                              }}
-                            >
-                              <DeleteIcon />
-                            </button>
+                            {deleteAllowed && (
+                              <button
+                                type="button"
+                                className="icon-btn icon-btn--danger"
+                                title="Xóa vật tư"
+                                onClick={() => setDeleteTarget(part)}
+                              >
+                                <DeleteIcon />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -989,16 +973,6 @@ export default function Part() {
             </div>
 
             <div className="pagination-right">
-              <select
-                className="page-size-select page-size-select--bottom"
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-              >
-                <option value={5}>5 / trang</option>
-                <option value={10}>10 / trang</option>
-                <option value={20}>20 / trang</option>
-              </select>
-
               <div className="pagination-controls">
                 <button
                   type="button"
@@ -1079,6 +1053,17 @@ export default function Part() {
                     </div>
 
                     <div className="form-field">
+                      <label className="form-label">Mã vật tư / Part Number</label>
+                      <input
+                        className="form-input"
+                        name="partNumber"
+                        value={form.partNumber}
+                        onChange={handleChange}
+                        placeholder="Nhập mã vật tư"
+                      />
+                    </div>
+
+                    <div className="form-field">
                       <label className="form-label">Barcode</label>
                       <input
                         className="form-input"
@@ -1132,18 +1117,6 @@ export default function Part() {
                         value={form.quantity}
                         onChange={handleChange}
                         placeholder="Nhập số lượng"
-                      />
-                    </div>
-
-                    <div className="form-field">
-                      <label className="form-label">Ngưỡng tối thiểu</label>
-                      <input
-                        className="form-input"
-                        type="number"
-                        min="0"
-                        name="minimumQuantity"
-                        value={form.minimumQuantity}
-                        onChange={handleChange}
                       />
                     </div>
 
@@ -1311,12 +1284,6 @@ export default function Part() {
                     <div className="detail-item__label">Giá mua gần nhất</div>
                     <div className="detail-item__value">
                       {formatMoney(selectedPart.lastPrice)}
-                    </div>
-                  </div>
-                  <div className="detail-item">
-                    <div className="detail-item__label">Minimum Quantity</div>
-                    <div className="detail-item__value">
-                      {formatText(selectedPart.minimumQuantity)}
                     </div>
                   </div>
                   <div className="detail-item">

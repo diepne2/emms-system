@@ -195,6 +195,11 @@ public class LocationService {
         if (location.getParentLocation() != null) {
             location.setParentLocation(location.getParentLocation().trim());
         }
+
+        if (location.getDescription() != null) {
+            location.setDescription(location.getDescription().trim());
+        }
+
     }
 
     private void validateDuplicateNameForCreate(String name) {

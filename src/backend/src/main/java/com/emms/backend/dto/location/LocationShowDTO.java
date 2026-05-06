@@ -12,6 +12,9 @@ public class LocationShowDTO extends AuditShowDTO {
     private String vendors;
     private String contractors;
 
+    private String description;
+
+
     public LocationShowDTO() {
     }
 
@@ -66,5 +69,13 @@ public class LocationShowDTO extends AuditShowDTO {
 
     private String trim(String value) {
         return value == null ? null : value.trim();
+    }
+
+    public String getDescription() {
+        return description;
+    }
+    
+    public void setDescription(String description) {
+        this.description = trim(description);
     }
 }

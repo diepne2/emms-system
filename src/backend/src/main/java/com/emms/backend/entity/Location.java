@@ -35,6 +35,9 @@ public class Location {
     @Column(name = "contractors", columnDefinition = "TEXT")
     private String contractors;
 
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     public Location() {
     }
 
@@ -46,7 +49,7 @@ public class Location {
         parentLocation = trimToNull(parentLocation);
         vendors = trimToNull(vendors);
         contractors = trimToNull(contractors);
-
+        description = trimToNull(description);
         if (name == null) {
             throw new IllegalArgumentException("name không được để trống");
         }
@@ -82,6 +85,14 @@ public class Location {
 
     public void setParentLocation(String parentLocation) {
         this.parentLocation = trimToNull(parentLocation);
+    }
+
+    public String getDescription() {
+        return description;
+    }
+    
+    public void setDescription(String description) {
+        this.description = trimToNull(description);
     }
 
     public String getVendors() {
