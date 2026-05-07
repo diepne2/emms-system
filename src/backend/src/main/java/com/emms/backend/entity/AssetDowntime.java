@@ -31,7 +31,7 @@ public class AssetDowntime {
     private Asset asset;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "workorder_id")
+    @JoinColumn(name = "work_order_id")
     private WorkOrder workOrder;
 
     @Enumerated(EnumType.STRING)
