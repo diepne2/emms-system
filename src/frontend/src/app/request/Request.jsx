@@ -2,9 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import './request.css'
 
-const API_BASE = 'https://emms-system-production-4239.up.railway.app/requests'
-const LOCATION_API = 'https://emms-system-production-4239.up.railway.app/api/locations'
-const ASSET_API = 'https://emms-system-production-4239.up.railway.app/api/assets'
+const API_ROOT =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://emms-system-production-4239.up.railway.app'
+
+const API_BASE = `${API_ROOT}/requests`
+const LOCATION_API = `${API_ROOT}/api/locations`
+const ASSET_API = `${API_ROOT}/api/assets`
 
 const EMPTY_FORM = {
   title: '',
@@ -56,8 +60,7 @@ const Request = () => {
 
   const canApproveRejectByRole =
     currentRole === 'ADMIN' ||
-    currentRole === 'TECHNICAL_MANAGER' ||
-    currentRole === 'QUANLYKYTHUAT'
+    currentRole === 'TECHNICAL_MANAGER'
 
   const axiosConfig = useMemo(() => {
     return {
@@ -70,7 +73,12 @@ const Request = () => {
 
   const buildErrorMessage = (err, fallback) => {
     const status = err?.response?.status
-    const message = err?.response?.data?.message
+    const data = err?.response?.data
+
+    const raw =
+      typeof data === 'string'
+        ? data
+        : data?.message || data?.error || err?.message || fallback
 
     if (status === 401) {
       return 'Phiên đăng nhập đã hết hạn hoặc token không hợp lệ. Hãy đăng nhập lại.'
@@ -80,7 +88,16 @@ const Request = () => {
       return 'Bạn không có quyền truy cập chức năng này.'
     }
 
-    return message || fallback
+    if (
+      String(raw).includes('foreign key constraint') ||
+      String(raw).includes('work_orders') ||
+      String(raw).includes('requests') ||
+      String(raw).includes('Request đã liên kết Work Order')
+    ) {
+      return 'Request đã liên kết Work Order. Hãy dùng chức năng xóa vĩnh viễn để hủy liên kết rồi xóa Request.'
+    }
+
+    return raw || fallback
   }
 
   const clearMessages = () => {
@@ -96,7 +113,6 @@ const Request = () => {
       const res = await axios.get(API_BASE, axiosConfig)
       setRequests(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
-      console.error('fetchRequests error:', err)
       setError(buildErrorMessage(err, 'Không tải được danh sách request.'))
     } finally {
       setLoading(false)
@@ -123,7 +139,6 @@ const Request = () => {
 
       setLocations(normalized)
     } catch (err) {
-      console.error('fetchLocations error:', err)
       setError(buildErrorMessage(err, 'Không tải được danh sách location.'))
     } finally {
       setLocationLoading(false)
@@ -146,7 +161,6 @@ const Request = () => {
 
       setAssets(data)
     } catch (err) {
-      console.error('fetchAssets error:', err)
       setAssets([])
       setError(buildErrorMessage(err, 'Không tải được danh sách thiết bị.'))
     } finally {
@@ -180,11 +194,7 @@ const Request = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
+    setForm((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSelectAsset = (asset) => {
@@ -192,11 +202,7 @@ const Request = () => {
     const name = asset.name || asset.assetName || `Asset #${id}`
     const code = asset.barcode || asset.assetCode || asset.code || ''
 
-    setForm((prev) => ({
-      ...prev,
-      assetId: id,
-    }))
-
+    setForm((prev) => ({ ...prev, assetId: id }))
     setAssetKeyword(code ? `${name} - ${code}` : name)
     setAssetOpen(false)
   }
@@ -216,7 +222,7 @@ const Request = () => {
     }
 
     if (!form.assetId) {
-      setError('Tên thiết bị không được để trống')
+      setError('Tên thiết bị không được để trống.')
       return
     }
 
@@ -239,7 +245,6 @@ const Request = () => {
       resetForm()
       await fetchRequests()
     } catch (err) {
-      console.error('createRequest error:', err)
       setError(buildErrorMessage(err, 'Tạo request thất bại.'))
     } finally {
       setSubmitting(false)
@@ -255,7 +260,6 @@ const Request = () => {
       setSuccess(`Approve request #${id} thành công và đã tạo Work Order.`)
       await fetchRequests()
     } catch (err) {
-      console.error('approve error:', err)
       setError(buildErrorMessage(err, `Approve request #${id} thất bại.`))
     } finally {
       setActionLoadingId(null)
@@ -278,7 +282,6 @@ const Request = () => {
       setSuccess(`Reject request #${id} thành công.`)
       await fetchRequests()
     } catch (err) {
-      console.error('reject error:', err)
       setError(buildErrorMessage(err, `Reject request #${id} thất bại.`))
     } finally {
       setActionLoadingId(null)
@@ -301,8 +304,36 @@ const Request = () => {
       setSuccess(`Cancel request #${id} thành công.`)
       await fetchRequests()
     } catch (err) {
-      console.error('cancel error:', err)
       setError(buildErrorMessage(err, `Cancel request #${id} thất bại.`))
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const handleDelete = async (item) => {
+    const hasWO = !!item.workOrderId
+
+    const confirmMessage = hasWO
+      ? `Request #${item.id} đã liên kết Work Order #${item.workOrderId}. Xóa vĩnh viễn sẽ ngắt liên kết Work Order, chuyển Request sang CANCELLED rồi xóa Request. Bạn chắc chắn muốn xóa?`
+      : `Bạn chắc chắn muốn xóa Request #${item.id}?`
+
+    if (!window.confirm(confirmMessage)) return
+
+    try {
+      setActionLoadingId(item.id)
+      clearMessages()
+
+      if (hasWO) {
+        await axios.delete(`${API_BASE}/${item.id}/force`, axiosConfig)
+        setSuccess(`Đã xóa vĩnh viễn Request #${item.id}.`)
+      } else {
+        await axios.delete(`${API_BASE}/${item.id}`, axiosConfig)
+        setSuccess(`Đã xóa Request #${item.id}.`)
+      }
+
+      await fetchRequests()
+    } catch (err) {
+      setError(buildErrorMessage(err, `Xóa Request #${item.id} thất bại.`))
     } finally {
       setActionLoadingId(null)
     }
@@ -314,7 +345,6 @@ const Request = () => {
       const res = await axios.get(`${API_BASE}/${id}`, axiosConfig)
       setSelectedRequest(res.data)
     } catch (err) {
-      console.error('detail error:', err)
       setError(buildErrorMessage(err, 'Không tải được chi tiết request.'))
     }
   }
@@ -390,6 +420,10 @@ const Request = () => {
     return item.status !== 'CANCELLED' && !item.workOrderId
   }
 
+  const canDelete = () => {
+    return currentRole === 'ADMIN' || currentRole === 'TECHNICAL_MANAGER'
+  }
+
   return (
     <div className="request-page">
       <div className="request-shell">
@@ -437,11 +471,7 @@ const Request = () => {
                   <input
                     type="text"
                     className="asset-search"
-                    placeholder={
-                      assetLoading
-                        ? 'Đang tải thiết bị...'
-                        : 'Tìm thiết bị'
-                    }
+                    placeholder={assetLoading ? 'Đang tải thiết bị...' : 'Tìm thiết bị'}
                     value={assetKeyword}
                     disabled={assetLoading}
                     onFocus={() => setAssetOpen(true)}
@@ -461,29 +491,20 @@ const Request = () => {
                         filteredAssets.map((asset) => {
                           const id = asset.id ?? asset.assetId
                           const name = asset.name || asset.assetName || `Asset #${id}`
-                          const code =
-                            asset.barcode || asset.assetCode || asset.code || ''
+                          const code = asset.barcode || asset.assetCode || asset.code || ''
 
                           return (
                             <button
                               type="button"
                               key={id}
-                              className={
-                                String(form.assetId) === String(id)
-                                  ? 'asset-item active'
-                                  : 'asset-item'
-                              }
+                              className={String(form.assetId) === String(id) ? 'asset-item active' : 'asset-item'}
                               onMouseDown={() => handleSelectAsset(asset)}
                             >
                               <strong>{name}</strong>
                               <span>
                                 {code || 'Không có barcode'}
-                                {asset.serialNumber
-                                  ? ` • SN: ${asset.serialNumber}`
-                                  : ''}
-                                {asset.locationName
-                                  ? ` • ${asset.locationName}`
-                                  : ''}
+                                {asset.serialNumber ? ` • SN: ${asset.serialNumber}` : ''}
+                                {asset.locationName ? ` • ${asset.locationName}` : ''}
                               </span>
                             </button>
                           )
@@ -499,11 +520,7 @@ const Request = () => {
               <div className="form-row">
                 <div className="form-group">
                   <label>Mức độ ưu tiên</label>
-                  <select
-                    name="priority"
-                    value={form.priority}
-                    onChange={handleInputChange}
-                  >
+                  <select name="priority" value={form.priority} onChange={handleInputChange}>
                     {PRIORITY_OPTIONS.map((item) => (
                       <option key={item} value={item}>
                         {item}
@@ -669,9 +686,7 @@ const Request = () => {
                         </td>
 
                         <td data-label="Priority">
-                          <span
-                            className={`priority-badge ${getPriorityClass(item.priority)}`}
-                          >
+                          <span className={`priority-badge ${getPriorityClass(item.priority)}`}>
                             {item.priority || 'NONE'}
                           </span>
                         </td>
@@ -726,6 +741,17 @@ const Request = () => {
                                 Cancel
                               </button>
                             )}
+
+                            {canDelete() && (
+                              <button
+                                type="button"
+                                className={item.workOrderId ? 'table-btn force-delete' : 'table-btn delete'}
+                                onClick={() => handleDelete(item)}
+                                disabled={actionLoadingId === item.id}
+                              >
+                                {item.workOrderId ? 'Xóa vĩnh viễn' : 'Xóa'}
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -744,7 +770,6 @@ const Request = () => {
             <div className="modal-header">
               <div>
                 <h3>Request Detail #{selectedRequest.id}</h3>
-                
               </div>
 
               <button type="button" className="close-btn" onClick={closeModal}>
@@ -761,20 +786,14 @@ const Request = () => {
 
                 <div className="detail-item">
                   <label>Status</label>
-                  <span
-                    className={`status-badge ${getStatusClass(selectedRequest.status)}`}
-                  >
+                  <span className={`status-badge ${getStatusClass(selectedRequest.status)}`}>
                     {selectedRequest.status || '—'}
                   </span>
                 </div>
 
                 <div className="detail-item">
                   <label>Priority</label>
-                  <span
-                    className={`priority-badge ${getPriorityClass(
-                      selectedRequest.priority
-                    )}`}
-                  >
+                  <span className={`priority-badge ${getPriorityClass(selectedRequest.priority)}`}>
                     {selectedRequest.priority || '—'}
                   </span>
                 </div>

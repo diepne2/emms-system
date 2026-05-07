@@ -94,4 +94,11 @@ public class RequestController {
         requestService.delete(id);
         return ResponseEntity.ok(new SuccessResponse(true, "Xóa request thành công"));
     }
+
+    @DeleteMapping("/{id}/force")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICAL_MANAGER')")
+    public ResponseEntity<SuccessResponse> forceDelete(@PathVariable Long id) {
+        requestService.forceDelete(id);
+        return ResponseEntity.ok(new SuccessResponse(true, "Xóa vĩnh viễn request thành công"));
+    }
 }

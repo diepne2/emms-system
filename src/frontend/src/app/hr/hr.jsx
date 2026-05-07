@@ -131,8 +131,34 @@ function formatDateTime(value) {
   }
 }
 
+
 function getUserId(user) {
-  return user?.id || user?.userId || user?.user_id
+  if (!user) {
+    return 0
+  }
+
+  return (
+    user.userId ||
+    user.id ||
+    user.user_id ||
+    0
+  )
+}
+
+function sortUsersAscById(items = []) {
+  return [...items].sort(
+    (a, b) =>
+      Number(getUserId(a) || 0) -
+      Number(getUserId(b) || 0)
+  )
+}
+
+function sortUsersDescById(items = []) {
+  return [...items].sort(
+    (a, b) =>
+      Number(getUserId(b) || 0) -
+      Number(getUserId(a) || 0)
+  )
 }
 
 function getDisplayName(user) {
@@ -273,10 +299,6 @@ function userMatchesExact(user, keyword) {
     .some((value) => normalizeText(value).toLowerCase() === q)
 }
 
-function sortUsersAscById(items) {
-  return [...items].sort((a, b) => Number(getUserId(a) || 0) - Number(getUserId(b) || 0))
-}
-
 function EyeIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -339,7 +361,7 @@ const HR = () => {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [sortBy, setSortBy] = useState('userId')
-  const [sortDir, setSortDir] = useState('asc')
+  const [sortDir, setSortDir] = useState('desc')
 
   const [keywordDraft, setKeywordDraft] = useState('')
   const [keyword, setKeyword] = useState('')
@@ -418,7 +440,9 @@ const HR = () => {
       const data = res?.data || {}
 
       let nextUsers = Array.isArray(data?.content) ? data.content : []
-      nextUsers = sortUsersDescById(nextUsers)
+      nextUsers = [...nextUsers].sort(
+        (a, b) => Number(getUserId(b) || 0) - Number(getUserId(a) || 0)
+      )
 
       if (search.exact && search.query) {
         const exactUsers = nextUsers.filter((user) => userMatchesExact(user, search.query))

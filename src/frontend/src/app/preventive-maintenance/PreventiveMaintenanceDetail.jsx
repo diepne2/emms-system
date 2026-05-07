@@ -287,7 +287,7 @@ export default function PreventiveMaintenanceDetail() {
         message.success('Đã bật lịch')
       } else {
         await api.put(`/api/schedules/${schedule.id}/disable`)
-        message.success('Đã tắt lịch')
+        message.success('Đã tắt lịch bảo trì. Hệ thống sẽ không tự động sinh Work Order mới từ kế hoạch này.')
       }
 
       await load()

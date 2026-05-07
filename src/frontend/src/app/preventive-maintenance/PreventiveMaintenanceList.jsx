@@ -32,7 +32,6 @@ import {
   CalendarOutlined,
   FileTextOutlined,
   SettingOutlined,
-  CloseOutlined,
 } from '@ant-design/icons'
 import './PreventiveMaintenance.css'
 
@@ -81,6 +80,14 @@ const recurrenceLabel = {
   YEARLY: 'Hằng năm',
 }
 
+const PM_FILTERS = [
+  { key: 'ALL', label: 'Tất cả' },
+  { key: 'DAILY', label: 'Hàng ngày' },
+  { key: 'WEEKLY', label: 'Hàng tuần' },
+  { key: 'MONTHLY', label: 'Hàng tháng' },
+  { key: 'YEARLY', label: 'Hàng năm' },
+]
+
 const normalizeRows = (raw) => {
   if (Array.isArray(raw)) return raw
   if (Array.isArray(raw?.content)) return raw.content
@@ -89,12 +96,25 @@ const normalizeRows = (raw) => {
   return []
 }
 
-const getErrorMessage = (err, fallback) =>
-  err?.response?.data?.message ||
-  err?.response?.data?.error ||
-  (typeof err?.response?.data === 'string' ? err.response.data : '') ||
-  err?.message ||
-  fallback
+const getErrorMessage = (err, fallback) => {
+  const raw =
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    (typeof err?.response?.data === 'string' ? err.response.data : '') ||
+    err?.message ||
+    fallback
+
+  if (
+    raw?.includes('đã phát sinh Work Order') ||
+    raw?.includes('foreign key constraint') ||
+    raw?.includes('preventive_maintenances') ||
+    raw?.includes('work_orders')
+  ) {
+    return 'Kế hoạch bảo trì đã phát sinh Work Order nên không thể xóa. Hệ thống đã tắt lịch và chuyển kế hoạch sang ngưng hoạt động.'
+  }
+
+  return raw || fallback
+}
 
 const toDateTimeString = (value) => {
   if (!value) return null
@@ -380,7 +400,8 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
   const handleDelete = (id) => {
     Modal.confirm({
       title: 'Xóa kế hoạch bảo trì?',
-      content: 'Hành động này không thể hoàn tác.',
+      content:
+        'Nếu kế hoạch đã phát sinh Work Order, hệ thống sẽ không xóa cứng mà tắt lịch và chuyển kế hoạch sang ngưng hoạt động.',
       okText: 'Xóa',
       cancelText: 'Hủy',
       okButtonProps: { danger: true },
@@ -390,7 +411,8 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
           message.success('Đã xóa kế hoạch')
           await loadData()
         } catch (err) {
-          message.error(getErrorMessage(err, 'Xóa thất bại'))
+          message.warning(getErrorMessage(err, 'Xóa thất bại'))
+          await loadData()
         }
       },
     })
@@ -666,29 +688,16 @@ export default function PreventiveMaintenanceList({ autoOpenCreate = false }) {
             <div className="pm-list-tabs">
               <h2>Danh sách PM</h2>
 
-              <button
-                type="button"
-                className={`pm-tab ${filterType === 'ALL' ? 'active' : ''}`}
-                onClick={() => setFilterType('ALL')}
-              >
-                Tất cả
-              </button>
-
-              <button
-                type="button"
-                className={`pm-tab ${filterType === 'WEEKLY' ? 'active' : ''}`}
-                onClick={() => setFilterType('WEEKLY')}
-              >
-                Hàng tuần
-              </button>
-
-              <button
-                type="button"
-                className={`pm-tab ${filterType === 'MONTHLY' ? 'active' : ''}`}
-                onClick={() => setFilterType('MONTHLY')}
-              >
-                Hàng tháng
-              </button>
+              {PM_FILTERS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`pm-tab ${filterType === item.key ? 'active' : ''}`}
+                  onClick={() => setFilterType(item.key)}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
 
             <Space wrap>

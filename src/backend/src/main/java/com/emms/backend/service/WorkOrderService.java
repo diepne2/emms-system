@@ -16,6 +16,8 @@ import com.emms.backend.entity.enums.AssetStatus;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.WorkOrderMapper;
 import com.emms.backend.repository.WorkOrderRepository;
+
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +46,9 @@ public class WorkOrderService {
     private final WorkOrderMapper workOrderMapper;
     private final WorkOrderHistoryService workOrderHistoryService;
     private final NotificationService notificationService;
+    private final RequestService requestService;
+    
+    private final PreventiveMaintenanceService preventiveMaintenanceService;
 
     public WorkOrderService(
             WorkOrderRepository workOrderRepository,
@@ -51,7 +56,9 @@ public class WorkOrderService {
             UserService userService,
             WorkOrderMapper workOrderMapper,
             WorkOrderHistoryService workOrderHistoryService,
-            NotificationService notificationService
+            NotificationService notificationService,
+            RequestService requestService,
+            @Lazy PreventiveMaintenanceService preventiveMaintenanceService
     ) {
         this.workOrderRepository = workOrderRepository;
         this.assetService = assetService;
@@ -59,6 +66,8 @@ public class WorkOrderService {
         this.workOrderMapper = workOrderMapper;
         this.workOrderHistoryService = workOrderHistoryService;
         this.notificationService = notificationService;
+        this.requestService = requestService;
+        this.preventiveMaintenanceService = preventiveMaintenanceService;
     }
 
     public WorkOrderShowDTO create(WorkOrderPostDTO dto) {
@@ -338,6 +347,11 @@ public class WorkOrderService {
                 HttpStatus.CONFLICT
             );
         }
+        requestService.cancelAndDetachByWorkOrderId(id);
+        preventiveMaintenanceService.disableByWorkOrder(existing);
+        
+        existing.setPreventiveMaintenance(null);
+        workOrderRepository.save(existing);
         workOrderRepository.delete(existing);
 
     }

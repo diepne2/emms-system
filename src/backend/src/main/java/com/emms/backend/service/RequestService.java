@@ -306,4 +306,38 @@ public class RequestService {
     private String safeTitle(String title) {
         return title == null || title.isBlank() ? "Không có tiêu đề" : title.trim();
     }
+
+    public void cancelAndDetachByWorkOrderId(Long workOrderId) {
+        if (workOrderId == null) {
+            return;
+        }
+
+    List<Request> requests = requestRepository.findAll()
+            .stream()
+            .filter(r -> r.getWorkOrder() != null
+                    && r.getWorkOrder().getId() != null
+                    && r.getWorkOrder().getId().equals(workOrderId))
+            .toList();
+            
+        for (Request request : requests) {
+            request.setWorkOrder(null);
+            request.setStatus(Request.Status.CANCELLED);
+            request.setCancelled(true);
+            request.setCancellationReason("Work Order liên quan đã bị xóa vĩnh viễn");
+        }
+        requestRepository.saveAll(requests);
+    }
+    
+    public void forceDelete(Long id) {
+        Request entity = findEntityById(id);
+        
+        if (entity.getWorkOrder() != null) {
+            entity.setWorkOrder(null);
+            entity.setStatus(Request.Status.CANCELLED);
+            entity.setCancelled(true);
+            entity.setCancellationReason("Request bị xóa vĩnh viễn sau khi ngắt liên kết Work Order");
+            requestRepository.save(entity);
+        }
+        requestRepository.delete(entity);
+    }
 }

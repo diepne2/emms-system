@@ -6,11 +6,14 @@ import com.emms.backend.dto.preventiveMaintenance.PreventiveMaintenanceSummaryDT
 import com.emms.backend.dto.preventiveMaintenance.RecurrenceRule;
 import com.emms.backend.entity.PreventiveMaintenance;
 import com.emms.backend.entity.Schedule;
+import com.emms.backend.entity.WorkOrder;
 import com.emms.backend.entity.enums.Priority;
 import com.emms.backend.entity.enums.RecurrenceType;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.repository.PreventiveMaintenanceRepository;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,7 +75,51 @@ public class PreventiveMaintenanceService {
     }
 
     public void delete(Long id) {
-        repository.delete(findEntityById(id));
+        PreventiveMaintenance pm = findEntityById(id);
+        try {
+            repository.delete(pm);
+        } catch (DataIntegrityViolationException ex) {
+            pm.setActive(false);
+
+            Schedule schedule = pm.getSchedule();
+            if (schedule != null) {
+                schedule.setDisabled(true);
+            }
+            repository.save(pm);
+            throw new CustomException(
+                "Kế hoạch bảo trì đã phát sinh Work Order nên không thể xóa. Hệ thống đã tắt lịch và chuyển sang ngưng hoạt động.",
+                HttpStatus.CONFLICT
+          );
+        }
+    }
+
+    public void disableByWorkOrder(WorkOrder workOrder) {
+        if (workOrder == null || workOrder.getPreventiveMaintenance() == null) {
+            return;
+        }
+        
+        PreventiveMaintenance pm = workOrder.getPreventiveMaintenance();
+        pm.setActive(false);
+        
+        Schedule schedule = pm.getSchedule();
+        if (schedule != null) {
+            schedule.setDisabled(true);
+        }
+        
+        repository.save(pm);
+    }
+
+    public void forceDelete(Long id) {
+        PreventiveMaintenance pm = findEntityById(id);
+        
+        pm.setActive(false);
+        Schedule schedule = pm.getSchedule();
+        if (schedule != null) {
+            schedule.setDisabled(true);
+        }
+        
+        repository.save(pm);
+        repository.delete(pm);
     }
 
     private PreventiveMaintenanceSummaryDTO toSummaryDto(PreventiveMaintenance pm) {
