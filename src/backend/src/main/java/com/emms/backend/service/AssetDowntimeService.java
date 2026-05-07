@@ -8,6 +8,8 @@ import com.emms.backend.entity.WorkOrder;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.AssetDowntimeMapper;
 import com.emms.backend.repository.AssetDowntimeRepository;
+import com.emms.backend.repository.AssetRepository;
+import com.emms.backend.repository.WorkOrderRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,19 +28,19 @@ public class AssetDowntimeService {
 
     private final AssetDowntimeRepository assetDowntimeRepository;
     private final AssetDowntimeMapper assetDowntimeMapper;
-    private final AssetService assetService;
-    private final WorkOrderService workOrderService;
+    private final AssetRepository assetRepository;
+    private final WorkOrderRepository workOrderRepository;
 
     public AssetDowntimeService(
             AssetDowntimeRepository assetDowntimeRepository,
             AssetDowntimeMapper assetDowntimeMapper,
-            AssetService assetService,
-            WorkOrderService workOrderService
+            AssetRepository assetRepository,
+            WorkOrderRepository workOrderRepository
     ) {
         this.assetDowntimeRepository = assetDowntimeRepository;
         this.assetDowntimeMapper = assetDowntimeMapper;
-        this.assetService = assetService;
-        this.workOrderService = workOrderService;
+        this.assetRepository = assetRepository;
+        this.workOrderRepository = workOrderRepository;
     }
 
     public AssetDowntimeShowDTO create(AssetDowntimeDTO dto) {
@@ -79,34 +81,24 @@ public class AssetDowntimeService {
         List<AssetDowntime> existingDowntimes =
                 assetDowntimeRepository.findByAsset_Id(asset.getId());
 
-        boolean hasOpenDowntime = existingDowntimes.stream()
-                .anyMatch(d -> d.getEndsOn() == null);
-
-        if (hasOpenDowntime) {
-            return existingDowntimes.stream()
-                    .filter(d -> d.getEndsOn() == null)
-                    .max(Comparator.comparing(AssetDowntime::getStartsOn))
-                    .orElse(null);
-        }
-
-        AssetDowntime downtime = new AssetDowntime();
-        downtime.setAsset(asset);
-        downtime.setWorkOrder(null);
-        downtime.setReason(AssetDowntime.DowntimeReason.BREAKDOWN);
-        downtime.setStartsOn(LocalDateTime.now());
-        downtime.setEndsOn(null);
-        downtime.setNote(
-                "Tự động tạo khi thiết bị chuyển sang trạng thái " + asset.getStatus()
-        );
-
-        return assetDowntimeRepository.save(downtime);
+        return existingDowntimes.stream()
+                .filter(AssetDowntime::isOpen)
+                .max(Comparator.comparing(AssetDowntime::getStartsOn))
+                .orElseGet(() -> {
+                    AssetDowntime downtime = new AssetDowntime();
+                    downtime.setAsset(asset);
+                    downtime.setWorkOrder(null);
+                    downtime.setReason(AssetDowntime.DowntimeReason.BREAKDOWN);
+                    downtime.setStartsOn(LocalDateTime.now());
+                    downtime.setEndsOn(null);
+                    downtime.setNote("Tự động tạo khi thiết bị chuyển sang trạng thái " + asset.getStatus());
+                    return assetDowntimeRepository.save(downtime);
+                });
     }
 
     @Transactional(readOnly = true)
     public List<AssetDowntimeShowDTO> getAll() {
-        return assetDowntimeRepository.findAll(
-                        Sort.by(Sort.Direction.DESC, "startsOn")
-                )
+        return assetDowntimeRepository.findAll(Sort.by(Sort.Direction.DESC, "startsOn"))
                 .stream()
                 .map(assetDowntimeMapper::toShowDto)
                 .toList();
@@ -181,7 +173,7 @@ public class AssetDowntimeService {
     }
 
     private void applyDtoToEntity(AssetDowntimeDTO dto, AssetDowntime entity) {
-        Asset asset = assetService.getById(dto.getAssetId());
+        Asset asset = resolveAsset(dto.getAssetId());
         WorkOrder workOrder = resolveWorkOrder(dto.getWorkOrderId());
         AssetDowntime.DowntimeReason reason = resolveReason(dto.getReason());
 
@@ -193,12 +185,22 @@ public class AssetDowntimeService {
         entity.setNote(dto.getNote());
     }
 
+    private Asset resolveAsset(Long assetId) {
+        if (assetId == null) {
+            throw new CustomException("assetId không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        return assetRepository.findById(assetId)
+                .orElseThrow(() -> new CustomException("Không tìm thấy asset", HttpStatus.NOT_FOUND));
+    }
+
     private WorkOrder resolveWorkOrder(Long workOrderId) {
         if (workOrderId == null) {
             return null;
         }
 
-        return workOrderService.findEntityById(workOrderId);
+        return workOrderRepository.findById(workOrderId)
+                .orElseThrow(() -> new CustomException("Không tìm thấy Work Order", HttpStatus.NOT_FOUND));
     }
 
     private AssetDowntime.DowntimeReason resolveReason(String rawReason) {
@@ -241,10 +243,7 @@ public class AssetDowntimeService {
 
     private void validateEntity(AssetDowntime entity) {
         if (entity == null) {
-            throw new CustomException(
-                    "Thời gian ngừng hoạt động của thiết bị là bắt buộc",
-                    HttpStatus.BAD_REQUEST
-            );
+            throw new CustomException("Thời gian ngừng hoạt động của thiết bị là bắt buộc", HttpStatus.BAD_REQUEST);
         }
 
         if (entity.getAsset() == null || entity.getAsset().getId() == null) {
