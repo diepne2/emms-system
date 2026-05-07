@@ -34,6 +34,7 @@ public class AssetService {
     private final MeterRepository meterRepository;
     private final AssetMapper assetMapper;
     private final MeterService meterService;
+    private final AssetDowntimeService assetDowntimeService;
 
     public Asset create(AssetPUTDTO dto) {
         if (dto == null) {
@@ -63,13 +64,25 @@ public class AssetService {
         }
 
         Asset asset = getById(id);
+        AssetStatus oldStatus = asset.getStatus();
 
         assetMapper.updateAsset(asset, dto);
         normalize(asset);
         validateForSave(asset);
         validateDuplicateForUpdate(asset);
+        Asset saved = assetRepository.save(asset);
 
-        return assetRepository.save(asset);
+        AssetStatus newStatus = saved.getStatus();
+
+        if (
+            newStatus != null
+            && newStatus.shouldCreateDowntime()
+            && oldStatus != newStatus
+        ) {
+            assetDowntimeService.createFromAsset(saved);
+
+        }
+        return saved;
     }
 
     @Transactional(readOnly = true)

@@ -29,10 +29,12 @@ public class AssetDowntimeService {
     private final AssetService assetService;
     private final WorkOrderService workOrderService;
 
-    public AssetDowntimeService(AssetDowntimeRepository assetDowntimeRepository,
-                                AssetDowntimeMapper assetDowntimeMapper,
-                                AssetService assetService,
-                                WorkOrderService workOrderService) {
+    public AssetDowntimeService(
+            AssetDowntimeRepository assetDowntimeRepository,
+            AssetDowntimeMapper assetDowntimeMapper,
+            AssetService assetService,
+            WorkOrderService workOrderService
+    ) {
         this.assetDowntimeRepository = assetDowntimeRepository;
         this.assetDowntimeMapper = assetDowntimeMapper;
         this.assetService = assetService;
@@ -56,6 +58,7 @@ public class AssetDowntimeService {
         if (id == null) {
             throw new CustomException("id không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         validateDto(dto);
 
         AssetDowntime existing = getEntityById(id);
@@ -68,11 +71,43 @@ public class AssetDowntimeService {
         return assetDowntimeMapper.toShowDto(saved);
     }
 
+    public AssetDowntime createFromAsset(Asset asset) {
+        if (asset == null || asset.getId() == null) {
+            throw new CustomException("Thiết bị không hợp lệ", HttpStatus.BAD_REQUEST);
+        }
+
+        List<AssetDowntime> existingDowntimes =
+                assetDowntimeRepository.findByAsset_Id(asset.getId());
+
+        boolean hasOpenDowntime = existingDowntimes.stream()
+                .anyMatch(d -> d.getEndsOn() == null);
+
+        if (hasOpenDowntime) {
+            return existingDowntimes.stream()
+                    .filter(d -> d.getEndsOn() == null)
+                    .max(Comparator.comparing(AssetDowntime::getStartsOn))
+                    .orElse(null);
+        }
+
+        AssetDowntime downtime = new AssetDowntime();
+        downtime.setAsset(asset);
+        downtime.setWorkOrder(null);
+        downtime.setReason(AssetDowntime.DowntimeReason.BREAKDOWN);
+        downtime.setStartsOn(LocalDateTime.now());
+        downtime.setEndsOn(null);
+        downtime.setNote(
+                "Tự động tạo khi thiết bị chuyển sang trạng thái " + asset.getStatus()
+        );
+
+        return assetDowntimeRepository.save(downtime);
+    }
+
     @Transactional(readOnly = true)
     public List<AssetDowntimeShowDTO> getAll() {
         return assetDowntimeRepository.findAll(
                         Sort.by(Sort.Direction.DESC, "startsOn")
-                ).stream()
+                )
+                .stream()
                 .map(assetDowntimeMapper::toShowDto)
                 .toList();
     }
@@ -88,7 +123,8 @@ public class AssetDowntimeService {
             throw new CustomException("assetId không được để trống", HttpStatus.BAD_REQUEST);
         }
 
-        return assetDowntimeRepository.findByAsset_Id(assetId).stream()
+        return assetDowntimeRepository.findByAsset_Id(assetId)
+                .stream()
                 .sorted(Comparator.comparing(AssetDowntime::getStartsOn).reversed())
                 .map(assetDowntimeMapper::toShowDto)
                 .toList();
@@ -100,7 +136,10 @@ public class AssetDowntimeService {
         }
 
         if (!assetDowntimeRepository.existsById(id)) {
-            throw new CustomException("Không tìm thấy thời gian ngừng hoạt động của thiết bị", HttpStatus.NOT_FOUND);
+            throw new CustomException(
+                    "Không tìm thấy thời gian ngừng hoạt động của thiết bị",
+                    HttpStatus.NOT_FOUND
+            );
         }
 
         assetDowntimeRepository.deleteById(id);
@@ -113,7 +152,10 @@ public class AssetDowntimeService {
         }
 
         return assetDowntimeRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Không tìm thấy thời gian ngừng hoạt động của thiết bị", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException(
+                        "Không tìm thấy thời gian ngừng hoạt động của thiết bị",
+                        HttpStatus.NOT_FOUND
+                ));
     }
 
     @Transactional(readOnly = true)
@@ -155,6 +197,7 @@ public class AssetDowntimeService {
         if (workOrderId == null) {
             return null;
         }
+
         return workOrderService.findEntityById(workOrderId);
     }
 
@@ -182,12 +225,15 @@ public class AssetDowntimeService {
         if (dto == null) {
             throw new CustomException("AssetDowntimeDTO không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         if (dto.getAssetId() == null) {
             throw new CustomException("assetId không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         if (dto.getStartsOn() == null) {
             throw new CustomException("startsOn không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         if (dto.getEndsOn() != null && dto.getEndsOn().isBefore(dto.getStartsOn())) {
             throw new CustomException("endsOn phải >= startsOn", HttpStatus.BAD_REQUEST);
         }
@@ -195,7 +241,10 @@ public class AssetDowntimeService {
 
     private void validateEntity(AssetDowntime entity) {
         if (entity == null) {
-            throw new CustomException("Thời gian ngừng hoạt động của thiết bị là bắt buộc", HttpStatus.BAD_REQUEST);
+            throw new CustomException(
+                    "Thời gian ngừng hoạt động của thiết bị là bắt buộc",
+                    HttpStatus.BAD_REQUEST
+            );
         }
 
         if (entity.getAsset() == null || entity.getAsset().getId() == null) {
@@ -207,8 +256,10 @@ public class AssetDowntimeService {
         }
 
         if (entity.getEndsOn() != null && entity.getEndsOn().isBefore(entity.getStartsOn())) {
-            throw new CustomException("Thời điểm kết thúc phải lớn hơn hoặc bằng thời điểm bắt đầu.",
-                    HttpStatus.BAD_REQUEST);
+            throw new CustomException(
+                    "Thời điểm kết thúc phải lớn hơn hoặc bằng thời điểm bắt đầu.",
+                    HttpStatus.BAD_REQUEST
+            );
         }
     }
 
@@ -231,11 +282,13 @@ public class AssetDowntimeService {
                     ? existing.getEndsOn()
                     : LocalDateTime.MAX;
 
-
             boolean overlap = startA.isBefore(endB) && startB.isBefore(endA);
 
             if (overlap) {
-                throw new CustomException("Thời gian ngừng hoạt động của thiết bị bị trùng lặp", HttpStatus.CONFLICT);
+                throw new CustomException(
+                        "Thời gian ngừng hoạt động của thiết bị bị trùng lặp",
+                        HttpStatus.CONFLICT
+                );
             }
         }
     }

@@ -1,8 +1,8 @@
-
 @import url('../asset/Assets.css');
 
 .asset-downtime-table {
-  min-width: 1560px;
+  min-width: 1700px;
+  table-layout: fixed;
 }
 
 .asset-downtime-table th:nth-child(1),
@@ -13,12 +13,12 @@
 
 .asset-downtime-table th:nth-child(2),
 .asset-downtime-table td:nth-child(2) {
-  width: 220px;
+  width: 300px;
 }
 
 .asset-downtime-table th:nth-child(3),
 .asset-downtime-table td:nth-child(3) {
-  width: 240px;
+  width: 260px;
 }
 
 .asset-downtime-table th:nth-child(4),
@@ -30,7 +30,7 @@
 .asset-downtime-table td:nth-child(5),
 .asset-downtime-table th:nth-child(6),
 .asset-downtime-table td:nth-child(6) {
-  width: 170px;
+  width: 190px;
 }
 
 .asset-downtime-table th:nth-child(7),
@@ -40,7 +40,7 @@
 
 .asset-downtime-table th:nth-child(8),
 .asset-downtime-table td:nth-child(8) {
-  width: 150px;
+  width: 240px;
 }
 
 .asset-downtime-table th:nth-child(9),
@@ -49,6 +49,38 @@
   text-align: center;
 }
 
+.downtime-cell-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.downtime-cell-stack strong {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  color: var(--clr-text-base);
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.downtime-cell-stack small {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  color: var(--clr-text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .searchable-select {
   position: relative;
@@ -144,7 +176,7 @@
   border: none;
   background: transparent;
   border-radius: var(--radius-md);
-  padding: 10px 10px;
+  padding: 10px;
   cursor: pointer;
   text-align: left;
   display: flex;

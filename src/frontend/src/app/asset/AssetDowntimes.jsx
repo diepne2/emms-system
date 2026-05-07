@@ -849,13 +849,13 @@ export default function AssetDowntimes() {
                       <tr key={item.id}>
                         <td>{pageNum * pageSize + index + 1}</td>
                         <td>
-                          <div className="asset-name-cell">
+                          <div className="downtime-cell-stack">
                             <strong>{getItemAssetName(item, assetOptions)}</strong>
                             <small>Asset ID: {getItemAssetId(item) || '-'}</small>
                           </div>
                         </td>
                         <td>
-                          <div className="asset-name-cell">
+                          <div className="downtime-cell-stack">
                             <strong>{getReasonLabel(item.reason)}</strong>
                             {item.note && <small>{item.note}</small>}
                           </div>
@@ -865,7 +865,7 @@ export default function AssetDowntimes() {
                         <td>{formatDateTime(item.endsOn)}</td>
                         <td>{formatDuration(item.durationSeconds)}</td>
                         <td>
-                          <div className="asset-name-cell">
+                          <div className="downtime-cell-stack">
                             <strong>{getItemWorkOrderName(item, workOrderOptions)}</strong>
                             {item.workOrderId && <small>ID: {item.workOrderId}</small>}
                           </div>

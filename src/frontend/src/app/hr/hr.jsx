@@ -1225,7 +1225,7 @@ const HR = () => {
                       onChange={(e) =>
                         setInviteForm((prev) => ({ ...prev, emailsText: e.target.value }))
                       }
-                      placeholder={'VD:\ntech1@gmail.com\ntech2@gmail.com, operator@gmail.com'}
+                      placeholder={'Nhập email'}
                       disabled={submitting}
                     />
                     <small className="text-muted">

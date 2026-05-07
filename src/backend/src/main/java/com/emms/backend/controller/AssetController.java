@@ -21,8 +21,11 @@ public class AssetController {
 
     private final AssetService assetService;
 
+    private static final String ASSET_WRITE_AUTH =
+            "hasAnyAuthority('ROLE_ADMIN','ADMIN','ROLE_TECHNICAL_MANAGER','TECHNICAL_MANAGER')";
+
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    @PreAuthorize(ASSET_WRITE_AUTH)
     public ResponseEntity<AssetShowDTO> create(@RequestBody AssetPUTDTO dto) {
         Asset asset = assetService.create(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -30,7 +33,7 @@ public class AssetController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    @PreAuthorize(ASSET_WRITE_AUTH)
     public ResponseEntity<AssetShowDTO> update(
             @PathVariable Long id,
             @RequestBody AssetPUTDTO dto
@@ -58,14 +61,14 @@ public class AssetController {
     }
 
     @PutMapping("/{id}/decommission")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    @PreAuthorize(ASSET_WRITE_AUTH)
     public ResponseEntity<AssetShowDTO> decommission(@PathVariable Long id) {
         Asset asset = assetService.decommission(id);
         return ResponseEntity.ok(assetService.getShowDtoById(asset.getId()));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    @PreAuthorize(ASSET_WRITE_AUTH)
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         assetService.delete(id);
         return ResponseEntity.noContent().build();
@@ -76,5 +79,4 @@ public class AssetController {
     public ResponseEntity<List<AssetShowDTO>> getAll() {
         return ResponseEntity.ok(assetService.getAll());
     }
-
 }

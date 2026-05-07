@@ -42,11 +42,13 @@ const getToken = () =>
   localStorage.getItem('accessToken') ||
   localStorage.getItem('token') ||
   localStorage.getItem('access_token') ||
+  localStorage.getItem('jwt') ||
   sessionStorage.getItem('accessToken') ||
   sessionStorage.getItem('token') ||
   sessionStorage.getItem('access_token') ||
+  sessionStorage.getItem('jwt') ||
   ''
-
+  
 const getAuthConfig = () => {
   const token = getToken()
   return {

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
+import { Eye, Check, X, Trash2, ShieldX } from 'lucide-react'
+import { Ban } from 'lucide-react'
 import './request.css'
 
 const API_ROOT =
@@ -703,10 +705,10 @@ const Request = () => {
                           <div className="action-group">
                             <button
                               type="button"
-                              className="table-btn info"
+                              className="table-btn view"
                               onClick={() => handleViewDetail(item.id)}
                             >
-                              View
+                              <Eye size={16} strokeWidth={2.4} />
                             </button>
 
                             {canApproveRejectByRole && canApproveOrReject(item) && (
@@ -714,19 +716,21 @@ const Request = () => {
                                 <button
                                   type="button"
                                   className="table-btn approve"
+                                  title="Phê duyệt"
                                   onClick={() => handleApprove(item.id)}
                                   disabled={actionLoadingId === item.id}
                                 >
-                                  {actionLoadingId === item.id ? '...' : 'Approve'}
+                                  {actionLoadingId === item.id ? '...' : <Check size={16} strokeWidth={2.8} />}
                                 </button>
 
                                 <button
                                   type="button"
                                   className="table-btn reject"
+                                  title="Từ chối"
                                   onClick={() => handleReject(item.id)}
                                   disabled={actionLoadingId === item.id}
                                 >
-                                  Reject
+                                  <X size={16} strokeWidth={2.8} />
                                 </button>
                               </>
                             )}
@@ -738,7 +742,7 @@ const Request = () => {
                                 onClick={() => handleCancel(item.id)}
                                 disabled={actionLoadingId === item.id}
                               >
-                                Cancel
+                                <Ban size={16} strokeWidth={2.4} />
                               </button>
                             )}
 
@@ -746,10 +750,24 @@ const Request = () => {
                               <button
                                 type="button"
                                 className={item.workOrderId ? 'table-btn force-delete' : 'table-btn delete'}
+                                title={
+                                  item.workOrderId
+                                  ? 'Xóa vĩnh viễn'
+                                  : 'Xóa'
+                                }
+
+
                                 onClick={() => handleDelete(item)}
                                 disabled={actionLoadingId === item.id}
                               >
-                                {item.workOrderId ? 'Xóa vĩnh viễn' : 'Xóa'}
+                                {actionLoadingId === item.id ? (
+                                  '...'
+                                  ) : item.workOrderId ? (
+                                    <ShieldX size={16} strokeWidth={2.5} />
+                                  ) : (
+                                    <Trash2 size={16} strokeWidth={2.3} />
+                                  )}
+
                               </button>
                             )}
                           </div>
