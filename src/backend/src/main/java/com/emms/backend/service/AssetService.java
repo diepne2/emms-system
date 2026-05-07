@@ -1,5 +1,5 @@
 package com.emms.backend.service;
-
+import org.springframework.context.annotation.Lazy;
 import com.emms.backend.advancedsearch.SearchCriteria;
 import com.emms.backend.dto.asset.AssetPUTDTO;
 import com.emms.backend.dto.asset.AssetShowDTO;
@@ -34,6 +34,8 @@ public class AssetService {
     private final MeterRepository meterRepository;
     private final AssetMapper assetMapper;
     private final MeterService meterService;
+    
+    @Lazy
     private final AssetDowntimeService assetDowntimeService;
 
     public Asset create(AssetPUTDTO dto) {
