@@ -1,10 +1,10 @@
 package com.emms.backend.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.emms.backend.dto.email.EmailAttachmentDTO;
 import com.emms.backend.entity.User;
 import com.emms.backend.exception.CustomException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sendgrid.Method;
 import com.sendgrid.Request;
 import com.sendgrid.Response;
@@ -28,15 +28,7 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @Service
 @Transactional
@@ -74,9 +66,11 @@ public class SendgridService implements MailService {
 
     private String fromName;
 
-    public SendgridService(SpringTemplateEngine thymeleafTemplateEngine,
-                           Environment environment,
-                           ObjectMapper objectMapper) {
+    public SendgridService(
+            SpringTemplateEngine thymeleafTemplateEngine,
+            Environment environment,
+            ObjectMapper objectMapper
+    ) {
         this.thymeleafTemplateEngine = thymeleafTemplateEngine;
         this.environment = environment;
         this.objectMapper = objectMapper;
@@ -115,6 +109,7 @@ public class SendgridService implements MailService {
 
             Calendar calendar = Calendar.getInstance();
             calendar.add(Calendar.DAY_OF_MONTH, 15);
+
             SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM d, yyyy", Locale.ENGLISH);
             String trialEndDate = dateFormat.format(calendar.getTime());
 
@@ -133,7 +128,7 @@ public class SendgridService implements MailService {
             Response response = sendGrid.api(request);
             ensureSuccess(response, "Thêm người dùng vào danh bạ SendGrid không thành công.");
 
-            log.info("Người dùng đã được thêm vào danh sách liên hệ SendGrid thành công : {}", user.getEmail());
+            log.info("Người dùng đã được thêm vào danh sách liên hệ SendGrid thành công: {}", user.getEmail());
         } catch (Exception e) {
             log.error("Lỗi khi thêm người dùng vào liên hệ SendGrid", e);
             throw new CustomException(
@@ -193,6 +188,7 @@ public class SendgridService implements MailService {
 
             JsonNode first = resultNode.get(0);
             JsonNode idNode = first.get("id");
+
             if (idNode == null || idNode.asText().isBlank()) {
                 log.warn("Contact id missing for email {}", userEmail);
                 return;
@@ -247,6 +243,7 @@ public class SendgridService implements MailService {
             for (String recipient : validRecipients) {
                 personalization.addTo(new Email(recipient));
             }
+
             mail.addPersonalization(personalization);
 
             Response response = sendMail(mail);
@@ -260,12 +257,14 @@ public class SendgridService implements MailService {
     }
 
     @Override
-    public void sendMessageWithAttachment(String to,
-                                          String subject,
-                                          String text,
-                                          String attachmentName,
-                                          byte[] attachmentData,
-                                          String attachmentType) {
+    public void sendMessageWithAttachment(
+            String to,
+            String subject,
+            String text,
+            String attachmentName,
+            byte[] attachmentData,
+            String attachmentType
+    ) {
         if (shouldSkipSendingEmail()) {
             return;
         }
@@ -304,12 +303,14 @@ public class SendgridService implements MailService {
 
     @Override
     @Async
-    public void sendMessageUsingThymeleafTemplate(String[] to,
-                                                  String subject,
-                                                  Map<String, Object> templateModel,
-                                                  String template,
-                                                  Locale locale,
-                                                  List<EmailAttachmentDTO> attachmentDTOS) {
+    public void sendMessageUsingThymeleafTemplate(
+            String[] to,
+            String subject,
+            Map<String, Object> templateModel,
+            String template,
+            Locale locale,
+            List<EmailAttachmentDTO> attachmentDTOS
+    ) {
         if (shouldSkipSendingEmail()) {
             return;
         }
@@ -338,18 +339,22 @@ public class SendgridService implements MailService {
     }
 
     @Override
-    public void sendHtmlMessage(String[] to,
-                                String subject,
-                                String htmlBody,
-                                List<EmailAttachmentDTO> attachmentDTOS) throws IOException {
+    public void sendHtmlMessage(
+            String[] to,
+            String subject,
+            String htmlBody,
+            List<EmailAttachmentDTO> attachmentDTOS
+    ) throws IOException {
         sendHtmlMessage(to, subject, htmlBody, attachmentDTOS, null);
     }
 
-    private void sendHtmlMessage(String[] to,
-                                 String subject,
-                                 String htmlBody,
-                                 List<EmailAttachmentDTO> attachmentDTOS,
-                                 String template) throws IOException {
+    private void sendHtmlMessage(
+            String[] to,
+            String subject,
+            String htmlBody,
+            List<EmailAttachmentDTO> attachmentDTOS,
+            String template
+    ) throws IOException {
         if (shouldSkipSendingEmail()) {
             return;
         }
@@ -362,6 +367,7 @@ public class SendgridService implements MailService {
 
         boolean allDemoRecipients = Arrays.stream(validRecipients)
                 .allMatch(recipient -> recipient.toLowerCase(Locale.ROOT).endsWith("@demo.com"));
+
         if (allDemoRecipients) {
             log.info("Skip sending html email because all recipients are demo accounts.");
             return;
@@ -383,11 +389,12 @@ public class SendgridService implements MailService {
         for (String recipient : validRecipients) {
             personalization.addTo(new Email(recipient));
         }
-        mail.addPersonalization(personalization);
 
+        mail.addPersonalization(personalization);
         addAttachments(mail, attachmentDTOS);
 
         Response response = sendMail(mail);
+
         if (response.getStatusCode() >= 400) {
             log.error("SendGrid error: Status={}, Body={}", response.getStatusCode(), response.getBody());
             throw new IOException("SendGrid API error: " + response.getStatusCode());
@@ -404,11 +411,177 @@ public class SendgridService implements MailService {
                 log.warn("Skip sending mail to super admins because recipients config is empty.");
                 return;
             }
+
             sendHtmlMessage(validRecipients, subject, text, null);
         } catch (IOException e) {
             log.error("Error sending email to super admins", e);
             throw new CustomException(
                     "Failed to send email to super admins",
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    @Override
+    public void sendInviteEmail(
+            String to,
+            String username,
+            String tempPassword,
+            String roleName,
+            String loginLink
+    ) {
+        if (shouldSkipSendingEmail()) {
+            return;
+        }
+
+        if (to == null || to.isBlank()) {
+            throw new CustomException("Email người nhận không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        String safeUsername = escapeHtml(defaultIfBlank(username, to));
+        String safeTempPassword = escapeHtml(defaultIfBlank(tempPassword, ""));
+        String safeRoleName = escapeHtml(defaultIfBlank(roleName, ""));
+        String safeLoginLink = defaultIfBlank(loginLink, frontendUrl + "/#/login");
+
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:640px;margin:auto;padding:24px;color:#1f2937;">
+                    <h2 style="color:#1677ff;margin-bottom:8px;">
+                        EMMS - Hệ thống quản lý thiết bị và bảo trì
+                    </h2>
+
+                    <p>Xin chào,</p>
+                    <p>Bạn đã được cấp tài khoản truy cập vào hệ thống EMMS.</p>
+
+                    <table style="width:100%%;border-collapse:collapse;margin:20px 0;background:#f8fafc;border-radius:8px;overflow:hidden;">
+                        <tr>
+                            <td style="padding:12px;font-weight:bold;width:180px;">Tên hệ thống</td>
+                            <td style="padding:12px;">EMMS</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:12px;font-weight:bold;">User đăng nhập</td>
+                            <td style="padding:12px;">%s</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:12px;font-weight:bold;">Mật khẩu tạm</td>
+                            <td style="padding:12px;">%s</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:12px;font-weight:bold;">Vai trò được cấp</td>
+                            <td style="padding:12px;">%s</td>
+                        </tr>
+                    </table>
+
+                    <p>
+                        <a href="%s"
+                           style="background:#1677ff;color:#ffffff;padding:12px 18px;border-radius:6px;text-decoration:none;display:inline-block;">
+                            Đăng nhập hệ thống
+                        </a>
+                    </p>
+
+                    <p style="color:#d4380d;margin-top:20px;">
+                        Vui lòng đổi mật khẩu sau khi đăng nhập lần đầu.
+                    </p>
+
+                    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+
+                    <p style="font-size:12px;color:#6b7280;">
+                        Đây là email tự động từ hệ thống EMMS. Vui lòng không trả lời email này.
+                    </p>
+                </div>
+                """.formatted(
+                safeUsername,
+                safeTempPassword,
+                safeRoleName,
+                safeLoginLink
+        );
+
+        try {
+            sendHtmlMessage(
+                    new String[]{to},
+                    "Lời mời tham gia hệ thống EMMS",
+                    html,
+                    null
+            );
+        } catch (IOException e) {
+            log.error("Failed to send invite email to {}", to, e);
+            throw new CustomException("Không gửi được email mời", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public void sendResetPasswordEmail(
+            String to,
+            String usernameOrEmail,
+            String resetLink
+    ) {
+        if (shouldSkipSendingEmail()) {
+            return;
+        }
+
+        if (to == null || to.isBlank()) {
+            throw new CustomException("Email người nhận không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        String safeAccount = escapeHtml(defaultIfBlank(usernameOrEmail, to));
+        String safeResetLink = defaultIfBlank(resetLink, frontendUrl + "/#/forgot-password");
+
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:640px;margin:auto;padding:24px;color:#1f2937;">
+                    <h2 style="color:#1677ff;margin-bottom:8px;">
+                        EMMS - Đặt lại mật khẩu
+                    </h2>
+
+                    <p>Xin chào,</p>
+                    <p>Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+
+                    <table style="width:100%%;border-collapse:collapse;margin:20px 0;background:#f8fafc;border-radius:8px;overflow:hidden;">
+                        <tr>
+                            <td style="padding:12px;font-weight:bold;width:180px;">Tên hệ thống</td>
+                            <td style="padding:12px;">EMMS</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:12px;font-weight:bold;">Tài khoản</td>
+                            <td style="padding:12px;">%s</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:12px;font-weight:bold;">Hiệu lực link</td>
+                            <td style="padding:12px;">15 phút</td>
+                        </tr>
+                    </table>
+
+                    <p>
+                        <a href="%s"
+                           style="background:#1677ff;color:#ffffff;padding:12px 18px;border-radius:6px;text-decoration:none;display:inline-block;">
+                            Đặt lại mật khẩu
+                        </a>
+                    </p>
+
+                    <p style="color:#d4380d;margin-top:20px;">
+                        Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+                    </p>
+
+                    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+
+                    <p style="font-size:12px;color:#6b7280;">
+                        Đây là email tự động từ hệ thống EMMS. Vui lòng không trả lời email này.
+                    </p>
+                </div>
+                """.formatted(
+                safeAccount,
+                safeResetLink
+        );
+
+        try {
+            sendHtmlMessage(
+                    new String[]{to},
+                    "Đặt lại mật khẩu EMMS",
+                    html,
+                    null
+            );
+        } catch (IOException e) {
+            log.error("Failed to send reset password email to {}", to, e);
+            throw new CustomException(
+                    "Không gửi được email đặt lại mật khẩu",
                     HttpStatus.INTERNAL_SERVER_ERROR
             );
         }
@@ -444,10 +617,12 @@ public class SendgridService implements MailService {
 
     private Response sendMail(Mail mail) throws IOException {
         SendGrid sendGrid = buildClient();
+
         Request request = new Request();
         request.setMethod(Method.POST);
         request.setEndpoint("mail/send");
         request.setBody(mail.build());
+
         return sendGrid.api(request);
     }
 
@@ -455,6 +630,7 @@ public class SendgridService implements MailService {
         if (sendGridApiKey == null || sendGridApiKey.isBlank()) {
             throw new CustomException("SendGrid API key is missing", HttpStatus.INTERNAL_SERVER_ERROR);
         }
+
         return new SendGrid(sendGridApiKey);
     }
 
@@ -462,7 +638,9 @@ public class SendgridService implements MailService {
         if (response == null || response.getStatusCode() >= 400) {
             int status = response == null ? 500 : response.getStatusCode();
             String body = response == null ? null : response.getBody();
+
             log.error("SendGrid error: status={}, body={}", status, body);
+
             throw new CustomException(message, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -489,6 +667,19 @@ public class SendgridService implements MailService {
     }
 
     private String defaultIfBlank(String value, String defaultValue) {
-        return (value == null || value.isBlank()) ? defaultValue : value;
+        return value == null || value.isBlank() ? defaultValue : value;
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

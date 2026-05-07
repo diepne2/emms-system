@@ -122,13 +122,32 @@ const hasAnyGrant = (grants, expected = []) => {
 
 const extractErrorMessage = (err, fallback) => {
   if (!err) return fallback
-  if (err.response) {
-    const data = err.response.data
-    if (typeof data === 'string' && data.trim()) return `HTTP ${err.response.status}: ${data}`
-    if (data?.message) return `HTTP ${err.response.status}: ${data.message}`
-    if (data?.error) return `HTTP ${err.response.status}: ${data.error}`
-    return `HTTP ${err.response.status}: ${fallback}`
+
+  const status = err?.response?.status
+  const data = err?.response?.data
+
+  if (typeof data === 'string' && data.trim()) {
+    return data.trim()
   }
+
+  const apiMessage =
+    data?.message ||
+    data?.error ||
+    data?.detail ||
+    data?.title ||
+    data?.violations?.[0]?.message ||
+    data?.errors?.[0]?.defaultMessage ||
+    data?.errors?.[0]?.message
+
+  if (apiMessage) return String(apiMessage)
+
+  if (status === 400) return 'Dữ liệu nhập không hợp lệ.'
+  if (status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+  if (status === 403) return 'Bạn không có quyền thực hiện thao tác này.'
+  if (status === 404) return 'Không tìm thấy dữ liệu.'
+  if (status === 409) return 'Dữ liệu bị xung đột hoặc đã tồn tại.'
+  if (status) return fallback
+
   if (err.request) return 'Không nhận được phản hồi từ backend. Kiểm tra backend/CORS/network.'
   return err.message || fallback
 }
@@ -577,9 +596,9 @@ export default function AssetDowntimes() {
       setCreateError('')
       await api.post('', buildPayload(createForm), getAuthConfig())
       closeCreateModal()
-      await loadData()
+      await Promise.all([loadAssetOptions(), loadData()])
     } catch (err) {
-      setCreateError(extractErrorMessage(err, 'Không thể tạo downtime.'))
+      setCreateError(extractErrorMessage(err, 'Không thể thêm nhật ký dừng máy.'))
     } finally {
       setCreateLoading(false)
     }
@@ -622,9 +641,9 @@ export default function AssetDowntimes() {
       setEditError('')
       await api.put(`/${editingDowntimeId}`, buildPayload(editForm), getAuthConfig())
       closeEditModal()
-      await loadData()
+      await Promise.all([loadAssetOptions(), loadData()])
     } catch (err) {
-      setEditError(extractErrorMessage(err, 'Không thể cập nhật downtime.'))
+      setEditError(extractErrorMessage(err, 'Không thể cập nhật nhật ký dừng máy.'))
     } finally {
       setEditLoading(false)
     }

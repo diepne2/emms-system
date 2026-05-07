@@ -1,21 +1,21 @@
 package com.emms.backend.service.impl;
-import com.emms.backend.entity.enums.RoleCode;
+
 import com.emms.backend.dto.auth.UpdatePasswordRequest;
 import com.emms.backend.dto.user.ChangePasswordDTO;
 import com.emms.backend.dto.user.UserDropdownDTO;
-
 import com.emms.backend.dto.user.UserProfileUpdateDTO;
 import com.emms.backend.dto.user.UserResponseDTO;
 import com.emms.backend.entity.Role;
 import com.emms.backend.entity.User;
+import com.emms.backend.entity.enums.RoleCode;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.UserMapper;
 import com.emms.backend.repository.RoleRepository;
 import com.emms.backend.repository.UserRepository;
 import com.emms.backend.security.CustomUserPrincipal;
 import com.emms.backend.security.JwtUtil;
-import com.emms.backend.service.UserService;
 import com.emms.backend.service.MailService;
+import com.emms.backend.service.UserService;
 import com.emms.backend.specification.UserSpecifications;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
@@ -54,8 +54,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-
-    private static final long MAX_AVATAR_SIZE = 5 * 1024 * 1024; 
+    private static final long MAX_AVATAR_SIZE = 5 * 1024 * 1024;
     private static final String AVATAR_UPLOAD_DIR = "/app/uploads/avatars";
 
     @Value("${frontend.url:http://localhost:5173}")
@@ -89,7 +88,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<UserResponseDTO> getAllUsers() {
-        return userRepository.findAllByOrderByFirstNameAscLastNameAsc()
+        return userRepository.findAllByOrderByUserIdAsc()
                 .stream()
                 .map(userMapper::toResponseDTO)
                 .toList();
@@ -269,8 +268,8 @@ public class UserServiceImpl implements UserService {
             userRepository.delete(existing);
         } catch (Exception e) {
             throw new CustomException(
-                "Không thể xóa người dùng vì đã được gán trong Work Order",
-                HttpStatus.CONFLICT
+                    "Không thể xóa người dùng vì đã được gán trong Work Order",
+                    HttpStatus.CONFLICT
             );
         }
     }
@@ -280,43 +279,44 @@ public class UserServiceImpl implements UserService {
         if (emails == null || emails.isEmpty()) {
             throw new CustomException("Danh sách email không được để trống", HttpStatus.BAD_REQUEST);
         }
-        
+
         if (roleName == null || roleName.isBlank()) {
             throw new CustomException("Vai trò không được để trống", HttpStatus.BAD_REQUEST);
         }
-        
+
         String roleCode = roleName.trim().toUpperCase(Locale.ROOT);
         if (roleCode.startsWith("ROLE_")) {
             roleCode = roleCode.substring(5);
         }
-        
+
         RoleCode roleEnum;
         try {
             roleEnum = RoleCode.valueOf(roleCode);
         } catch (IllegalArgumentException ex) {
             throw new CustomException("Vai trò không hợp lệ: " + roleName, HttpStatus.BAD_REQUEST);
         }
-        
-        
+
         Role role = roleRepository.findByCode(roleEnum)
-            .orElseThrow(() -> new CustomException("Vai trò không tồn tại", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Vai trò không tồn tại", HttpStatus.NOT_FOUND));
+
         int createdCount = 0;
-        
+
         for (String rawEmail : emails) {
             String email = trim(rawEmail);
-            
+
             if (email == null || email.isBlank()) {
                 throw new CustomException("Email không được để trống", HttpStatus.BAD_REQUEST);
             }
-            
+
             if (userRepository.existsByEmailIgnoreCase(email)) {
                 throw new CustomException(
-                    "Email đã tồn tại trong hệ thống: " + email,
-                    HttpStatus.CONFLICT
+                        "Email đã tồn tại trong hệ thống: " + email,
+                        HttpStatus.CONFLICT
                 );
             }
+
             String tempPassword = generateTemporaryPassword();
-            
+
             User user = new User();
             user.setEmail(email);
             user.setUsername(generateUsernameFromEmail(email));
@@ -325,43 +325,38 @@ public class UserServiceImpl implements UserService {
             user.setPassword(passwordEncoder.encode(tempPassword));
             user.setFirstName("User");
             user.setLastName("Invited");
-            
-            
+
             trySetDefaultActiveStatus(user);
-            
+
             String loginLink = frontendUrl + "/#/login";
-            
-            
+
             try {
-                mailService.sendSimpleMessage(
-                    new String[]{email},
-                    "Lời mời tham gia hệ thống EMMS",
-                    "Bạn đã được mời vào hệ thống Quản lý thiết bị và bảo trì EMMS.\n\n"
-                            + "Email đăng nhập: " + email + "\n"
-                            + "Mật khẩu tạm: " + tempPassword + "\n\n"
-                            + "Đăng nhập tại: " + loginLink + "\n\n"
-                            + "Vui lòng đổi mật khẩu sau khi đăng nhập."
+                mailService.sendInviteEmail(
+                        email,
+                        user.getUsername(),
+                        tempPassword,
+                        formatRoleName(role.getCode().name()),
+                        loginLink
                 );
             } catch (Exception ex) {
                 log.error("Send invite mail failed for {}: {}", email, ex.getMessage(), ex);
-                    throw new CustomException(
+                throw new CustomException(
                         "Không gửi được email mời đến: " + email,
                         HttpStatus.INTERNAL_SERVER_ERROR
-                    );
+                );
             }
-            
+
             userRepository.save(user);
             createdCount++;
         }
+
         log.info(
-            "Invited users by {}: created={}, total={}",
-            invitedBy,
-            createdCount,
-            emails.size()
+                "Invited users by {}: created={}, total={}",
+                invitedBy,
+                createdCount,
+                emails.size()
         );
     }
-
-    
 
     @Override
     public User findEntityById(Long id) {
@@ -383,7 +378,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<User> findAll() {
-        return userRepository.findAllByOrderByFirstNameAscLastNameAsc();
+        return userRepository.findAllByOrderByUserIdAsc();
     }
 
     @Override
@@ -410,7 +405,7 @@ public class UserServiceImpl implements UserService {
 
         Optional<User> optionalUser = userRepository.findByEmailIgnoreCase(email.trim());
         if (optionalUser.isEmpty()) {
-            return; 
+            return;
         }
 
         User user = optionalUser.get();
@@ -422,10 +417,10 @@ public class UserServiceImpl implements UserService {
 
         String link = frontendUrl + "/#/reset-password?token=" + token;
 
-        mailService.sendSimpleMessage(
-                new String[]{user.getEmail()},
-                "Reset password",
-                "Click link để đổi mật khẩu: " + link + "\n\nLink hết hạn sau 15 phút."
+        mailService.sendResetPasswordEmail(
+                user.getEmail(),
+                user.getUsername() != null ? user.getUsername() : user.getEmail(),
+                link
         );
 
         log.info("Forgot password reset link sent to {}", user.getEmail());
@@ -474,8 +469,8 @@ public class UserServiceImpl implements UserService {
             userRepository.delete(existing);
         } catch (Exception ex) {
             throw new CustomException(
-                "Không thể xóa người dùng vì đã được sử dụng trong hệ thống",
-                HttpStatus.CONFLICT
+                    "Không thể xóa người dùng vì đã được sử dụng trong hệ thống",
+                    HttpStatus.CONFLICT
             );
         }
     }
@@ -578,9 +573,6 @@ public class UserServiceImpl implements UserService {
 
             Path filePath = uploadDir.resolve(fileName);
 
-            System.out.println("UPLOAD DIR = " + uploadDir.toAbsolutePath());
-            System.out.println("FILE PATH = " + filePath.toAbsolutePath());
-
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             user.setAvatar("/api/users/avatar/" + fileName);
@@ -653,10 +645,12 @@ public class UserServiceImpl implements UserService {
         if (code == null) {
             return "";
         }
+
         String value = code.trim().toUpperCase(Locale.ROOT);
         if (value.startsWith("ROLE_")) {
             value = value.substring(5);
         }
+
         return value;
     }
 
@@ -712,6 +706,7 @@ public class UserServiceImpl implements UserService {
         if (value == null) {
             return null;
         }
+
         String result = value.trim();
         return result.isEmpty() ? null : result;
     }
@@ -734,6 +729,7 @@ public class UserServiceImpl implements UserService {
             username = base + counter;
             counter++;
         }
+
         return username;
     }
 
@@ -745,6 +741,7 @@ public class UserServiceImpl implements UserService {
         for (int i = 0; i < 10; i++) {
             sb.append(chars.charAt(random.nextInt(chars.length())));
         }
+
         return sb.toString();
     }
 
@@ -753,6 +750,7 @@ public class UserServiceImpl implements UserService {
             String ext = fileName.substring(fileName.lastIndexOf('.') + 1)
                     .trim()
                     .toLowerCase(Locale.ROOT);
+
             if (!ext.isBlank()) {
                 return ext;
             }
@@ -767,6 +765,20 @@ public class UserServiceImpl implements UserService {
             case "image/png" -> "png";
             case "image/webp" -> "webp";
             default -> "png";
+        };
+    }
+
+    private String formatRoleName(String role) {
+        if (role == null) {
+            return "";
+        }
+
+        return switch (role.trim().toUpperCase(Locale.ROOT)) {
+            case "ADMIN" -> "Quản trị viên";
+            case "TECHNICAL_MANAGER" -> "Quản lý kỹ thuật";
+            case "TECHNICIAN" -> "Nhân viên kỹ thuật";
+            case "OPERATOR" -> "Nhân viên vận hành";
+            default -> role;
         };
     }
 }

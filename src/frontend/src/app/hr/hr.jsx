@@ -273,8 +273,8 @@ function userMatchesExact(user, keyword) {
     .some((value) => normalizeText(value).toLowerCase() === q)
 }
 
-function sortUsersDescById(items) {
-  return [...items].sort((a, b) => Number(getUserId(b) || 0) - Number(getUserId(a) || 0))
+function sortUsersAscById(items) {
+  return [...items].sort((a, b) => Number(getUserId(a) || 0) - Number(getUserId(b) || 0))
 }
 
 function EyeIcon() {
@@ -339,7 +339,7 @@ const HR = () => {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [sortBy, setSortBy] = useState('userId')
-  const [sortDir, setSortDir] = useState('desc')
+  const [sortDir, setSortDir] = useState('asc')
 
   const [keywordDraft, setKeywordDraft] = useState('')
   const [keyword, setKeyword] = useState('')

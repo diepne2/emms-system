@@ -7,6 +7,7 @@ import com.emms.backend.entity.Location;
 import com.emms.backend.entity.Request;
 import com.emms.backend.entity.User;
 import com.emms.backend.entity.WorkOrder;
+import com.emms.backend.entity.enums.AssetStatus;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.repository.AssetRepository;
 import com.emms.backend.repository.LocationRepository;
@@ -177,6 +178,18 @@ public class RequestService {
 
         if (request.getLocation() != null) {
             workOrder.setLocationName(request.getLocation().getName());
+        }
+
+        if (request.getAsset() != null) {
+            Asset asset = request.getAsset();
+
+            workOrder.setAsset(asset);
+            workOrder.setAssetName(asset.getName());
+
+            if (asset.getStatus() != AssetStatus.DECOMMISSIONED) {
+                asset.setStatus(AssetStatus.MAINTENANCE);
+                assetRepository.save(asset);
+            }
         }
 
         WorkOrder savedWorkOrder = workOrderRepository.save(workOrder);

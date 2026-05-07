@@ -1050,3 +1050,18 @@
   filter: brightness(0.96);
   transform: translateY(-1px);
 }
+
+/* Fix: không để mô tả dính vào tên thiết bị ở cột Tên thiết bị */
+.asset-name-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.asset-name-cell strong {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

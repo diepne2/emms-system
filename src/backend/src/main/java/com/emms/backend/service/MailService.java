@@ -2,7 +2,6 @@ package com.emms.backend.service;
 
 import com.emms.backend.dto.email.EmailAttachmentDTO;
 import com.emms.backend.entity.User;
-import jakarta.mail.MessagingException;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,42 +14,46 @@ public interface MailService {
 
     void sendSimpleMessage(String[] to, String subject, String text);
 
-    void sendMessageWithAttachment(String to,
-                                   String subject,
-                                   String text,
-                                   String attachmentName,
-                                   byte[] attachmentData,
-                                   String attachmentType);
+    void sendMessageWithAttachment(
+            String to,
+            String subject,
+            String text,
+            String attachmentName,
+            byte[] attachmentData,
+            String attachmentType
+    );
 
-    void sendMessageUsingThymeleafTemplate(String[] to,
-                                           String subject,
-                                           Map<String, Object> templateModel,
-                                           String template,
-                                           Locale locale,
-                                           List<EmailAttachmentDTO> attachmentDtos);
+    void sendMessageUsingThymeleafTemplate(
+            String[] to,
+            String subject,
+            Map<String, Object> templateModel,
+            String template,
+            Locale locale,
+            List<EmailAttachmentDTO> attachmentDTOS
+    );
 
-    default void sendMessageUsingThymeleafTemplate(String[] to,
-                                                   String subject,
-                                                   Map<String, Object> templateModel,
-                                                   String template,
-                                                   Locale locale) {
-        sendMessageUsingThymeleafTemplate(to, subject, templateModel, template, locale, null);
-    }
-
-    void sendHtmlMessage(String[] to,
-                         String subject,
-                         String htmlBody,
-                         List<EmailAttachmentDTO> attachmentDtos) throws MessagingException, IOException;
-
-    default void sendHtmlMessage(String[] to,
-                                 String subject,
-                                 String htmlBody) throws MessagingException, IOException {
-        sendHtmlMessage(to, subject, htmlBody, null);
-    }
+    void sendHtmlMessage(
+            String[] to,
+            String subject,
+            String htmlBody,
+            List<EmailAttachmentDTO> attachmentDTOS
+    ) throws IOException;
 
     void sendMailToSuperAdmins(String subject, String text);
 
-    void removeUserFromContactList(String email);
-
     void addToContactList(User user);
+
+    void sendInviteEmail(
+            String to,
+            String username,
+            String tempPassword,
+            String roleName,
+            String loginLink
+    );
+
+    void sendResetPasswordEmail(
+            String to,
+            String usernameOrEmail,
+            String resetLink
+    );
 }

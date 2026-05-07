@@ -937,19 +937,16 @@ public class WorkOrderService {
     }
 
     private void syncAssetStatusFromWorkOrder(WorkOrder workOrder) {
-        if (workOrder == null || workOrder.getAsset() == null) {
+        if (workOrder == null || workOrder.getAsset() == null || workOrder.getStatus() == null)  {
             return;
         }
 
         Asset asset = workOrder.getAsset();
 
-        if (asset.getStatus() == null) {
-            asset.setStatus(AssetStatus.OPERATIONAL);
-        }
-
         if (asset.getStatus() == AssetStatus.DECOMMISSIONED) {
             return;
         }
+
 
         AssetStatus targetStatus = mapAssetStatusFromWorkOrderStatus(workOrder.getStatus());
         if (targetStatus != null && asset.getStatus() != targetStatus) {
@@ -963,8 +960,10 @@ public class WorkOrderService {
         }
 
         return switch (status) {
-            case OPEN, IN_PROGRESS, ON_HOLD, PENDING -> AssetStatus.MAINTENANCE;
+            case IN_PROGRESS, PENDING -> AssetStatus.MAINTENANCE;
             case DONE, CANCELLED -> AssetStatus.OPERATIONAL;
+            case OPEN, ON_HOLD -> null;
+
         };
     }
 

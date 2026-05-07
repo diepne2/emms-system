@@ -36,14 +36,19 @@ const getToken = () =>
   localStorage.getItem('jwt')
 
 const safeJsonParse = (value, fallback) => {
-  try { return JSON.parse(value) } catch { return fallback }
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
 }
 
 const normalizeToArray = (value) => {
   if (!value) return []
   if (Array.isArray(value)) return value
   if (typeof value === 'string') {
-    const t = value.trim(); return t ? [t] : []
+    const t = value.trim()
+    return t ? [t] : []
   }
   return []
 }
@@ -58,8 +63,9 @@ const normalizeGrant = (value) => {
 const extractGrantValue = (item) => {
   if (!item) return null
   if (typeof item === 'string') return item.trim()
-  if (typeof item === 'object')
+  if (typeof item === 'object') {
     return item.authority || item.name || item.code || item.role || item.permission || null
+  }
   return null
 }
 
@@ -76,12 +82,18 @@ const getUserContext = () => {
   const permissions = normalizeToArray(safeJsonParse(permRaw, permRaw || user?.permissions || []))
 
   const merged = [
-    ...roles, ...authorities, ...permissions,
+    ...roles,
+    ...authorities,
+    ...permissions,
     ...normalizeToArray(roleRaw),
-    user?.role, user?.roleCode,
+    user?.role,
+    user?.roleCode,
     ...(Array.isArray(user?.roles) ? user.roles : []),
   ]
-    .map(extractGrantValue).filter(Boolean).map(normalizeGrant).filter(Boolean)
+    .map(extractGrantValue)
+    .filter(Boolean)
+    .map(normalizeGrant)
+    .filter(Boolean)
 
   return { user, grants: Array.from(new Set(merged)) }
 }
@@ -89,14 +101,28 @@ const getUserContext = () => {
 const hasAnyGrant = (grants, expected = []) =>
   expected.map(normalizeGrant).some((g) => grants.map(normalizeGrant).includes(g))
 
-/* ── Constants ── */
-const priorityColor = { LOW: 'green', MEDIUM: 'blue', HIGH: 'orange', URGENT: 'red' }
+const priorityColor = {
+  LOW: 'green',
+  MEDIUM: 'blue',
+  HIGH: 'orange',
+  URGENT: 'red',
+}
 
-const priorityLabel = { LOW: 'Thấp', MEDIUM: 'Trung bình', HIGH: 'Cao', URGENT: 'Khẩn cấp' }
+const priorityLabel = {
+  LOW: 'Thấp',
+  MEDIUM: 'Trung bình',
+  HIGH: 'Cao',
+  URGENT: 'Khẩn cấp',
+}
 
 const dayMap = {
-  1: 'Thứ 2', 2: 'Thứ 3', 3: 'Thứ 4',
-  4: 'Thứ 5', 5: 'Thứ 6', 6: 'Thứ 7', 7: 'Chủ nhật',
+  1: 'Thứ 2',
+  2: 'Thứ 3',
+  3: 'Thứ 4',
+  4: 'Thứ 5',
+  5: 'Thứ 6',
+  6: 'Thứ 7',
+  7: 'Chủ nhật',
 }
 
 const formatDate = (value) => {
@@ -105,7 +131,6 @@ const formatDate = (value) => {
   return d.isValid() ? d.format('DD/MM/YYYY') : value
 }
 
-/* ── API ── */
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://emms-system-production-4239.up.railway.app',
   withCredentials: true,
@@ -117,33 +142,29 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-/* ================================================================
-   COMPONENT
-   ================================================================ */
-
 export default function PreventiveMaintenanceDetail() {
-  const { id }     = useParams()
-  const navigate   = useNavigate()
+  const { id } = useParams()
+  const navigate = useNavigate()
 
-  const [pm, setPm]               = useState(null)
-  const [schedule, setSchedule]   = useState(null)
+  const [pm, setPm] = useState(null)
+  const [schedule, setSchedule] = useState(null)
   const [workOrders, setWorkOrders] = useState([])
   const [activeDates, setActiveDates] = useState({})
-  const [loading, setLoading]         = useState(false)
+  const [loading, setLoading] = useState(false)
   const [calendarLoading, setCalendarLoading] = useState(false)
-  const [generatingWO, setGeneratingWO]       = useState(false)
-  const [currentMonth, setCurrentMonth]       = useState(dayjs())
+  const [generatingWO, setGeneratingWO] = useState(false)
+  const [currentMonth, setCurrentMonth] = useState(dayjs())
 
-  const { grants }      = useMemo(() => getUserContext(), [])
-  const canGenerateWO   = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER'])
+  const { grants } = useMemo(() => getUserContext(), [])
+  const canGenerateWO = hasAnyGrant(grants, ['ADMIN', 'TECHNICAL_MANAGER'])
 
   const errMsg = (err, fallback) =>
     err?.response?.data?.message ||
     err?.response?.data?.error ||
     (typeof err?.response?.data === 'string' ? err.response.data : '') ||
-    err?.message || fallback
+    err?.message ||
+    fallback
 
-  /* ── Loaders ── */
   const loadWorkOrders = async () => {
     try {
       const res = await api.get(`/api/preventive-maintenances/${id}/work-orders`)
@@ -153,7 +174,6 @@ export default function PreventiveMaintenanceDetail() {
     }
   }
 
-  
   const loadSchedule = async () => {
     try {
       const res = await api.get(`/api/schedules/by-preventive-maintenance/${id}`)
@@ -167,13 +187,16 @@ export default function PreventiveMaintenanceDetail() {
 
   const checkMonth = async (monthValue = currentMonth, scheduleId = schedule?.id) => {
     if (!scheduleId) return
+
     try {
       setCalendarLoading(true)
-      const start       = monthValue.startOf('month')
+
+      const start = monthValue.startOf('month')
       const daysInMonth = monthValue.daysInMonth()
 
       const requests = Array.from({ length: daysInMonth }, (_, i) => {
         const date = start.add(i, 'day').format('YYYY-MM-DD')
+
         return api
           .get(`/api/schedules/${scheduleId}/active-on`, { params: { date } })
           .then((res) => [date, Boolean(res.data)])
@@ -190,6 +213,7 @@ export default function PreventiveMaintenanceDetail() {
   const load = async () => {
     try {
       setLoading(true)
+
       try {
         const pmRes = await api.get(`/preventive-maintenances/${id}`)
         setPm(pmRes.data)
@@ -199,38 +223,56 @@ export default function PreventiveMaintenanceDetail() {
 
       const scheduleData = await loadSchedule()
       await loadWorkOrders()
-      if (scheduleData?.id) await checkMonth(currentMonth, scheduleData.id)
+
+      if (scheduleData?.id) {
+        await checkMonth(currentMonth, scheduleData.id)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  /* ── Derived state ── */
   const isScheduleDisabled = Boolean(schedule?.disabled)
-  const isPmInactive       = pm && pm.active === false
-  const isFutureSchedule   = schedule?.startsOn && dayjs(schedule.startsOn).isAfter(dayjs(), 'day')
-  const generateDisabled   = !pm || !schedule || isPmInactive || isScheduleDisabled || isFutureSchedule
+  const isPmInactive = pm && pm.active === false
+  const isFutureSchedule = schedule?.startsOn && dayjs(schedule.startsOn).isAfter(dayjs(), 'day')
+
+  const generateDisabled =
+    !pm ||
+    !schedule ||
+    isPmInactive ||
+    isScheduleDisabled ||
+    isFutureSchedule ||
+    generatingWO
 
   const generateTooltip = (() => {
-    if (!pm)              return 'Chưa tải được thông tin PM'
-    if (!schedule)        return 'PM này chưa có schedule'
-    if (isPmInactive)     return 'PM đang bị vô hiệu hoá'
+    if (!pm) return 'Chưa tải được thông tin PM'
+    if (!schedule) return 'PM này chưa có schedule'
+    if (isPmInactive) return 'PM đang bị vô hiệu hoá'
     if (isScheduleDisabled) return 'Schedule đang bị tắt. Hãy bật lại trước khi tạo WO.'
     if (isFutureSchedule) return `Schedule chưa bắt đầu (${formatDate(schedule.startsOn)})`
-    return ''
+    return 'Tạo Work Order từ kế hoạch bảo trì'
   })()
 
-  /* ── Actions ── */
   const generateWO = async () => {
-    if (!schedule?.id) { message.warning('Chưa có schedule'); return }
+    if (!pm?.id) {
+      message.warning('Chưa có kế hoạch bảo trì')
+      return
+    }
+
+    if (generateDisabled) {
+      message.warning(generateTooltip)
+      return
+    }
 
     try {
       setGeneratingWO(true)
-      await api.post(`/api/schedules/${schedule.id}/generate-work-orders`)
-      message.success('Đã tạo Work Orders thành công')
+
+      await api.post(`/api/preventive-maintenances/${pm.id}/generate-work-order`)
+
+      message.success('Đã tạo Work Order và gửi thông báo')
       await loadWorkOrders()
     } catch (err) {
-      message.error(errMsg(err, 'Tạo Work Orders thất bại'))
+      message.error(errMsg(err, 'Tạo Work Order thất bại'))
     } finally {
       setGeneratingWO(false)
     }
@@ -238,6 +280,7 @@ export default function PreventiveMaintenanceDetail() {
 
   const toggleSchedule = async () => {
     if (!schedule?.id) return
+
     try {
       if (isScheduleDisabled) {
         await api.put(`/api/schedules/${schedule.id}/enable`)
@@ -246,6 +289,7 @@ export default function PreventiveMaintenanceDetail() {
         await api.put(`/api/schedules/${schedule.id}/disable`)
         message.success('Đã tắt lịch')
       }
+
       await load()
     } catch (err) {
       message.error(errMsg(err, 'Cập nhật lịch thất bại'))
@@ -262,13 +306,12 @@ export default function PreventiveMaintenanceDetail() {
     ? schedule.daysOfWeek.map((d) => dayMap[d] || d).join(', ')
     : '-'
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => {
+    load()
+  }, [id])
 
-  /* ── Render ── */
   return (
     <div className="pm-detail-page">
-
-      {/* ── Toolbar ── */}
       <div className="pm-detail-toolbar">
         <Link to="/preventive-maintenance">
           <Button icon={<ArrowLeftOutlined />}>Quay lại danh sách</Button>
@@ -308,8 +351,6 @@ export default function PreventiveMaintenanceDetail() {
       </div>
 
       <Spin spinning={loading}>
-
-        {/* ── Hero ── */}
         <section className="pm-detail-hero">
           <div className="pm-detail-hero-left">
             <div className="pm-detail-code">{pm?.code || `PM-${id}`}</div>
@@ -329,9 +370,13 @@ export default function PreventiveMaintenanceDetail() {
             </Tag>
 
             {pm?.active ? (
-              <Tag color="green" className="pm-big-tag">Đang hoạt động</Tag>
+              <Tag color="green" className="pm-big-tag">
+                Đang hoạt động
+              </Tag>
             ) : (
-              <Tag color="default" className="pm-big-tag">Không hoạt động</Tag>
+              <Tag color="default" className="pm-big-tag">
+                Không hoạt động
+              </Tag>
             )}
 
             <Tag color={workOrders.length > 0 ? 'blue' : 'default'} className="pm-big-tag">
@@ -340,7 +385,6 @@ export default function PreventiveMaintenanceDetail() {
           </div>
         </section>
 
-        {/* ── Row 1: PM info + Asset/User ── */}
         <div className="pm-detail-grid">
           <Card className="pm-detail-card" bordered={false}>
             <div className="pm-section-title">
@@ -390,7 +434,6 @@ export default function PreventiveMaintenanceDetail() {
           </Card>
         </div>
 
-        {/* ── Row 2: Schedule config + Calendar ── */}
         <div className="pm-detail-grid pm-detail-grid-wide">
           <Card
             className="pm-detail-card"
@@ -419,11 +462,7 @@ export default function PreventiveMaintenanceDetail() {
             ) : (
               <Descriptions column={2} className="pm-clean-desc" size="small">
                 <Descriptions.Item label="Trạng thái">
-                  {schedule.disabled ? (
-                    <Tag color="red">Đang tắt</Tag>
-                  ) : (
-                    <Tag color="green">Đang bật</Tag>
-                  )}
+                  {schedule.disabled ? <Tag color="red">Đang tắt</Tag> : <Tag color="green">Đang bật</Tag>}
                 </Descriptions.Item>
 
                 <Descriptions.Item label="Kiểu lặp">
@@ -493,7 +532,6 @@ export default function PreventiveMaintenanceDetail() {
             </Card>
           )}
         </div>
-
       </Spin>
     </div>
   )

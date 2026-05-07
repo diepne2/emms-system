@@ -186,6 +186,7 @@ const STATUS_OPTIONS = [
   { value: 'STANDBY', label: 'Chờ vận hành' },
   { value: 'INSPECTION', label: 'Đang kiểm tra' },
   { value: 'COMMISSIONING', label: 'Đang chạy thử' },
+  { value: 'BREAKDOWN', label: 'Hư hỏng' },
   { value: 'DOWN', label: 'Ngừng hoạt động' },
   { value: 'MAINTENANCE', label: 'Đang bảo trì' },
   { value: 'EMERGENCY_SHUTDOWN', label: 'Dừng khẩn cấp' },
@@ -270,6 +271,7 @@ const getStatusBadgeClass = (status) => {
     case 'INSPECTION':
     case 'COMMISSIONING':
       return 'badge badge--success'
+    case 'BREAKDOWN':
     case 'DOWN':
     case 'EMERGENCY_SHUTDOWN':
       return 'badge badge--danger'
@@ -1103,7 +1105,6 @@ export default function Assets() {
                           <td>
                             <div className="asset-name-cell">
                               <strong>{asset.name || '-'}</strong>
-                              {asset.description && <small>{asset.description}</small>}
                             </div>
                           </td>
                           <td>{asset.category || '-'}</td>
@@ -1113,7 +1114,7 @@ export default function Assets() {
                                 className={`${getStatusBadgeClass(asset.status)} badge-button`}
                                 type="button"
                                 onClick={() => {
-                                  window.location.hash = `/asset-downtimes?assetId=${getAssetId(asset)}`
+                                  window.location.hash = `/assets/downtimes?assetId=${getAssetId(asset)}`
                                 }}
                                 title="Xem nhật ký dừng máy"
                               >

@@ -26,6 +26,7 @@ public class PreventiveMaintenanceService {
     private final UserService userService;
     private final AssetService assetService;
     private final WorkOrderService workOrderService;
+    private final NotificationService notificationService;
 
     public PreventiveMaintenanceSummaryDTO create(PreventiveMaintenancePostDTO dto) {
         validateCreate(dto);

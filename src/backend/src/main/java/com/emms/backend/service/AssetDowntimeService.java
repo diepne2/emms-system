@@ -235,7 +235,7 @@ public class AssetDowntimeService {
             boolean overlap = startA.isBefore(endB) && startB.isBefore(endA);
 
             if (overlap) {
-                throw new CustomException("Thời gian ngừng hoạt động của thiết bị bị trùng lặp", HttpStatus.NOT_ACCEPTABLE);
+                throw new CustomException("Thời gian ngừng hoạt động của thiết bị bị trùng lặp", HttpStatus.CONFLICT);
             }
         }
     }
