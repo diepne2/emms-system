@@ -37,12 +37,11 @@ public class TaskBase {
     @Column(name = "description", length = 1000)
     private String description;
 
-    // Nếu task mẫu dành riêng cho 1 asset cụ thể
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "asset_id")
     private Asset asset;
 
-    // Người tạo mẫu task
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;

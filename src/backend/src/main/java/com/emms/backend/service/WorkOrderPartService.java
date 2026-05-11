@@ -2,9 +2,11 @@ package com.emms.backend.service;
 
 import com.emms.backend.dto.part.WorkOrderPartShowDTO;
 import com.emms.backend.entity.Part;
+import com.emms.backend.entity.PartTransaction;
 import com.emms.backend.entity.WorkOrder;
 import com.emms.backend.entity.WorkOrderPart;
 import com.emms.backend.repository.PartRepository;
+import com.emms.backend.repository.PartTransactionRepository;
 import com.emms.backend.repository.WorkOrderPartRepository;
 import com.emms.backend.repository.WorkOrderRepository;
 import org.springframework.stereotype.Service;
@@ -21,20 +23,31 @@ public class WorkOrderPartService {
     private final WorkOrderRepository workOrderRepository;
     private final PartRepository partRepository;
     private final WorkOrderPartRepository workOrderPartRepository;
+    private final PartTransactionRepository partTransactionRepository;
 
     public WorkOrderPartService(
             WorkOrderRepository workOrderRepository,
             PartRepository partRepository,
-            WorkOrderPartRepository workOrderPartRepository
+            WorkOrderPartRepository workOrderPartRepository,
+            PartTransactionRepository partTransactionRepository
     ) {
         this.workOrderRepository = workOrderRepository;
         this.partRepository = partRepository;
         this.workOrderPartRepository = workOrderPartRepository;
+        this.partTransactionRepository = partTransactionRepository;
     }
 
     public void usePart(Long workOrderId, Long partId, Integer qty) {
+        if (workOrderId == null) {
+            throw new RuntimeException("workOrderId không được để trống");
+        }
+
+        if (partId == null) {
+            throw new RuntimeException("partId không được để trống");
+        }
+
         if (qty == null || qty <= 0) {
-            throw new RuntimeException("Quantity phải lớn hơn 0");
+            throw new RuntimeException("Số lượng vật tư phải lớn hơn 0");
         }
 
         WorkOrder wo = workOrderRepository.findById(workOrderId)
@@ -43,12 +56,16 @@ public class WorkOrderPartService {
         Part part = partRepository.findById(partId)
                 .orElseThrow(() -> new RuntimeException("Part không tồn tại: " + partId));
 
-        Integer currentQty = part.getQuantity() == null ? 0 : part.getQuantity();
-        if (currentQty < qty) {
-            throw new RuntimeException("Không đủ tồn kho. Tồn hiện tại: " + currentQty);
+        int beforeQty = part.getQuantity() == null ? 0 : part.getQuantity();
+
+        if (beforeQty < qty) {
+            throw new RuntimeException("Không đủ tồn kho. Tồn hiện tại: " + beforeQty);
         }
 
-        part.setQuantity(currentQty - qty);
+        int afterQty = beforeQty - qty;
+
+        part.setQuantity(afterQty);
+        partRepository.save(part);
 
         WorkOrderPart wop = new WorkOrderPart();
         wop.setWorkOrder(wo);
@@ -59,7 +76,18 @@ public class WorkOrderPartService {
 
         workOrderPartRepository.save(wop);
 
+        savePartTransaction(
+                part.getId(),
+                wo.getId(),
+                "USE_FOR_WORK_ORDER",
+                qty,
+                beforeQty,
+                afterQty,
+                "Xuất vật tư cho Work Order #" + wo.getId()
+        );
+
         recalcCost(wo);
+        workOrderRepository.save(wo);
     }
 
     @Transactional(readOnly = true)
@@ -75,6 +103,7 @@ public class WorkOrderPartService {
 
     private WorkOrderPartShowDTO toDto(WorkOrderPart entity) {
         WorkOrderPartShowDTO dto = new WorkOrderPartShowDTO();
+
         dto.setId(entity.getId());
 
         if (entity.getWorkOrder() != null) {
@@ -94,24 +123,59 @@ public class WorkOrderPartService {
         dto.setUnitCost(entity.getCost());
         dto.setUsedAt(entity.getUsedAt());
 
-        BigDecimal unitCost = entity.getCost() != null ? entity.getCost() : BigDecimal.ZERO;
-        Integer quantityUsed = entity.getQuantityUsed() != null ? entity.getQuantityUsed() : 0;
+        BigDecimal unitCost = entity.getCost() != null
+                ? entity.getCost()
+                : BigDecimal.ZERO;
+
+        int quantityUsed = entity.getQuantityUsed() != null
+                ? entity.getQuantityUsed()
+                : 0;
+
         dto.setLineTotal(unitCost.multiply(BigDecimal.valueOf(quantityUsed)));
 
         return dto;
     }
 
     private void recalcCost(WorkOrder wo) {
-        List<WorkOrderPart> parts = workOrderPartRepository.findByWorkOrder_Id(wo.getId());
+        List<WorkOrderPart> parts =
+                workOrderPartRepository.findByWorkOrder_Id(wo.getId());
 
         BigDecimal total = parts.stream()
                 .map(p -> {
-                    BigDecimal cost = p.getCost() != null ? p.getCost() : BigDecimal.ZERO;
-                    Integer qty = p.getQuantityUsed() != null ? p.getQuantityUsed() : 0;
+                    BigDecimal cost = p.getCost() != null
+                            ? p.getCost()
+                            : BigDecimal.ZERO;
+
+                    int qty = p.getQuantityUsed() != null
+                            ? p.getQuantityUsed()
+                            : 0;
+
                     return cost.multiply(BigDecimal.valueOf(qty));
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         wo.setTotalCost(total);
+    }
+
+    private void savePartTransaction(
+            Long partId,
+            Long workOrderId,
+            String type,
+            Integer quantity,
+            Integer beforeQty,
+            Integer afterQty,
+            String note
+    ) {
+        PartTransaction transaction = new PartTransaction();
+
+        transaction.setPartId(partId);
+        transaction.setWorkOrderId(workOrderId);
+        transaction.setType(type);
+        transaction.setQuantity(quantity);
+        transaction.setBeforeQuantity(beforeQty);
+        transaction.setAfterQuantity(afterQty);
+        transaction.setNote(note);
+
+        partTransactionRepository.save(transaction);
     }
 }

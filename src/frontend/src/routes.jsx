@@ -7,6 +7,11 @@ const WorkOrders = React.lazy(() => import('./app/work-orders'))
 const WorkOrderHistories = React.lazy(() =>
   import('./app/work-orders/WorkOrderHistories')
 )
+
+const AiRiskAnalysis = React.lazy(() =>
+  import('./app/ai/AiRiskAnalysis')
+)
+
 const Assets = React.lazy(() => import('./app/asset'))
 const Checklist = React.lazy(() => import('./app/Checklist'))
 const Meter = React.lazy(() => import('./app/meter'))
@@ -22,6 +27,16 @@ const Profile = React.lazy(() => import('./app/profile'))
 const Chat = React.lazy(() => import('./app/chat'))
 const Logout = React.lazy(() => import('./app/pages/logout/Logout'))
 const Labor = React.lazy(() => import('./app/labor/Labor'))
+
+const AiDecisionSupport = React.lazy(() =>
+  import('./app/ai/AiDecisionSupport')
+)
+const ImportStockPage = React.lazy(() => import('./app/part/ImportStockPage'))
+const InventoryCountPage = React.lazy(() => import('./app/part/InventoryCountPage'))
+const MonthlyClosingPage = React.lazy(() => import('./app/part/MonthlyClosingPage'))
+const InventoryTransactionsPage = React.lazy(() => import('./app/part/InventoryTransactionsPage'))
+
+
 
 const routes = [
   { path: '/dashboard1', name: 'Trang chủ', element: Dashboard1 },
@@ -53,6 +68,12 @@ const routes = [
   { path: '/profile', name: 'Thông tin người dùng', element: Profile },
   { path: '/chat', name: 'Chat', element: Chat },
   { path: '/logout', name: 'Đăng xuất', element: Logout },
+  { path: '/ai-decision', name: 'AI hỗ trợ bảo trì', element: AiDecisionSupport },
+  { path: '/ai-risk', name: 'Phân tích rủi ro thiết bị', element: AiRiskAnalysis },
+  { path: '/part/import-stock', name: 'Nhập kho', element: ImportStockPage },
+  { path: '/part/inventory-count', name: 'Kiểm kê kho', element: InventoryCountPage },
+  { path: '/part/monthly-closing', name: 'Chốt sổ kho', element: MonthlyClosingPage },
+  { path: '/part/transactions', name: 'Lịch sử kho', element: InventoryTransactionsPage },
 ]
 
 export default routes

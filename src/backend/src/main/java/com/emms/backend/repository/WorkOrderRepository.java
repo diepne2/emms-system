@@ -25,6 +25,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
 
     Collection<WorkOrder> findByDateCreatedBetween(LocalDateTime start, LocalDateTime end);
 
+    Long countByAssetId(Long assetId);
+
     Collection<WorkOrder> findByCompletedOnBetween(LocalDateTime start, LocalDateTime end);
 
     Collection<WorkOrder> findByStatus(WorkOrderStatus status);

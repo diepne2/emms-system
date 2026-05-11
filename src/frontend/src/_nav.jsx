@@ -12,6 +12,7 @@ import {
   cilAccountLogout,
   cilLocationPin,
   cilClipboard,
+  cilLightbulb,
 } from '@coreui/icons'
 
 const _nav = [
@@ -82,11 +83,17 @@ const _nav = [
 
 
   {
-    component: CNavItem,
-    name: 'Quản lý kho vật tư',
-    to: '/part',
-    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
-  },
+  component: CNavGroup,
+  name: 'Quản lý kho vật tư',
+  icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+  items: [
+    { component: CNavItem, name: 'Danh sách vật tư', to: '/part' },
+    { component: CNavItem, name: 'Nhập kho', to: '/part/import-stock' },
+    { component: CNavItem, name: 'Lịch sử kho', to: '/part/transactions' },
+    { component: CNavItem, name: 'Kiểm kê kho', to: '/part/inventory-count' },
+    { component: CNavItem, name: 'Chốt sổ kho', to: '/part/monthly-closing' },
+  ],
+},
 
   {
     component: CNavGroup,
@@ -117,6 +124,24 @@ const _nav = [
       { component: CNavItem, name: 'Phân tích Work Order', to: '/dashboard/wo' },
     ],
   },
+
+  {
+  component: CNavGroup,
+  name: 'AI & Phân tích thông minh',
+  icon: <CIcon icon={cilLightbulb} customClassName="nav-icon" />,
+  items: [
+    {
+      component: CNavItem,
+      name: 'AI hỗ trợ bảo trì',
+      to: '/ai-decision',
+    },
+    {
+      component: CNavItem,
+      name: 'AI Risk Analysis',
+      to: '/ai-risk',
+    },
+  ],
+},
 
   {
     component: CNavItem,

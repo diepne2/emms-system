@@ -12,6 +12,8 @@ public interface AssetDowntimeRepository extends JpaRepository<AssetDowntime, Lo
 
     List<AssetDowntime> findByAsset_Id(Long assetId);
 
+    Long countByAssetId(Long assetId);
+
     @Query("SELECT ad FROM AssetDowntime ad WHERE ad.durationSeconds > 0")
     List<AssetDowntime> findAllWithDuration();
 

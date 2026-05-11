@@ -1,10 +1,13 @@
 package com.emms.backend.controller;
 
+import com.emms.backend.dto.SuccessResponse;
 import com.emms.backend.dto.part.UsePartDTO;
 import com.emms.backend.dto.part.WorkOrderPartShowDTO;
 import com.emms.backend.service.WorkOrderPartService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,14 +22,32 @@ public class WorkOrderPartController {
         this.service = service;
     }
 
-    @PostMapping("/{woId}")
-    @ResponseStatus(HttpStatus.CREATED)
-    public void usePart(@PathVariable Long woId, @Valid @RequestBody UsePartDTO dto) {
-        service.usePart(woId, dto.getPartId(), dto.getQuantity());
+  
+    @PostMapping("/{workOrderId}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN')")
+    public ResponseEntity<SuccessResponse> usePart(
+            @PathVariable Long workOrderId,
+            @Valid @RequestBody UsePartDTO dto
+    ) {
+        service.usePart(
+                workOrderId,
+                dto.getPartId(),
+                dto.getQuantity()
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                new SuccessResponse(true, "Xuất vật tư cho Work Order thành công")
+        );
     }
 
-    @GetMapping("/{woId}")
-    public List<WorkOrderPartShowDTO> getParts(@PathVariable Long woId) {
-        return service.getByWorkOrderDto(woId);
+  
+    @GetMapping("/{workOrderId}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN','ROLE_OPERATOR')")
+    public ResponseEntity<List<WorkOrderPartShowDTO>> getParts(
+            @PathVariable Long workOrderId
+    ) {
+        return ResponseEntity.ok(
+                service.getByWorkOrderDto(workOrderId)
+        );
     }
 }

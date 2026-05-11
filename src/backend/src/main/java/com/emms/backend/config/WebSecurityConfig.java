@@ -52,6 +52,13 @@ public class WebSecurityConfig {
                         .requestMatchers("/preventive-maintenances/**").authenticated()
 
                         .requestMatchers("/api/chat/**").authenticated()
+
+                        .requestMatchers("/api/ai-risk/**")
+                        .hasAnyRole("ADMIN", "TECHNICAL_MANAGER", "TECHNICIAN")
+
+                        .requestMatchers("/api/ai-decision/**")
+                        
+                        .hasAnyRole("ADMIN", "TECHNICAL_MANAGER", "TECHNICIAN")
                  
                         
 

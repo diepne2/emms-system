@@ -1,0 +1,178 @@
+.ai-decision-page {
+  padding: 20px 24px;
+  background: #f4f7fb;
+  min-height: calc(100vh - 64px);
+}
+
+/* Header */
+.ai-decision-hero {
+  background: #ffffff;
+  border: 1px solid #e5eaf3;
+  border-left: 5px solid #1b4fd8;
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 14px rgba(20, 40, 90, 0.06);
+}
+
+.ai-badge {
+  display: inline-block;
+  background: #eef4ff;
+  color: #1b4fd8;
+  padding: 5px 10px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ai-decision-hero h2 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2a44;
+}
+
+.ai-decision-hero p {
+  margin: 0;
+  max-width: 780px;
+  color: #667085;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+/* Suggested questions */
+.ai-suggestion-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.ai-suggestion-grid button {
+  background: #ffffff;
+  color: #1b4fd8;
+  border: 1px solid #d9e4ff;
+  border-radius: 999px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 3px 10px rgba(20, 40, 90, 0.04);
+}
+
+.ai-suggestion-grid button:hover {
+  background: #eef4ff;
+  border-color: #1b4fd8;
+}
+
+.ai-suggestion-grid button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Form card */
+.ai-panel {
+  background: #ffffff;
+  border: 1px solid #e5eaf3;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 14px rgba(20, 40, 90, 0.06);
+}
+
+.ai-panel label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: #1f2a44;
+  font-size: 15px;
+}
+
+.ai-panel textarea {
+  width: 100%;
+  border: 1px solid #dce2f0;
+  border-radius: 12px;
+  padding: 13px 14px;
+  resize: vertical;
+  outline: none;
+  line-height: 1.6;
+  font-size: 14px;
+  min-height: 150px;
+  color: #25324b;
+  background: #fff;
+}
+
+.ai-panel textarea:focus {
+  border-color: #1b4fd8;
+  box-shadow: 0 0 0 3px rgba(27, 79, 216, 0.12);
+}
+
+.ai-primary-btn {
+  margin-top: 14px;
+  background: #1b4fd8;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.ai-primary-btn:hover {
+  background: #1744b8;
+}
+
+.ai-primary-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Result */
+.ai-result {
+  background: #ffffff;
+  border: 1px solid #e5eaf3;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 14px rgba(20, 40, 90, 0.06);
+}
+
+.ai-result h4 {
+  margin: 0 0 12px;
+  color: #1f2a44;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.ai-result div {
+  white-space: pre-line;
+  line-height: 1.8;
+  color: #25324b;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ai-decision-page {
+    padding: 14px;
+  }
+
+  .ai-decision-hero {
+    padding: 18px;
+  }
+
+  .ai-decision-hero h2 {
+    font-size: 22px;
+  }
+
+  .ai-suggestion-grid button {
+    width: 100%;
+    text-align: left;
+  }
+
+  .ai-primary-btn {
+    width: 100%;
+  }
+}

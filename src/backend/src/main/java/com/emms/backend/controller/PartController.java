@@ -1,8 +1,15 @@
 package com.emms.backend.controller;
 
 import com.emms.backend.dto.SuccessResponse;
+import com.emms.backend.dto.part.InventoryCountItemDTO;
 import com.emms.backend.dto.part.PartPatchDTO;
+import com.emms.backend.dto.part.StockTransactionDTO;
+import com.emms.backend.dto.part.UsePartDTO;
+import com.emms.backend.entity.InventoryCount;
+import com.emms.backend.entity.InventoryCountItem;
+import com.emms.backend.entity.InventoryMonthlyClosing;
 import com.emms.backend.entity.Part;
+import com.emms.backend.entity.PartTransaction;
 import com.emms.backend.service.PartService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
+import java.util.List;
 
 @RestController
 @RequestMapping("/parts")
@@ -33,18 +41,13 @@ public class PartController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN','ROLE_OPERATOR')")
-    public ResponseEntity<Part> getById(
-            @Parameter(description = "Part ID") @PathVariable Long id
-    ) {
+    public ResponseEntity<Part> getById(@PathVariable Long id) {
         return ResponseEntity.ok(partService.getById(id));
     }
 
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
-    public ResponseEntity<Part> create(
-            @Parameter(description = "Part data to create")
-            @Valid @RequestBody Part partReq
-    ) {
+    public ResponseEntity<Part> create(@Valid @RequestBody Part partReq) {
         Part saved = partService.create(partReq);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
@@ -52,9 +55,8 @@ public class PartController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
     public ResponseEntity<Part> patch(
-            @Parameter(description = "Part fields to update")
             @Valid @RequestBody PartPatchDTO part,
-            @Parameter(description = "Part ID") @PathVariable Long id
+            @PathVariable Long id
     ) {
         Part updated = partService.update(id, part);
         return ResponseEntity.ok(updated);
@@ -62,28 +64,94 @@ public class PartController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
-    public ResponseEntity<SuccessResponse> delete(
-            @Parameter(description = "Part ID") @PathVariable Long id
-    ) {
+    public ResponseEntity<SuccessResponse> delete(@PathVariable Long id) {
         partService.delete(id);
         return ResponseEntity.ok(new SuccessResponse(true, "Deleted successfully"));
     }
 
-    @PutMapping("/{id}/increase-stock")
+
+    @PutMapping("/{id}/import-stock")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
-    public ResponseEntity<Part> increaseStock(
+    public ResponseEntity<Part> importStock(
             @PathVariable Long id,
-            @RequestParam Integer amount
+            @RequestBody StockTransactionDTO dto
     ) {
-        return ResponseEntity.ok(partService.increaseStock(id, amount));
+        return ResponseEntity.ok(
+                partService.importStock(
+                        id,
+                        dto.getQuantity(),
+                        dto.getNote()
+                )
+        );
     }
 
-    @PutMapping("/{id}/decrease-stock")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
-    public ResponseEntity<Part> decreaseStock(
-            @PathVariable Long id,
-            @RequestParam Integer amount
+
+    @PostMapping("/work-orders/{workOrderId}/use")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN')")
+    public ResponseEntity<Part> usePartForWorkOrder(
+            @PathVariable Long workOrderId,
+            @RequestBody UsePartDTO dto
     ) {
-        return ResponseEntity.ok(partService.decreaseStock(id, amount));
+        return ResponseEntity.ok(
+                partService.usePartForWorkOrder(
+                        workOrderId,
+                        dto.getPartId(),
+                        dto.getQuantity()
+                )
+        );
+    }
+
+
+
+    @GetMapping("/{id}/transactions")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN')")
+    public ResponseEntity<List<PartTransaction>> getTransactions(@PathVariable Long id) {
+        return ResponseEntity.ok(partService.getTransactionsByPart(id));
+    }
+
+
+    @PostMapping("/inventory-counts")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    public ResponseEntity<InventoryCount> createInventoryCount(
+            @RequestParam Integer year,
+            @RequestParam Integer month,
+            @RequestParam(required = false) String note
+    ) {
+        return ResponseEntity.ok(
+                partService.createInventoryCount(year, month, note)
+        );
+    }
+
+    @PostMapping("/inventory-counts/{id}/items")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    public ResponseEntity<InventoryCountItem> addInventoryCountItem(
+            @PathVariable Long id,
+            @RequestBody InventoryCountItemDTO dto
+    ) {
+        return ResponseEntity.ok(
+                partService.addInventoryCountItem(id, dto)
+        );
+    }
+
+    @PutMapping("/inventory-counts/{id}/confirm")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    public ResponseEntity<InventoryCount> confirmInventoryCount(@PathVariable Long id) {
+        return ResponseEntity.ok(
+                partService.confirmInventoryCount(id)
+        );
+    }
+
+  
+
+    @PostMapping("/monthly-closing")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    public ResponseEntity<InventoryMonthlyClosing> closeMonth(
+            @RequestParam Integer year,
+            @RequestParam Integer month,
+            @RequestParam(required = false) String note
+    ) {
+        return ResponseEntity.ok(
+                partService.closeMonth(year, month, note)
+        );
     }
 }

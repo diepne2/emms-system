@@ -1,17 +1,27 @@
 package com.emms.backend.service;
 
+import com.emms.backend.dto.part.InventoryCountItemDTO;
 import com.emms.backend.dto.part.PartPatchDTO;
 import com.emms.backend.dto.part.PartShowDTO;
 import com.emms.backend.dto.part.PartSummaryDTO;
+import com.emms.backend.entity.InventoryCount;
+import com.emms.backend.entity.InventoryCountItem;
+import com.emms.backend.entity.InventoryMonthlyClosing;
 import com.emms.backend.entity.Part;
+import com.emms.backend.entity.PartTransaction;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.PartMapper;
+import com.emms.backend.repository.InventoryCountItemRepository;
+import com.emms.backend.repository.InventoryCountRepository;
+import com.emms.backend.repository.InventoryMonthlyClosingRepository;
 import com.emms.backend.repository.PartRepository;
+import com.emms.backend.repository.PartTransactionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,10 +34,25 @@ public class PartService {
 
     private final PartRepository partRepository;
     private final PartMapper partMapper;
+    private final PartTransactionRepository partTransactionRepository;
+    private final InventoryCountRepository inventoryCountRepository;
+    private final InventoryCountItemRepository inventoryCountItemRepository;
+    private final InventoryMonthlyClosingRepository inventoryMonthlyClosingRepository;
 
-    public PartService(PartRepository partRepository, PartMapper partMapper) {
+    public PartService(
+            PartRepository partRepository,
+            PartMapper partMapper,
+            PartTransactionRepository partTransactionRepository,
+            InventoryCountRepository inventoryCountRepository,
+            InventoryCountItemRepository inventoryCountItemRepository,
+            InventoryMonthlyClosingRepository inventoryMonthlyClosingRepository
+    ) {
         this.partRepository = partRepository;
         this.partMapper = partMapper;
+        this.partTransactionRepository = partTransactionRepository;
+        this.inventoryCountRepository = inventoryCountRepository;
+        this.inventoryCountItemRepository = inventoryCountItemRepository;
+        this.inventoryMonthlyClosingRepository = inventoryMonthlyClosingRepository;
     }
 
     public Part create(Part part) {
@@ -53,6 +78,7 @@ public class PartService {
         if (partId == null) {
             throw new CustomException("partId không được để trống", HttpStatus.BAD_REQUEST);
         }
+
         if (dto == null) {
             throw new CustomException("PartPatchDTO không được để trống", HttpStatus.BAD_REQUEST);
         }
@@ -130,47 +156,307 @@ public class PartService {
             if (entity.getQuantity() == null) {
                 entity.setQuantity(0);
             }
+
             validatePart(entity);
         }
 
         return partRepository.saveAll(entities);
     }
 
+    /*
+     * =========================
+     * NHẬP KHO
+     * =========================
+     */
+
     public Part increaseStock(Long partId, Integer amount) {
+        return importStock(partId, amount, "Nhập kho");
+    }
+
+    public Part importStock(Long partId, Integer amount, String note) {
+        validateAmount(amount, "Số lượng nhập kho");
+
+        Part part = getById(partId);
+
+        int beforeQty = safeQty(part.getQuantity());
+        int afterQty = beforeQty + amount;
+
+        part.setQuantity(afterQty);
+        Part saved = partRepository.save(part);
+
+        saveTransaction(
+                partId,
+                null,
+                "IMPORT",
+                amount,
+                beforeQty,
+                afterQty,
+                note
+        );
+
+        return saved;
+    }
+
+    /*
+     * =========================
+     * XUẤT VẬT TƯ CHO WORK ORDER
+     * =========================
+     */
+
+    public Part usePartForWorkOrder(Long workOrderId, Long partId, Integer amount) {
+        if (workOrderId == null) {
+            throw new CustomException("workOrderId không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
         if (partId == null) {
             throw new CustomException("partId không được để trống", HttpStatus.BAD_REQUEST);
         }
-        if (amount == null || amount <= 0) {
-            throw new CustomException("Số lượng tăng phải > 0", HttpStatus.BAD_REQUEST);
-        }
+
+        validateAmount(amount, "Số lượng vật tư sử dụng");
 
         Part part = getById(partId);
-        int currentQty = part.getQuantity() == null ? 0 : part.getQuantity();
-        part.setQuantity(currentQty + amount);
 
-        return partRepository.save(part);
+        int beforeQty = safeQty(part.getQuantity());
+
+        if (beforeQty < amount) {
+            throw new CustomException(
+                    "Không đủ tồn kho để xuất vật tư cho Work Order",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        int afterQty = beforeQty - amount;
+
+        part.setQuantity(afterQty);
+        Part saved = partRepository.save(part);
+
+        saveTransaction(
+                partId,
+                workOrderId,
+                "USE_FOR_WORK_ORDER",
+                amount,
+                beforeQty,
+                afterQty,
+                "Xuất vật tư cho Work Order #" + workOrderId
+        );
+
+        return saved;
     }
 
-    public Part decreaseStock(Long partId, Integer amount) {
+    /*
+     * =========================
+     * KIỂM KÊ KHO
+     * =========================
+     */
+
+    public InventoryCount createInventoryCount(Integer year, Integer month, String note) {
+        validateYearMonth(year, month);
+
+        boolean closed = inventoryMonthlyClosingRepository
+                .existsByYearAndMonthAndStatus(year, month, "CLOSED");
+
+        if (closed) {
+            throw new CustomException(
+                    "Kỳ kho tháng " + month + "/" + year + " đã chốt, không thể tạo kiểm kê",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        InventoryCount count = new InventoryCount();
+        count.setCode("KK-" + year + "-" + String.format("%02d", month) + "-" + System.currentTimeMillis());
+        count.setYear(year);
+        count.setMonth(month);
+        count.setStatus("DRAFT");
+        count.setNote(note);
+
+        return inventoryCountRepository.save(count);
+    }
+
+    public InventoryCountItem addInventoryCountItem(
+            Long inventoryCountId,
+            InventoryCountItemDTO dto
+    ) {
+        if (dto == null) {
+            throw new CustomException("Dữ liệu kiểm kê không được để trống", HttpStatus.BAD_REQUEST);
+        }
+
+        InventoryCount count = inventoryCountRepository.findById(inventoryCountId)
+                .orElseThrow(() -> new CustomException(
+                        "Không tìm thấy phiếu kiểm kê",
+                        HttpStatus.NOT_FOUND
+                ));
+
+        if (!"DRAFT".equals(count.getStatus())) {
+            throw new CustomException(
+                    "Phiếu kiểm kê đã được duyệt, không thể sửa",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        Part part = getById(dto.getPartId());
+
+        int systemQty = safeQty(part.getQuantity());
+        int actualQty = dto.getActualQuantity() == null ? 0 : dto.getActualQuantity();
+
+        if (actualQty < 0) {
+            throw new CustomException("Số lượng thực tế không được âm", HttpStatus.BAD_REQUEST);
+        }
+
+        int diff = actualQty - systemQty;
+
+        InventoryCountItem item = new InventoryCountItem();
+        item.setInventoryCountId(inventoryCountId);
+        item.setPartId(part.getId());
+        item.setSystemQuantity(systemQty);
+        item.setActualQuantity(actualQty);
+        item.setDifferenceQuantity(diff);
+        item.setNote(dto.getNote());
+
+        return inventoryCountItemRepository.save(item);
+    }
+
+    public InventoryCount confirmInventoryCount(Long inventoryCountId) {
+        InventoryCount count = inventoryCountRepository.findById(inventoryCountId)
+                .orElseThrow(() -> new CustomException(
+                        "Không tìm thấy phiếu kiểm kê",
+                        HttpStatus.NOT_FOUND
+                ));
+
+        if (!"DRAFT".equals(count.getStatus())) {
+            throw new CustomException(
+                    "Phiếu kiểm kê không ở trạng thái nháp",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        boolean closed = inventoryMonthlyClosingRepository
+                .existsByYearAndMonthAndStatus(count.getYear(), count.getMonth(), "CLOSED");
+
+        if (closed) {
+            throw new CustomException(
+                    "Kỳ kho đã chốt, không thể duyệt kiểm kê",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        List<InventoryCountItem> items =
+                inventoryCountItemRepository.findByInventoryCountId(inventoryCountId);
+
+        if (items == null || items.isEmpty()) {
+            throw new CustomException(
+                    "Phiếu kiểm kê chưa có vật tư",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        for (InventoryCountItem item : items) {
+            Part part = getById(item.getPartId());
+
+            int beforeQty = safeQty(part.getQuantity());
+            int afterQty = item.getActualQuantity();
+
+            part.setQuantity(afterQty);
+            partRepository.save(part);
+
+            if (beforeQty != afterQty) {
+                saveTransaction(
+                        part.getId(),
+                        null,
+                        "ADJUSTMENT",
+                        Math.abs(afterQty - beforeQty),
+                        beforeQty,
+                        afterQty,
+                        "Điều chỉnh sau kiểm kê " + count.getCode()
+                );
+            }
+        }
+
+        count.setStatus("CONFIRMED");
+        count.setConfirmedAt(LocalDateTime.now());
+
+        return inventoryCountRepository.save(count);
+    }
+
+    /*
+     * =========================
+     * CHỐT SỔ KHO THÁNG
+     * =========================
+     */
+
+    public InventoryMonthlyClosing closeMonth(Integer year, Integer month, String note) {
+        validateYearMonth(year, month);
+
+        boolean existed = inventoryMonthlyClosingRepository
+                .existsByYearAndMonthAndStatus(year, month, "CLOSED");
+
+        if (existed) {
+            throw new CustomException(
+                    "Kỳ kho tháng " + month + "/" + year + " đã được chốt",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        boolean hasConfirmedInventoryCount =
+                inventoryCountRepository.existsByYearAndMonthAndStatus(year, month, "CONFIRMED");
+
+        if (!hasConfirmedInventoryCount) {
+            throw new CustomException(
+                    "Cần có phiếu kiểm kê đã duyệt trước khi chốt sổ kho",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        InventoryMonthlyClosing closing = new InventoryMonthlyClosing();
+        closing.setYear(year);
+        closing.setMonth(month);
+        closing.setStatus("CLOSED");
+        closing.setClosedAt(LocalDateTime.now());
+        closing.setNote(note);
+
+        return inventoryMonthlyClosingRepository.save(closing);
+    }
+
+    /*
+     * =========================
+     * LỊCH SỬ KHO
+     * =========================
+     */
+
+    @Transactional(readOnly = true)
+    public List<PartTransaction> getTransactionsByPart(Long partId) {
         if (partId == null) {
             throw new CustomException("partId không được để trống", HttpStatus.BAD_REQUEST);
         }
-        if (amount == null || amount <= 0) {
-            throw new CustomException("Số lượng giảm phải > 0", HttpStatus.BAD_REQUEST);
-        }
 
-        Part part = getById(partId);
-        int currentQty = part.getQuantity() == null ? 0 : part.getQuantity();
-
-        if (currentQty < amount) {
-            throw new CustomException("Không đủ tồn kho để trừ", HttpStatus.BAD_REQUEST);
-        }
-
-        part.setQuantity(currentQty - amount);
-        return partRepository.save(part);
+        return partTransactionRepository.findByPartIdOrderByCreatedAtDesc(partId);
     }
 
-   
+    private void saveTransaction(
+            Long partId,
+            Long workOrderId,
+            String type,
+            Integer quantity,
+            Integer beforeQty,
+            Integer afterQty,
+            String note
+    ) {
+        PartTransaction transaction = new PartTransaction();
+        transaction.setPartId(partId);
+        transaction.setWorkOrderId(workOrderId);
+        transaction.setType(type);
+        transaction.setQuantity(quantity);
+        transaction.setBeforeQuantity(beforeQty);
+        transaction.setAfterQuantity(afterQty);
+        transaction.setNote(note);
+
+        partTransactionRepository.save(transaction);
+    }
+
+    /*
+     * =========================
+     * VALIDATE / HELPER
+     * =========================
+     */
 
     private void validatePart(Part part) {
         if (part == null) {
@@ -202,21 +488,27 @@ public class PartService {
         if (part.getName() != null) {
             part.setName(part.getName().trim());
         }
+
         if (part.getCategory() != null) {
             part.setCategory(part.getCategory().trim());
         }
+
         if (part.getBarcode() != null) {
             part.setBarcode(part.getBarcode().trim());
         }
+
         if (part.getDescription() != null) {
             part.setDescription(part.getDescription().trim());
         }
+
         if (part.getLocationName() != null) {
             part.setLocationName(part.getLocationName().trim());
         }
+
         if (part.getVendor() != null) {
             part.setVendor(part.getVendor().trim());
         }
+
         if (part.getAssignedTo() != null) {
             part.setAssignedTo(part.getAssignedTo().trim().toLowerCase());
         }
@@ -228,12 +520,37 @@ public class PartService {
         }
     }
 
+    private void validateAmount(Integer amount, String fieldName) {
+        if (amount == null || amount <= 0) {
+            throw new CustomException(fieldName + " phải > 0", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void validateYearMonth(Integer year, Integer month) {
+        if (year == null || year < 2000) {
+            throw new CustomException("Năm không hợp lệ", HttpStatus.BAD_REQUEST);
+        }
+
+        if (month == null || month < 1 || month > 12) {
+            throw new CustomException("Tháng không hợp lệ", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private int safeQty(Integer quantity) {
+        return quantity == null ? 0 : quantity;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
     private String joinDistinct(List<String> values) {
         if (values == null || values.isEmpty()) {
             return null;
         }
 
         Set<String> normalized = new LinkedHashSet<>();
+
         for (String value : values) {
             if (!isBlank(value)) {
                 normalized.add(value.trim());
@@ -249,6 +566,7 @@ public class PartService {
         }
 
         Set<String> normalized = new LinkedHashSet<>();
+
         for (String value : values) {
             if (!isBlank(value)) {
                 normalized.add(value.trim().toLowerCase());
@@ -256,9 +574,5 @@ public class PartService {
         }
 
         return normalized.isEmpty() ? null : String.join(", ", normalized);
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
     }
 }
