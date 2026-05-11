@@ -2,6 +2,10 @@ import { useState } from 'react'
 import axios from 'axios'
 import './AiDecisionSupport.css'
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://emms-system-production-4239.up.railway.app";
+
 const suggestions = [
   'Thiết bị nào cần ưu tiên bảo trì?',
   'Thiết bị nào có rủi ro cao nhất?',
@@ -40,7 +44,7 @@ export default function AiDecisionSupport() {
       const token = getToken()
 
       const res = await axios.post(
-        '/api/ai-decision/ask',
+        `${API_BASE}/api/ai-decision/ask`,
         {
           question: q,
         },

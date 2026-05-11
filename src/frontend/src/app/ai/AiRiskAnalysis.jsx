@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import './AiRiskAnalysis.css'
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://emms-system-production-4239.up.railway.app'
+
 export default function AiRiskAnalysis() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
@@ -30,11 +34,10 @@ export default function AiRiskAnalysis() {
 
     try {
       const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-      const res = await axios.get('/api/ai-risk/assets', {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : undefined,
-        },
+      const res = await axios.get(`${API_BASE}/api/ai-risk/assets`, {
+        headers,
       })
 
       setData(normalizeRiskData(res.data))
@@ -73,9 +76,7 @@ export default function AiRiskAnalysis() {
       <div className="ai-risk-hero">
         <span className="ai-risk-badge">EMMS AI</span>
         <h2>AI Risk Analysis</h2>
-        <p>
-          Phân tích mức độ rủi ro thiết bị dựa trên Work Order, downtime.
-        </p>
+        <p>Phân tích mức độ rủi ro thiết bị dựa trên Work Order, downtime.</p>
       </div>
 
       <div className="ai-risk-summary">
@@ -134,9 +135,7 @@ export default function AiRiskAnalysis() {
                   </td>
 
                   <td>{item.status}</td>
-
                   <td>{item.totalWorkOrders}</td>
-
                   <td>{item.totalDowntimes}</td>
 
                   <td>
@@ -157,9 +156,7 @@ export default function AiRiskAnalysis() {
                     </span>
                   </td>
 
-                  <td className="recommendation">
-                    {item.recommendation}
-                  </td>
+                  <td className="recommendation">{item.recommendation}</td>
                 </tr>
               ))}
 
