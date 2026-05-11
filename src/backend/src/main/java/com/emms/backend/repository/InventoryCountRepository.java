@@ -1,9 +1,14 @@
 package com.emms.backend.repository;
 
 import com.emms.backend.entity.InventoryCount;
+import com.emms.backend.entity.enums.InventoryCountStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface InventoryCountRepository extends JpaRepository<InventoryCount, Long> {
 
-    boolean existsByYearAndMonthAndStatus(Integer year, Integer month, String status);
+    boolean existsByYearAndMonthAndStatus(
+            Integer year,
+            Integer month,
+            InventoryCountStatus status
+    );
 }

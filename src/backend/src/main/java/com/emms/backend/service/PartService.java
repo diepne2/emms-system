@@ -2,6 +2,7 @@ package com.emms.backend.service;
 
 import com.emms.backend.dto.part.InventoryCountItemDTO;
 import com.emms.backend.dto.part.PartPatchDTO;
+import com.emms.backend.entity.enums.InventoryCountStatus;
 import com.emms.backend.dto.part.PartShowDTO;
 import com.emms.backend.dto.part.PartSummaryDTO;
 import com.emms.backend.entity.InventoryCount;
@@ -266,7 +267,7 @@ public class PartService {
         count.setCode("KK-" + year + "-" + String.format("%02d", month) + "-" + System.currentTimeMillis());
         count.setYear(year);
         count.setMonth(month);
-        count.setStatus("DRAFT");
+        count.setStatus(InventoryCountStatus.DRAFT);
         count.setNote(note);
 
         return inventoryCountRepository.save(count);
@@ -286,7 +287,7 @@ public class PartService {
                         HttpStatus.NOT_FOUND
                 ));
 
-        if (!"DRAFT".equals(count.getStatus())) {
+        if (count.getStatus() != InventoryCountStatus.DRAFT) {
             throw new CustomException(
                     "Phiếu kiểm kê đã được duyệt, không thể sửa",
                     HttpStatus.BAD_REQUEST
@@ -322,9 +323,9 @@ public class PartService {
                         HttpStatus.NOT_FOUND
                 ));
 
-        if (!"DRAFT".equals(count.getStatus())) {
+        if (count.getStatus() != InventoryCountStatus.DRAFT) {
             throw new CustomException(
-                    "Phiếu kiểm kê không ở trạng thái nháp",
+                    "Phiếu kiểm kê đã được duyệt, không thể sửa",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -371,17 +372,13 @@ public class PartService {
             }
         }
 
-        count.setStatus("CONFIRMED");
+        count.setStatus(InventoryCountStatus.CONFIRMED);
         count.setConfirmedAt(LocalDateTime.now());
 
         return inventoryCountRepository.save(count);
     }
 
-    /*
-     * =========================
-     * CHỐT SỔ KHO THÁNG
-     * =========================
-     */
+
 
     public InventoryMonthlyClosing closeMonth(Integer year, Integer month, String note) {
         validateYearMonth(year, month);
@@ -397,7 +394,11 @@ public class PartService {
         }
 
         boolean hasConfirmedInventoryCount =
-                inventoryCountRepository.existsByYearAndMonthAndStatus(year, month, "CONFIRMED");
+                inventoryCountRepository.existsByYearAndMonthAndStatus(
+                    year,
+                    month,
+                    InventoryCountStatus.CONFIRMED
+                );
 
         if (!hasConfirmedInventoryCount) {
             throw new CustomException(
