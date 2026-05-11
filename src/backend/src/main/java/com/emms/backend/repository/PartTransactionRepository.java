@@ -14,11 +14,11 @@ public interface PartTransactionRepository extends JpaRepository<PartTransaction
     @Query("""
             SELECT t
             FROM PartTransaction t
-            WHERE (:type IS NULL OR LOWER(t.type) = LOWER(:type))
+            WHERE (:type IS NULL OR :type = '' OR CAST(t.type AS string) = :type)
               AND (
-                    :keyword IS NULL
-                    OR LOWER(t.type) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(t.note) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                    :keyword IS NULL OR :keyword = ''
+                    OR LOWER(CAST(t.type AS string)) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                    OR LOWER(COALESCE(t.note, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
                     OR CAST(t.partId AS string) LIKE CONCAT('%', :keyword, '%')
                     OR CAST(t.workOrderId AS string) LIKE CONCAT('%', :keyword, '%')
               )
