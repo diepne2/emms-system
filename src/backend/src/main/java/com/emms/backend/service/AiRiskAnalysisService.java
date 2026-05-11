@@ -53,7 +53,7 @@ public class AiRiskAnalysisService {
             AiRiskAssetDTO dto = new AiRiskAssetDTO(
                     asset.getId(),
                     asset.getName(),
-                    String.valueOf(asset.getStatus()),
+                    asset.getStatus() == null ? "UNKNOWN" : String.valueOf(asset.getStatus()),
                     totalWorkOrders,
                     totalDowntimes,
                     riskScore,
@@ -90,7 +90,7 @@ public class AiRiskAnalysisService {
         return new AiRiskAssetDTO(
                 asset.getId(),
                 asset.getName(),
-                String.valueOf(asset.getStatus()),
+                asset.getStatus() == null ? "UNKNOWN" : String.valueOf(asset.getStatus()),
                 totalWorkOrders,
                 totalDowntimes,
                 riskScore,
@@ -100,12 +100,14 @@ public class AiRiskAnalysisService {
     }
 
     private int calculateRiskScore(Long totalWorkOrders, Long totalDowntimes) {
-        int score = 0;
+        long wo = totalWorkOrders == null ? 0 : totalWorkOrders;
+        long downtime = totalDowntimes == null ? 0 : totalDowntimes;
 
-        score += totalWorkOrders * 5;
-        score += totalDowntimes * 10;
+        long score = 0;
+        score += wo * 5;
+        score += downtime * 10;
 
-        return Math.min(score, 100);
+        return (int) Math.min(score, 100);
     }
 
     private String getRiskLevel(int score) {
@@ -127,32 +129,67 @@ public class AiRiskAnalysisService {
             int riskScore,
             String riskLevel
     ) {
-        String prompt = """
-                Bạn là AI hỗ trợ phân tích rủi ro bảo trì trong hệ thống EMMS.
-
-                Dữ liệu thiết bị:
-                - Tên thiết bị: %s
-                - Trạng thái hiện tại: %s
-                - Tổng Work Order: %d
-                - Tổng downtime: %d
-                - Risk Score: %d/100
-                - Risk Level: %s
-
-                Yêu cầu:
-                - Viết khuyến nghị bảo trì ngắn gọn bằng tiếng Việt.
-                - Không tự tạo thêm số liệu.
-                - Nếu rủi ro HIGH: đề xuất ưu tiên kiểm tra/bảo trì.
-                - Nếu rủi ro MEDIUM: đề xuất theo dõi và tăng kiểm tra định kỳ.
-                - Nếu rủi ro LOW: đề xuất tiếp tục vận hành và theo dõi định kỳ.
-                """.formatted(
-                asset.getName(),
-                asset.getStatus(),
+        String fallback = buildFallbackRecommendation(
                 totalWorkOrders,
                 totalDowntimes,
                 riskScore,
                 riskLevel
         );
 
-        return geminiService.ask(prompt);
+        try {
+            String prompt = """
+                    Bạn là AI hỗ trợ phân tích rủi ro bảo trì trong hệ thống EMMS.
+
+                    Dữ liệu thiết bị:
+                    - Tên thiết bị: %s
+                    - Trạng thái hiện tại: %s
+                    - Tổng Work Order: %d
+                    - Tổng downtime: %d
+                    - Risk Score: %d/100
+                    - Risk Level: %s
+
+                    Yêu cầu:
+                    - Viết khuyến nghị bảo trì ngắn gọn bằng tiếng Việt.
+                    - Không tự tạo thêm số liệu.
+                    - Nếu rủi ro HIGH: đề xuất ưu tiên kiểm tra/bảo trì.
+                    - Nếu rủi ro MEDIUM: đề xuất theo dõi và tăng kiểm tra định kỳ.
+                    - Nếu rủi ro LOW: đề xuất tiếp tục vận hành và theo dõi định kỳ.
+                    """.formatted(
+                    asset.getName(),
+                    asset.getStatus(),
+                    totalWorkOrders,
+                    totalDowntimes,
+                    riskScore,
+                    riskLevel
+            );
+
+            String aiAnswer = geminiService.ask(prompt);
+
+            if (aiAnswer == null || aiAnswer.trim().isEmpty()) {
+                return fallback;
+            }
+
+            return aiAnswer;
+
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private String buildFallbackRecommendation(
+            Long totalWorkOrders,
+            Long totalDowntimes,
+            int riskScore,
+            String riskLevel
+    ) {
+        if ("HIGH".equals(riskLevel)) {
+            return "Thiết bị có mức rủi ro cao. Cần ưu tiên kiểm tra, lập kế hoạch bảo trì sớm và theo dõi downtime.";
+        }
+
+        if ("MEDIUM".equals(riskLevel)) {
+            return "Thiết bị có mức rủi ro trung bình. Nên tăng tần suất kiểm tra định kỳ và theo dõi lịch sử Work Order.";
+        }
+
+        return "Thiết bị có mức rủi ro thấp. Có thể tiếp tục vận hành và theo dõi theo kế hoạch bảo trì định kỳ.";
     }
 }
