@@ -5,6 +5,7 @@ import './inventory.css'
 export default function InventoryCountPage() {
   const [parts, setParts] = useState([])
   const [createdCount, setCreatedCount] = useState(null)
+  const [rows, setRows] = useState([])
 
   const [countForm, setCountForm] = useState({
     year: new Date().getFullYear(),
@@ -12,13 +13,9 @@ export default function InventoryCountPage() {
     note: '',
   })
 
-  const [itemForm, setItemForm] = useState({
-    partId: '',
-    actualQuantity: '',
-    note: '',
-  })
-
   const [loading, setLoading] = useState(false)
+  const [partsLoading, setPartsLoading] = useState(false)
+  const [savingItems, setSavingItems] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -29,19 +26,47 @@ export default function InventoryCountPage() {
     return []
   }
 
-  const selectedPart = useMemo(
-    () => parts.find((p) => String(p.id) === String(itemForm.partId)),
-    [parts, itemForm.partId],
-  )
-
   const loadParts = async () => {
-    const res = await inventoryApi.get('/parts')
-    setParts(normalizeList(res.data))
+    setPartsLoading(true)
+    setError('')
+
+    try {
+      const res = await inventoryApi.get('/parts')
+      const list = normalizeList(res.data)
+      setParts(list)
+    } catch (err) {
+      setParts([])
+      setError(getErrorMessage(err))
+    } finally {
+      setPartsLoading(false)
+    }
   }
 
   useEffect(() => {
-    loadParts().catch((err) => setError(getErrorMessage(err)))
+    loadParts()
   }, [])
+
+  const totalDifferentRows = useMemo(() => {
+    return rows.filter(
+      (row) => Number(row.actualQuantity || 0) !== Number(row.systemQuantity || 0),
+    ).length
+  }, [rows])
+
+  const createRowsFromParts = (list) => {
+    return list.map((part) => {
+      const systemQty = Number(part.quantity ?? 0)
+
+      return {
+        partId: part.id,
+        partName: part.name,
+        partNumber: part.partNumber,
+        category: part.category,
+        systemQuantity: systemQty,
+        actualQuantity: systemQty,
+        note: '',
+      }
+    })
+  }
 
   const createCount = async (e) => {
     e.preventDefault()
@@ -53,8 +78,13 @@ export default function InventoryCountPage() {
       return
     }
 
-    if (countForm.month < 1 || countForm.month > 12) {
+    if (Number(countForm.month) < 1 || Number(countForm.month) > 12) {
       setError('Tháng phải nằm trong khoảng 1 đến 12.')
+      return
+    }
+
+    if (!parts.length) {
+      setError('Chưa có danh sách vật tư để tạo kiểm kê.')
       return
     }
 
@@ -63,14 +93,15 @@ export default function InventoryCountPage() {
     try {
       const res = await inventoryApi.post('/parts/inventory-counts', null, {
         params: {
-          year: countForm.year,
-          month: countForm.month,
-          note: countForm.note,
+          year: Number(countForm.year),
+          month: Number(countForm.month),
+          note: countForm.note || undefined,
         },
       })
 
       setCreatedCount(res.data)
-      setMessage('Tạo phiếu kiểm kê thành công.')
+      setRows(createRowsFromParts(parts))
+      setMessage('Tạo phiếu kiểm kê thành công. Tồn hệ thống đã được tự động lấy từ kho.')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -78,8 +109,20 @@ export default function InventoryCountPage() {
     }
   }
 
-  const addItem = async (e) => {
-    e.preventDefault()
+  const updateRow = (partId, field, value) => {
+    setRows((prev) =>
+      prev.map((row) =>
+        row.partId === partId
+          ? {
+              ...row,
+              [field]: value,
+            }
+          : row,
+      ),
+    )
+  }
+
+  const saveAllItems = async () => {
     setMessage('')
     setError('')
 
@@ -88,31 +131,36 @@ export default function InventoryCountPage() {
       return
     }
 
-    if (!itemForm.partId || itemForm.actualQuantity === '') {
-      setError('Vui lòng chọn vật tư và nhập số lượng thực tế.')
+    if (!rows.length) {
+      setError('Phiếu kiểm kê chưa có vật tư.')
       return
     }
 
-    if (Number(itemForm.actualQuantity) < 0) {
-      setError('Số lượng thực tế không được âm.')
+    const invalidRow = rows.find(
+      (row) => row.actualQuantity === '' || Number(row.actualQuantity) < 0,
+    )
+
+    if (invalidRow) {
+      setError(`Số lượng thực tế của "${invalidRow.partName}" không hợp lệ.`)
       return
     }
 
-    setLoading(true)
+    setSavingItems(true)
 
     try {
-      await inventoryApi.post(`/parts/inventory-counts/${createdCount.id}/items`, {
-        partId: Number(itemForm.partId),
-        actualQuantity: Number(itemForm.actualQuantity),
-        note: itemForm.note,
-      })
+      for (const row of rows) {
+        await inventoryApi.post(`/parts/inventory-counts/${createdCount.id}/items`, {
+          partId: Number(row.partId),
+          actualQuantity: Number(row.actualQuantity),
+          note: row.note || undefined,
+        })
+      }
 
-      setMessage('Thêm dòng kiểm kê thành công.')
-      setItemForm({ partId: '', actualQuantity: '', note: '' })
+      setMessage('Đã lưu toàn bộ dòng kiểm kê.')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
-      setLoading(false)
+      setSavingItems(false)
     }
   }
 
@@ -122,6 +170,10 @@ export default function InventoryCountPage() {
 
     if (!createdCount?.id) {
       setError('Chưa có phiếu kiểm kê để duyệt.')
+      return
+    }
+
+    if (!window.confirm('Duyệt kiểm kê sẽ cập nhật tồn kho theo số lượng thực tế. Tiếp tục?')) {
       return
     }
 
@@ -139,20 +191,64 @@ export default function InventoryCountPage() {
     }
   }
 
-  const diffQuantity =
-    selectedPart && itemForm.actualQuantity !== ''
-      ? Number(itemForm.actualQuantity) - Number(selectedPart.quantity ?? 0)
-      : null
+  const deleteCount = async () => {
+    setMessage('')
+    setError('')
+
+    if (!createdCount?.id) {
+      setError('Chưa có phiếu kiểm kê để xóa.')
+      return
+    }
+
+    if (!window.confirm('Bạn có chắc muốn xóa phiếu kiểm kê này không?')) {
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      await inventoryApi.delete(`/parts/inventory-counts/${createdCount.id}`)
+      setCreatedCount(null)
+      setRows([])
+      setMessage('Xóa phiếu kiểm kê thành công.')
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const renderDifference = (row) => {
+    const systemQty = Number(row.systemQuantity || 0)
+    const actualQty = Number(row.actualQuantity || 0)
+    const diff = actualQty - systemQty
+
+    return (
+      <div className="inventory-diff-wrap">
+        <span
+          className={
+            diff === 0
+              ? 'inventory-diff zero'
+              : diff > 0
+                ? 'inventory-diff plus'
+                : 'inventory-diff minus'
+          }
+        >
+          {diff > 0 ? `+${diff}` : diff}
+        </span>
+
+        {diff > 0 && <small className="inventory-diff-text">Thừa vật tư</small>}
+        {diff < 0 && <small className="inventory-diff-text">Thiếu vật tư</small>}
+        {diff === 0 && <small className="inventory-diff-text">Khớp tồn kho</small>}
+      </div>
+    )
+  }
 
   return (
     <div className="inventory-page">
       <div className="inventory-hero">
         <span className="inventory-badge">Kho vật tư</span>
         <h2>Kiểm kê kho</h2>
-        <p>
-          So sánh tồn kho hệ thống với số lượng thực tế và điều chỉnh tồn kho
-          khi phiếu kiểm kê được duyệt.
-        </p>
       </div>
 
       {message && <div className="inventory-alert success">{message}</div>}
@@ -167,7 +263,6 @@ export default function InventoryCountPage() {
               <span className="inventory-label-text">
                 Năm <span className="inventory-required">*</span>
               </span>
-
               <input
                 type="number"
                 value={countForm.year}
@@ -184,7 +279,6 @@ export default function InventoryCountPage() {
               <span className="inventory-label-text">
                 Tháng <span className="inventory-required">*</span>
               </span>
-
               <input
                 type="number"
                 min="1"
@@ -202,7 +296,6 @@ export default function InventoryCountPage() {
 
           <label>
             <span className="inventory-label-text">Ghi chú</span>
-
             <textarea
               value={countForm.note}
               onChange={(e) =>
@@ -211,13 +304,17 @@ export default function InventoryCountPage() {
                   note: e.target.value,
                 })
               }
-              placeholder="Ví dụ: Kiểm kê cuối tháng"
+              placeholder="Nhập ghi chú"
             />
           </label>
 
+          <div className="inventory-note">
+            Khi tạo phiếu, hệ thống sẽ tự sinh danh sách vật tư và lấy tồn hệ thống hiện tại.
+          </div>
+
           <div className="inventory-actions">
-            <button type="submit" disabled={loading}>
-              {loading ? 'Đang tạo...' : 'Tạo phiếu kiểm kê'}
+            <button type="submit" disabled={loading || partsLoading || !!createdCount}>
+              {loading ? 'Đang tạo...' : partsLoading ? 'Đang tải vật tư...' : 'Tạo phiếu kiểm kê'}
             </button>
           </div>
         </form>
@@ -232,85 +329,91 @@ export default function InventoryCountPage() {
                 Kỳ kho: {createdCount.month}/{createdCount.year} — Trạng thái:{' '}
                 {createdCount.status}
               </p>
+              <p>Số dòng chênh lệch: {totalDifferentRows}</p>
             </div>
 
-            <button type="button" onClick={confirmCount} disabled={loading}>
-              {loading ? 'Đang duyệt...' : 'Duyệt kiểm kê'}
-            </button>
+            <div className="inventory-count-actions">
+              {createdCount.status === 'DRAFT' && (
+                <>
+                  <button type="button" onClick={saveAllItems} disabled={savingItems || loading}>
+                    {savingItems ? 'Đang lưu...' : 'Lưu dòng kiểm kê'}
+                  </button>
+
+                  <button type="button" onClick={confirmCount} disabled={loading || savingItems}>
+                    {loading ? 'Đang duyệt...' : 'Duyệt kiểm kê'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="inventory-danger-btn"
+                    onClick={deleteCount}
+                    disabled={loading || savingItems}
+                  >
+                    Xóa phiếu
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
-          <form className="inventory-form" onSubmit={addItem}>
-            <div className="inventory-grid">
-              <label>
-                <span className="inventory-label-text">
-                  Vật tư <span className="inventory-required">*</span>
-                </span>
+          <div className="inventory-table-wrap">
+            <table className="inventory-table">
+              <thead>
+                <tr>
+                  <th>Vật tư</th>
+                  <th>Mã vật tư</th>
+                  <th>Danh mục</th>
+                  <th>Tồn HT</th>
+                  <th>Thực tế</th>
+                  <th>Chênh lệch</th>
+                  <th>Ghi chú</th>
+                </tr>
+              </thead>
 
-                <select
-                  value={itemForm.partId}
-                  onChange={(e) =>
-                    setItemForm({
-                      ...itemForm,
-                      partId: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">-- Chọn vật tư --</option>
-                  {parts.map((part) => (
-                    <option key={part.id} value={part.id}>
-                      {part.name} — Tồn: {part.quantity ?? 0}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <span className="inventory-label-text">
-                  Số lượng thực tế <span className="inventory-required">*</span>
-                </span>
-
-                <input
-                  type="number"
-                  min="0"
-                  value={itemForm.actualQuantity}
-                  onChange={(e) =>
-                    setItemForm({
-                      ...itemForm,
-                      actualQuantity: e.target.value,
-                    })
-                  }
-                />
-              </label>
-            </div>
-
-            {selectedPart && (
-              <div className="inventory-meta">
-                <span>Tồn hệ thống: {selectedPart.quantity ?? 0}</span>
-                <span>Chênh lệch: {diffQuantity}</span>
-              </div>
-            )}
-
-            <label>
-              <span className="inventory-label-text">Ghi chú dòng kiểm kê</span>
-
-              <textarea
-                value={itemForm.note}
-                onChange={(e) =>
-                  setItemForm({
-                    ...itemForm,
-                    note: e.target.value,
-                  })
-                }
-                placeholder="Ví dụ: Chênh lệch do vật tư hỏng hoặc hao hụt thực tế"
-              />
-            </label>
-
-            <div className="inventory-actions">
-              <button type="submit" disabled={loading}>
-                {loading ? 'Đang thêm...' : 'Thêm dòng kiểm kê'}
-              </button>
-            </div>
-          </form>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="inventory-empty">
+                      Chưa có dữ liệu vật tư.
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => (
+                    <tr key={row.partId}>
+                      <td>{row.partName || '-'}</td>
+                      <td>{row.partNumber || '-'}</td>
+                      <td>{row.category || '-'}</td>
+                      <td>
+                        <strong>{row.systemQuantity}</strong>
+                      </td>
+                      <td>
+                        <input
+                          className="inventory-table-input"
+                          type="number"
+                          min="0"
+                          value={row.actualQuantity}
+                          disabled={createdCount.status !== 'DRAFT'}
+                          onChange={(e) =>
+                            updateRow(row.partId, 'actualQuantity', e.target.value)
+                          }
+                        />
+                      </td>
+                      <td>{renderDifference(row)}</td>
+                      <td>
+                        <input
+                          className="inventory-table-input"
+                          value={row.note}
+                          disabled={createdCount.status !== 'DRAFT'}
+                          onChange={(e) => updateRow(row.partId, 'note', e.target.value)}
+                          placeholder="Ghi chú"
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

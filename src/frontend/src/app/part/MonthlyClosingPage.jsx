@@ -9,7 +9,9 @@ export default function MonthlyClosingPage() {
     note: '',
   })
 
+  const [closingResult, setClosingResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [reopening, setReopening] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -23,22 +25,31 @@ export default function MonthlyClosingPage() {
       return
     }
 
-    if (form.month < 1 || form.month > 12) {
+    if (Number(form.month) < 1 || Number(form.month) > 12) {
       setError('Tháng phải nằm trong khoảng 1 đến 12.')
+      return
+    }
+
+    if (
+      !window.confirm(
+        `Bạn có chắc muốn chốt sổ kho tháng ${form.month}/${form.year} không?`,
+      )
+    ) {
       return
     }
 
     setLoading(true)
 
     try {
-      await inventoryApi.post('/parts/monthly-closing', null, {
+      const res = await inventoryApi.post('/parts/monthly-closing', null, {
         params: {
-          year: form.year,
-          month: form.month,
-          note: form.note,
+          year: Number(form.year),
+          month: Number(form.month),
+          note: form.note || undefined,
         },
       })
 
+      setClosingResult(res.data)
       setMessage('Chốt sổ kho tháng thành công.')
       setForm({
         year: new Date().getFullYear(),
@@ -52,14 +63,54 @@ export default function MonthlyClosingPage() {
     }
   }
 
+  const reopenClosing = async () => {
+    setMessage('')
+    setError('')
+
+    if (!closingResult?.id) {
+      setError('Không tìm thấy kỳ chốt kho để mở lại.')
+      return
+    }
+
+    if (
+      !window.confirm(
+        `Bạn có chắc muốn mở lại kỳ kho ${closingResult.month}/${closingResult.year} không?`,
+      )
+    ) {
+      return
+    }
+
+    setReopening(true)
+
+    try {
+      const res = await inventoryApi.put(
+        `/parts/monthly-closing/${closingResult.id}/reopen`,
+      )
+
+      setClosingResult(res.data)
+      setMessage('Mở lại kỳ kho thành công.')
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setReopening(false)
+    }
+  }
+
+  const formatDateTime = (value) => {
+    if (!value) return '-'
+
+    try {
+      return new Date(value).toLocaleString('vi-VN')
+    } catch {
+      return value
+    }
+  }
+
   return (
     <div className="inventory-page">
       <div className="inventory-hero">
         <span className="inventory-badge">Kho vật tư</span>
         <h2>Chốt sổ kho</h2>
-        <p>
-          Chốt kỳ kho theo tháng sau khi phiếu kiểm kê đã được duyệt.
-        </p>
       </div>
 
       {message && <div className="inventory-alert success">{message}</div>}
@@ -133,6 +184,39 @@ export default function MonthlyClosingPage() {
           </div>
         </form>
       </div>
+
+      {closingResult && (
+        <div className="inventory-card">
+          <h3>Kỳ kho vừa xử lý</h3>
+
+          <div className="inventory-meta">
+            <span>
+              Kỳ kho: {closingResult.month}/{closingResult.year}
+            </span>
+            <span>Trạng thái: {closingResult.status}</span>
+            <span>Thời gian chốt: {formatDateTime(closingResult.closedAt)}</span>
+          </div>
+
+          {closingResult.note && (
+            <div className="inventory-note">
+              Ghi chú: {closingResult.note}
+            </div>
+          )}
+
+          {closingResult.status === 'CLOSED' && (
+            <div className="inventory-actions">
+              <button
+                type="button"
+                className="inventory-danger-btn"
+                onClick={reopenClosing}
+                disabled={reopening}
+              >
+                {reopening ? 'Đang mở lại...' : 'Mở lại kỳ kho'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

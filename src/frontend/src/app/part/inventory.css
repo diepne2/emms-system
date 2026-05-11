@@ -301,3 +301,152 @@
     width: 100%;
   }
 }
+
+.inventory-count-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.inventory-danger-btn {
+  background: #d92d20 !important;
+}
+
+.inventory-danger-btn:hover {
+  background: #b42318 !important;
+}
+
+.inventory-table-input {
+  width: 100%;
+  min-width: 90px;
+  border: 1px solid #dce2f0;
+  border-radius: 9px;
+  padding: 8px 10px;
+  outline: none;
+  font-size: 14px;
+}
+
+.inventory-table-input:focus {
+  border-color: #1b4fd8;
+  box-shadow: 0 0 0 3px rgba(27, 79, 216, 0.12);
+}
+
+.inventory-diff {
+  display: inline-block;
+  min-width: 52px;
+  text-align: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.inventory-diff.zero {
+  background: #eef2f7;
+  color: #344054;
+}
+
+.inventory-diff.plus {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.inventory-diff.minus {
+  background: #fff1f3;
+  color: #c01048;
+}
+
+
+.inventory-count-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.inventory-danger-btn {
+  background: #d92d20 !important;
+}
+
+.inventory-danger-btn:hover {
+  background: #b42318 !important;
+}
+
+.inventory-table-input {
+  width: 100%;
+  min-width: 90px;
+  border: 1px solid #dce2f0;
+  border-radius: 9px;
+  padding: 8px 10px;
+  outline: none;
+  font-size: 14px;
+}
+
+.inventory-table-input:focus {
+  border-color: #1b4fd8;
+  box-shadow: 0 0 0 3px rgba(27, 79, 216, 0.12);
+}
+
+.inventory-diff-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inventory-diff {
+  display: inline-block;
+  min-width: 52px;
+  text-align: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.inventory-diff.zero {
+  background: #eef2f7;
+  color: #344054;
+}
+
+.inventory-diff.plus {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.inventory-diff.minus {
+  background: #fff1f3;
+  color: #c01048;
+}
+
+.inventory-diff-text {
+  font-size: 11px;
+  color: #667085;
+}
+
+
+.inventory-filter-wide {
+  grid-template-columns: 1.4fr 1fr 1fr auto;
+}
+
+.inventory-filter input {
+  width: 100%;
+  border: 1px solid #dce2f0;
+  border-radius: 12px;
+  padding: 11px 13px;
+  outline: none;
+  font-size: 14px;
+  color: #25324b;
+  background: #fff;
+}
+
+.inventory-filter input:focus {
+  border-color: #1b4fd8;
+  box-shadow: 0 0 0 3px rgba(27, 79, 216, 0.12);
+}
+
+@media (max-width: 900px) {
+  .inventory-filter-wide {
+    grid-template-columns: 1fr;
+  }
+}

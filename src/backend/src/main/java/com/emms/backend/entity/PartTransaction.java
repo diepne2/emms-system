@@ -26,6 +26,8 @@ public class PartTransaction {
 
     private String note;
 
+    private String createdBy;
+
     private LocalDateTime createdAt;
 
     @PrePersist
@@ -45,6 +47,14 @@ public class PartTransaction {
 
     public void setPartId(Long partId) {
         this.partId = partId;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+    
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy == null ? null : createdBy.trim();
     }
 
     public Long getWorkOrderId() {

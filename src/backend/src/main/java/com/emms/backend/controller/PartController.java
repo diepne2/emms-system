@@ -11,7 +11,6 @@ import com.emms.backend.entity.InventoryMonthlyClosing;
 import com.emms.backend.entity.Part;
 import com.emms.backend.entity.PartTransaction;
 import com.emms.backend.service.PartService;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -37,6 +36,17 @@ public class PartController {
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN','ROLE_OPERATOR')")
     public ResponseEntity<Collection<Part>> getAll() {
         return ResponseEntity.ok(partService.getAll());
+    }
+
+    @GetMapping("/transactions")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN')")
+    public ResponseEntity<List<PartTransaction>> getAllTransactions(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String type
+    ) {
+        return ResponseEntity.ok(
+                partService.getAllTransactions(keyword, type)
+        );
     }
 
     @GetMapping("/{id}")
@@ -69,7 +79,6 @@ public class PartController {
         return ResponseEntity.ok(new SuccessResponse(true, "Deleted successfully"));
     }
 
-
     @PutMapping("/{id}/import-stock")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
     public ResponseEntity<Part> importStock(
@@ -84,7 +93,6 @@ public class PartController {
                 )
         );
     }
-
 
     @PostMapping("/work-orders/{workOrderId}/use")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN')")
@@ -101,14 +109,11 @@ public class PartController {
         );
     }
 
-
-
     @GetMapping("/{id}/transactions")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER','ROLE_TECHNICIAN')")
     public ResponseEntity<List<PartTransaction>> getTransactions(@PathVariable Long id) {
         return ResponseEntity.ok(partService.getTransactionsByPart(id));
     }
-
 
     @PostMapping("/inventory-counts")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
@@ -141,7 +146,15 @@ public class PartController {
         );
     }
 
-  
+    @DeleteMapping("/inventory-counts/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    public ResponseEntity<SuccessResponse> deleteInventoryCount(@PathVariable Long id) {
+        partService.deleteInventoryCount(id);
+
+        return ResponseEntity.ok(
+                new SuccessResponse(true, "Xóa phiếu kiểm kê thành công")
+        );
+    }
 
     @PostMapping("/monthly-closing")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
@@ -152,6 +165,14 @@ public class PartController {
     ) {
         return ResponseEntity.ok(
                 partService.closeMonth(year, month, note)
+        );
+    }
+
+    @PutMapping("/monthly-closing/{id}/reopen")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<InventoryMonthlyClosing> reopenMonthlyClosing(@PathVariable Long id) {
+        return ResponseEntity.ok(
+                partService.reopenMonthlyClosing(id)
         );
     }
 }

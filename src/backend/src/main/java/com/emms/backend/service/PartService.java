@@ -2,7 +2,6 @@ package com.emms.backend.service;
 
 import com.emms.backend.dto.part.InventoryCountItemDTO;
 import com.emms.backend.dto.part.PartPatchDTO;
-import com.emms.backend.entity.enums.InventoryCountStatus;
 import com.emms.backend.dto.part.PartShowDTO;
 import com.emms.backend.dto.part.PartSummaryDTO;
 import com.emms.backend.entity.InventoryCount;
@@ -10,6 +9,7 @@ import com.emms.backend.entity.InventoryCountItem;
 import com.emms.backend.entity.InventoryMonthlyClosing;
 import com.emms.backend.entity.Part;
 import com.emms.backend.entity.PartTransaction;
+import com.emms.backend.entity.enums.InventoryCountStatus;
 import com.emms.backend.exception.CustomException;
 import com.emms.backend.mapper.PartMapper;
 import com.emms.backend.repository.InventoryCountItemRepository;
@@ -18,6 +18,8 @@ import com.emms.backend.repository.InventoryMonthlyClosingRepository;
 import com.emms.backend.repository.PartRepository;
 import com.emms.backend.repository.PartTransactionRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -164,12 +166,6 @@ public class PartService {
         return partRepository.saveAll(entities);
     }
 
-    /*
-     * =========================
-     * NHẬP KHO
-     * =========================
-     */
-
     public Part increaseStock(Long partId, Integer amount) {
         return importStock(partId, amount, "Nhập kho");
     }
@@ -197,12 +193,6 @@ public class PartService {
 
         return saved;
     }
-
-    /*
-     * =========================
-     * XUẤT VẬT TƯ CHO WORK ORDER
-     * =========================
-     */
 
     public Part usePartForWorkOrder(Long workOrderId, Long partId, Integer amount) {
         if (workOrderId == null) {
@@ -243,12 +233,6 @@ public class PartService {
 
         return saved;
     }
-
-    /*
-     * =========================
-     * KIỂM KÊ KHO
-     * =========================
-     */
 
     public InventoryCount createInventoryCount(Integer year, Integer month, String note) {
         validateYearMonth(year, month);
@@ -378,7 +362,36 @@ public class PartService {
         return inventoryCountRepository.save(count);
     }
 
+    public void deleteInventoryCount(Long inventoryCountId) {
+        if (inventoryCountId == null) {
+            throw new CustomException(
+                    "inventoryCountId không được để trống",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
 
+        InventoryCount count = inventoryCountRepository.findById(inventoryCountId)
+                .orElseThrow(() -> new CustomException(
+                        "Không tìm thấy phiếu kiểm kê",
+                        HttpStatus.NOT_FOUND
+                ));
+
+        if (count.getStatus() == InventoryCountStatus.CONFIRMED) {
+            throw new CustomException(
+                    "Không thể xóa phiếu kiểm kê đã duyệt",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        List<InventoryCountItem> items =
+                inventoryCountItemRepository.findByInventoryCountId(inventoryCountId);
+
+        if (items != null && !items.isEmpty()) {
+            inventoryCountItemRepository.deleteAll(items);
+        }
+
+        inventoryCountRepository.delete(count);
+    }
 
     public InventoryMonthlyClosing closeMonth(Integer year, Integer month, String note) {
         validateYearMonth(year, month);
@@ -395,9 +408,9 @@ public class PartService {
 
         boolean hasConfirmedInventoryCount =
                 inventoryCountRepository.existsByYearAndMonthAndStatus(
-                    year,
-                    month,
-                    InventoryCountStatus.CONFIRMED
+                        year,
+                        month,
+                        InventoryCountStatus.CONFIRMED
                 );
 
         if (!hasConfirmedInventoryCount) {
@@ -417,11 +430,32 @@ public class PartService {
         return inventoryMonthlyClosingRepository.save(closing);
     }
 
-    /*
-     * =========================
-     * LỊCH SỬ KHO
-     * =========================
-     */
+    public InventoryMonthlyClosing reopenMonthlyClosing(Long closingId) {
+        if (closingId == null) {
+            throw new CustomException(
+                    "closingId không được để trống",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        InventoryMonthlyClosing closing =
+                inventoryMonthlyClosingRepository.findById(closingId)
+                        .orElseThrow(() -> new CustomException(
+                                "Không tìm thấy kỳ chốt kho",
+                                HttpStatus.NOT_FOUND
+                        ));
+
+        if (!"CLOSED".equalsIgnoreCase(closing.getStatus())) {
+            throw new CustomException(
+                    "Chỉ có thể mở lại kỳ kho đang ở trạng thái CLOSED",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        closing.setStatus("REOPENED");
+
+        return inventoryMonthlyClosingRepository.save(closing);
+    }
 
     @Transactional(readOnly = true)
     public List<PartTransaction> getTransactionsByPart(Long partId) {
@@ -430,6 +464,17 @@ public class PartService {
         }
 
         return partTransactionRepository.findByPartIdOrderByCreatedAtDesc(partId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PartTransaction> getAllTransactions(String keyword, String type) {
+        String normalizedKeyword = isBlank(keyword) ? null : keyword.trim();
+        String normalizedType = isBlank(type) ? null : type.trim();
+
+        return partTransactionRepository.searchTransactions(
+                normalizedKeyword,
+                normalizedType
+        );
     }
 
     private void saveTransaction(
@@ -449,15 +494,27 @@ public class PartService {
         transaction.setBeforeQuantity(beforeQty);
         transaction.setAfterQuantity(afterQty);
         transaction.setNote(note);
+        transaction.setCreatedBy(getCurrentUsername());
 
         partTransactionRepository.save(transaction);
     }
 
-    /*
-     * =========================
-     * VALIDATE / HELPER
-     * =========================
-     */
+    private String getCurrentUsername() {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return "SYSTEM";
+        }
+
+        String username = authentication.getName();
+
+        if (username == null || username.trim().isEmpty() || "anonymousUser".equals(username)) {
+            return "SYSTEM";
+        }
+
+        return username;
+    }
 
     private void validatePart(Part part) {
         if (part == null) {
