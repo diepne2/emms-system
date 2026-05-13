@@ -10,6 +10,8 @@ public class AiRiskAssetDTO {
     private Integer riskScore;
     private String riskLevel;
     private String recommendation;
+    private String warningMessage;
+    private Boolean earlyWarning;
 
     public AiRiskAssetDTO() {
     }
@@ -22,7 +24,10 @@ public class AiRiskAssetDTO {
             Long totalDowntimes,
             Integer riskScore,
             String riskLevel,
-            String recommendation
+            String recommendation,
+            Boolean earlyWarning,
+            String warningMessage
+
     ) {
         this.assetId = assetId;
         this.assetName = assetName;
@@ -32,6 +37,8 @@ public class AiRiskAssetDTO {
         this.riskScore = riskScore;
         this.riskLevel = riskLevel;
         this.recommendation = recommendation;
+        this.earlyWarning = earlyWarning;
+        this.warningMessage = warningMessage;
     }
 
     public Long getAssetId() {
@@ -96,5 +103,20 @@ public class AiRiskAssetDTO {
 
     public void setRecommendation(String recommendation) {
         this.recommendation = recommendation;
+    }
+    public Boolean getEarlyWarning() {
+        return earlyWarning;
+    }
+
+    public void setEarlyWarning(Boolean earlyWarning) {
+        this.earlyWarning = earlyWarning;
+    }
+
+    public String getWarningMessage() {
+        return warningMessage;
+    }
+
+    public void setWarningMessage(String warningMessage) {
+        this.warningMessage = warningMessage;
     }
 }

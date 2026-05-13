@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { notification } from 'antd'
 import axios from 'axios'
 import './AiRiskAnalysis.css'
 
@@ -28,6 +29,27 @@ export default function AiRiskAnalysis() {
     return []
   }
 
+  const showAiWarningNotification = (list) => {
+    const warningAssets = list.filter((item) => item.earlyWarning)
+
+    if (warningAssets.length === 0) return
+
+    const highRiskAssets = warningAssets.filter((item) => item.riskLevel === 'HIGH')
+    const topAssets = warningAssets
+      .slice(0, 3)
+      .map((item) => item.assetName)
+      .join(', ')
+
+    notification.warning({
+      message: 'AI cảnh báo thiết bị',
+      description: `Có ${warningAssets.length} thiết bị có nguy cơ hỏng hóc. ${
+        highRiskAssets.length > 0 ? `${highRiskAssets.length} thiết bị rủi ro cao. ` : ''
+      }Cần ưu tiên kiểm tra: ${topAssets}.`,
+      placement: 'topRight',
+      duration: 8,
+    })
+  }
+
   const loadRiskData = async () => {
     setLoading(true)
     setError('')
@@ -36,11 +58,11 @@ export default function AiRiskAnalysis() {
       const token = getToken()
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-      const res = await axios.get(`${API_BASE}/api/ai-risk/assets`, {
-        headers,
-      })
+      const res = await axios.get(`${API_BASE}/api/ai-risk/assets`, { headers })
 
-      setData(normalizeRiskData(res.data))
+      const normalized = normalizeRiskData(res.data)
+      setData(normalized)
+      showAiWarningNotification(normalized)
     } catch (err) {
       console.error('AI Risk Analysis error:', err)
       setData([])
@@ -61,8 +83,9 @@ export default function AiRiskAnalysis() {
     const high = riskList.filter((item) => item.riskLevel === 'HIGH').length
     const medium = riskList.filter((item) => item.riskLevel === 'MEDIUM').length
     const low = riskList.filter((item) => item.riskLevel === 'LOW').length
+    const warning = riskList.filter((item) => item.earlyWarning).length
 
-    return { total, high, medium, low }
+    return { total, high, medium, low, warning }
   }, [riskList])
 
   const getRiskClass = (level) => {
@@ -76,7 +99,7 @@ export default function AiRiskAnalysis() {
       <div className="ai-risk-hero">
         <span className="ai-risk-badge">EMMS AI</span>
         <h2>AI Risk Analysis</h2>
-        <p>Phân tích mức độ rủi ro thiết bị dựa trên Work Order, downtime.</p>
+        <p>Phân tích mức độ rủi ro thiết bị dựa trên Work Order, downtime và cảnh báo sớm nguy cơ hỏng hóc.</p>
       </div>
 
       <div className="ai-risk-summary">
@@ -95,9 +118,9 @@ export default function AiRiskAnalysis() {
           <strong>{summary.medium}</strong>
         </div>
 
-        <div className="risk-card low">
-          <span>Rủi ro thấp</span>
-          <strong>{summary.low}</strong>
+        <div className="risk-card warning">
+          <span>Cảnh báo AI</span>
+          <strong>{summary.warning}</strong>
         </div>
       </div>
 
@@ -122,13 +145,14 @@ export default function AiRiskAnalysis() {
                 <th>Downtime</th>
                 <th>Risk Score</th>
                 <th>Risk Level</th>
+                <th>Cảnh báo AI</th>
                 <th>Khuyến nghị AI</th>
               </tr>
             </thead>
 
             <tbody>
               {riskList.map((item) => (
-                <tr key={item.assetId}>
+                <tr key={item.assetId} className={item.earlyWarning ? 'warning-row' : ''}>
                   <td>
                     <strong>{item.assetName}</strong>
                     <div className="asset-id">ID: {item.assetId}</div>
@@ -156,13 +180,24 @@ export default function AiRiskAnalysis() {
                     </span>
                   </td>
 
+                  <td className="ai-warning-cell">
+                    {item.earlyWarning ? (
+                      <div className="ai-warning-box">
+                        <strong>Cảnh báo</strong>
+                        <span>{item.warningMessage}</span>
+                      </div>
+                    ) : (
+                      <span className="ai-safe-text">Ổn định</span>
+                    )}
+                  </td>
+
                   <td className="recommendation">{item.recommendation}</td>
                 </tr>
               ))}
 
               {!loading && riskList.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="empty-row">
+                  <td colSpan={8} className="empty-row">
                     Chưa có dữ liệu phân tích rủi ro.
                   </td>
                 </tr>
@@ -170,7 +205,7 @@ export default function AiRiskAnalysis() {
 
               {loading && (
                 <tr>
-                  <td colSpan={7} className="empty-row">
+                  <td colSpan={8} className="empty-row">
                     AI đang phân tích dữ liệu...
                   </td>
                 </tr>
