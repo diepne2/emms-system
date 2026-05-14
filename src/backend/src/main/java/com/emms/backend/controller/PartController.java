@@ -175,4 +175,11 @@ public class PartController {
                 partService.reopenMonthlyClosing(id)
         );
     }
+
+    @GetMapping("/inventory-counts/{id}/items")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TECHNICAL_MANAGER')")
+    public ResponseEntity<List<InventoryCountItem>> getInventoryCountItems(@PathVariable Long id) {
+    return ResponseEntity.ok(
+            partService.getInventoryCountItems(id));
+        }
 }

@@ -52,10 +52,16 @@ public class AiRiskAnalysisService {
     }
 
     private AiRiskAssetDTO buildRiskDto(Asset asset) {
+
         Long totalWorkOrders = workOrderRepository.countByAssetId(asset.getId());
         Long totalDowntimes = assetDowntimeRepository.countByAssetId(asset.getId());
 
-        int riskScore = calculateRiskScore(totalWorkOrders, totalDowntimes);
+        int riskScore = calculateRiskScore(
+                asset,
+                totalWorkOrders,
+                totalDowntimes
+        );
+
         String riskLevel = getRiskLevel(riskScore);
 
         String recommendation = generateRecommendation(
@@ -84,7 +90,9 @@ public class AiRiskAnalysisService {
         return new AiRiskAssetDTO(
                 asset.getId(),
                 asset.getName(),
-                asset.getStatus() == null ? "UNKNOWN" : String.valueOf(asset.getStatus()),
+                asset.getStatus() == null
+                        ? "UNKNOWN"
+                        : String.valueOf(asset.getStatus()),
                 totalWorkOrders,
                 totalDowntimes,
                 riskScore,
@@ -95,20 +103,65 @@ public class AiRiskAnalysisService {
         );
     }
 
-    private int calculateRiskScore(Long totalWorkOrders, Long totalDowntimes) {
+    private int calculateRiskScore(
+            Asset asset,
+            Long totalWorkOrders,
+            Long totalDowntimes
+    ) {
+
         long wo = totalWorkOrders == null ? 0 : totalWorkOrders;
         long downtime = totalDowntimes == null ? 0 : totalDowntimes;
 
+        String status = asset.getStatus() == null
+                ? ""
+                : String.valueOf(asset.getStatus());
+
         long score = 0;
+
+        // Work Orders
         score += wo * 5;
+
+        // Downtime
         score += downtime * 10;
+
+        // Status Risk
+        if ("MAINTENANCE".equalsIgnoreCase(status)) {
+            score += 20;
+        }
+
+        if ("BREAKDOWN".equalsIgnoreCase(status)) {
+            score += 35;
+        }
+
+        if ("DOWN".equalsIgnoreCase(status)) {
+            score += 40;
+        }
+
+        if ("EMERGENCY_SHUTDOWN".equalsIgnoreCase(status)) {
+            score += 50;
+        }
+
+        if ("DECOMMISSIONED".equalsIgnoreCase(status)) {
+            score += 10;
+        }
 
         return (int) Math.min(score, 100);
     }
 
     private String getRiskLevel(int score) {
-        if (score >= 70) return "HIGH";
-        if (score >= 40) return "MEDIUM";
+
+        if (score >= 80) {
+            return "CRITICAL";
+        }
+
+        if (score >= 60) {
+            return "HIGH";
+        }
+
+        if (score >= 30) {
+            return "MEDIUM";
+        }
+
         return "LOW";
     }
 
@@ -118,16 +171,8 @@ public class AiRiskAnalysisService {
             Long totalDowntimes,
             int riskScore
     ) {
-        long wo = totalWorkOrders == null ? 0 : totalWorkOrders;
-        long downtime = totalDowntimes == null ? 0 : totalDowntimes;
-        String status = asset.getStatus() == null ? "" : String.valueOf(asset.getStatus());
 
-        return riskScore >= 60
-                || downtime >= 3
-                || wo >= 5
-                || "DOWN".equalsIgnoreCase(status)
-                || "MAINTENANCE".equalsIgnoreCase(status)
-                || "EMERGENCY_SHUTDOWN".equalsIgnoreCase(status);
+        return riskScore >= 60;
     }
 
     private String buildWarningMessage(
@@ -137,35 +182,28 @@ public class AiRiskAnalysisService {
             int riskScore,
             String riskLevel
     ) {
-        long wo = totalWorkOrders == null ? 0 : totalWorkOrders;
-        long downtime = totalDowntimes == null ? 0 : totalDowntimes;
-        String status = asset.getStatus() == null ? "UNKNOWN" : String.valueOf(asset.getStatus());
 
-        if (riskScore >= 70 || "HIGH".equals(riskLevel)) {
-            return "Cảnh báo nguy cơ hỏng hóc cao. Cần ưu tiên kiểm tra thiết bị, xem xét lập kế hoạch bảo trì sớm.";
+        String status = asset.getStatus() == null
+                ? "UNKNOWN"
+                : String.valueOf(asset.getStatus());
+
+        if (riskScore >= 80 || "CRITICAL".equals(riskLevel)) {
+            return "Nguy cơ hỏng hóc rất cao. Cần kiểm tra và xử lý khẩn cấp.";
         }
 
-        if (downtime >= 3) {
-            return "Thiết bị có số lần downtime cao. Cần kiểm tra nguyên nhân dừng máy và đánh giá khả năng hỏng lặp lại.";
+        if (riskScore >= 60 || "HIGH".equals(riskLevel)) {
+            return "Thiết bị có mức rủi ro cao. Cần ưu tiên kiểm tra và lập kế hoạch bảo trì.";
         }
 
-        if (wo >= 5) {
-            return "Thiết bị phát sinh nhiều Work Order. Cần theo dõi lịch sử sửa chữa và xem xét bảo trì phòng ngừa.";
-        }
-
-        if ("DOWN".equalsIgnoreCase(status) || "EMERGENCY_SHUTDOWN".equalsIgnoreCase(status)) {
-            return "Thiết bị đang ở trạng thái dừng hoặc sự cố nghiêm trọng. Cần xử lý ngay.";
+        if (riskScore >= 30 || "MEDIUM".equals(riskLevel)) {
+            return "Thiết bị có dấu hiệu rủi ro tăng. Nên tăng tần suất theo dõi.";
         }
 
         if ("MAINTENANCE".equalsIgnoreCase(status)) {
-            return "Thiết bị đang trong trạng thái bảo trì. Cần theo dõi tiến độ xử lý và cập nhật kết quả kịp thời.";
+            return "Thiết bị đang bảo trì. Theo dõi tiến độ xử lý.";
         }
 
-        if (riskScore >= 60) {
-            return "Thiết bị có dấu hiệu rủi ro tăng. Nên tăng tần suất kiểm tra trong thời gian tới.";
-        }
-
-        return "Chưa phát hiện cảnh báo sớm nghiêm trọng. Tiếp tục theo dõi theo kế hoạch bảo trì định kỳ.";
+        return "Thiết bị đang hoạt động ổn định.";
     }
 
     private String generateRecommendation(
@@ -175,9 +213,11 @@ public class AiRiskAnalysisService {
             int riskScore,
             String riskLevel
     ) {
+
         String fallback = buildFallbackRecommendation(riskLevel);
 
         try {
+
             String prompt = """
                     Bạn là AI hỗ trợ phân tích rủi ro bảo trì trong hệ thống EMMS.
 
@@ -192,9 +232,12 @@ public class AiRiskAnalysisService {
                     Yêu cầu:
                     - Viết khuyến nghị bảo trì ngắn gọn bằng tiếng Việt.
                     - Không tự tạo thêm số liệu.
-                    - Nếu rủi ro HIGH: đề xuất ưu tiên kiểm tra/bảo trì.
-                    - Nếu rủi ro MEDIUM: đề xuất theo dõi và tăng kiểm tra định kỳ.
-                    - Nếu rủi ro LOW: đề xuất tiếp tục vận hành và theo dõi định kỳ.
+                    - Nếu rủi ro CRITICAL hoặc HIGH:
+                      đề xuất ưu tiên kiểm tra/bảo trì.
+                    - Nếu rủi ro MEDIUM:
+                      đề xuất tăng kiểm tra định kỳ.
+                    - Nếu rủi ro LOW:
+                      đề xuất tiếp tục theo dõi định kỳ.
                     """.formatted(
                     asset.getName(),
                     asset.getStatus(),
@@ -218,14 +261,19 @@ public class AiRiskAnalysisService {
     }
 
     private String buildFallbackRecommendation(String riskLevel) {
+
+        if ("CRITICAL".equals(riskLevel)) {
+            return "Thiết bị có nguy cơ hỏng hóc rất cao. Cần xử lý và kiểm tra ngay.";
+        }
+
         if ("HIGH".equals(riskLevel)) {
-            return "Thiết bị có mức rủi ro cao. Cần ưu tiên kiểm tra, lập kế hoạch bảo trì sớm và theo dõi downtime.";
+            return "Thiết bị có mức rủi ro cao. Cần ưu tiên bảo trì và theo dõi downtime.";
         }
 
         if ("MEDIUM".equals(riskLevel)) {
-            return "Thiết bị có mức rủi ro trung bình. Nên tăng tần suất kiểm tra định kỳ và theo dõi lịch sử Work Order.";
+            return "Thiết bị có mức rủi ro trung bình. Nên tăng tần suất kiểm tra định kỳ.";
         }
 
-        return "Thiết bị có mức rủi ro thấp. Có thể tiếp tục vận hành và theo dõi theo kế hoạch bảo trì định kỳ.";
+        return "Thiết bị có mức rủi ro thấp. Có thể tiếp tục vận hành và theo dõi định kỳ.";
     }
 }

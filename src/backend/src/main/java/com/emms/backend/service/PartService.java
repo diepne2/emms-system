@@ -633,4 +633,15 @@ public class PartService {
 
         return normalized.isEmpty() ? null : String.join(", ", normalized);
     }
+
+    @Transactional(readOnly = true)
+    public List<InventoryCountItem> getInventoryCountItems(Long inventoryCountId) {
+        if (inventoryCountId == null) {
+            throw new CustomException(
+                "inventoryCountId không được để trống",
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        return inventoryCountItemRepository.findByInventoryCountId(inventoryCountId);
+    }
 }

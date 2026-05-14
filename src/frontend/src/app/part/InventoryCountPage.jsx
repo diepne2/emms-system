@@ -32,8 +32,7 @@ export default function InventoryCountPage() {
 
     try {
       const res = await inventoryApi.get('/parts')
-      const list = normalizeList(res.data)
-      setParts(list)
+      setParts(normalizeList(res.data))
     } catch (err) {
       setParts([])
       setError(getErrorMessage(err))
@@ -122,18 +121,15 @@ export default function InventoryCountPage() {
     )
   }
 
-  const saveAllItems = async () => {
-    setMessage('')
-    setError('')
-
+  const validateRows = () => {
     if (!createdCount?.id) {
       setError('Vui lòng tạo phiếu kiểm kê trước.')
-      return
+      return false
     }
 
     if (!rows.length) {
       setError('Phiếu kiểm kê chưa có vật tư.')
-      return
+      return false
     }
 
     const invalidRow = rows.find(
@@ -142,20 +138,32 @@ export default function InventoryCountPage() {
 
     if (invalidRow) {
       setError(`Số lượng thực tế của "${invalidRow.partName}" không hợp lệ.`)
-      return
+      return false
     }
+
+    return true
+  }
+
+  const saveRowsToServer = async () => {
+    for (const row of rows) {
+      await inventoryApi.post(`/parts/inventory-counts/${createdCount.id}/items`, {
+        partId: Number(row.partId),
+        actualQuantity: Number(row.actualQuantity),
+        note: row.note || undefined,
+      })
+    }
+  }
+
+  const saveAllItems = async () => {
+    setMessage('')
+    setError('')
+
+    if (!validateRows()) return
 
     setSavingItems(true)
 
     try {
-      for (const row of rows) {
-        await inventoryApi.post(`/parts/inventory-counts/${createdCount.id}/items`, {
-          partId: Number(row.partId),
-          actualQuantity: Number(row.actualQuantity),
-          note: row.note || undefined,
-        })
-      }
-
+      await saveRowsToServer()
       setMessage('Đã lưu toàn bộ dòng kiểm kê.')
     } catch (err) {
       setError(getErrorMessage(err))
@@ -168,19 +176,23 @@ export default function InventoryCountPage() {
     setMessage('')
     setError('')
 
-    if (!createdCount?.id) {
-      setError('Chưa có phiếu kiểm kê để duyệt.')
-      return
-    }
+    if (!validateRows()) return
 
-    if (!window.confirm('Duyệt kiểm kê sẽ cập nhật tồn kho theo số lượng thực tế. Tiếp tục?')) {
+    if (
+      !window.confirm(
+        'Duyệt kiểm kê sẽ lưu các dòng kiểm kê và cập nhật tồn kho theo số lượng thực tế. Tiếp tục?',
+      )
+    ) {
       return
     }
 
     setLoading(true)
 
     try {
+      await saveRowsToServer()
+
       const res = await inventoryApi.put(`/parts/inventory-counts/${createdCount.id}/confirm`)
+
       setCreatedCount(res.data)
       setMessage('Duyệt kiểm kê thành công. Tồn kho đã được điều chỉnh.')
       await loadParts()
@@ -216,6 +228,182 @@ export default function InventoryCountPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const formatDateTime = (value) => {
+    if (!value) return '-'
+
+    try {
+      return new Date(value).toLocaleString('vi-VN')
+    } catch {
+      return value
+    }
+  }
+
+  const printInventoryCount = () => {
+    if (!createdCount || !rows.length) {
+      setError('Không có dữ liệu phiếu kiểm kê để in.')
+      return
+    }
+
+    const printContent = `
+      <html>
+        <head>
+          <title>Phiếu kiểm kê kho</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 24px;
+              color: #111827;
+            }
+
+            h2 {
+              text-align: center;
+              margin: 0 0 6px;
+              font-size: 22px;
+            }
+
+            .subtitle {
+              text-align: center;
+              margin-bottom: 22px;
+              font-size: 14px;
+            }
+
+            .info {
+              margin-bottom: 18px;
+              line-height: 1.8;
+              font-size: 14px;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 12px;
+            }
+
+            th, td {
+              border: 1px solid #333;
+              padding: 8px;
+              font-size: 13px;
+              text-align: left;
+            }
+
+            th {
+              background: #f1f5f9;
+              text-align: center;
+            }
+
+            td.number {
+              text-align: right;
+            }
+
+            .signatures {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 24px;
+              margin-top: 48px;
+              text-align: center;
+              font-size: 14px;
+            }
+
+            .sign-box {
+              height: 80px;
+            }
+
+            @media print {
+              button {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+
+        <body>
+          <h2>PHIẾU KIỂM KÊ KHO</h2>
+
+          <div class="subtitle">
+            Kỳ kho: ${createdCount.month}/${createdCount.year}
+          </div>
+
+          <div class="info">
+            <div><strong>Mã phiếu:</strong> ${createdCount.code || '-'}</div>
+            <div><strong>Trạng thái:</strong> ${createdCount.status || '-'}</div>
+            <div><strong>Ngày duyệt:</strong> ${formatDateTime(createdCount.confirmedAt)}</div>
+            <div><strong>Ghi chú:</strong> ${createdCount.note || countForm.note || '-'}</div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Vật tư</th>
+                <th>Mã vật tư</th>
+                <th>Danh mục</th>
+                <th>Tồn hệ thống</th>
+                <th>Thực tế</th>
+                <th>Chênh lệch</th>
+                <th>Ghi chú</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${rows
+                .map((row, index) => {
+                  const systemQty = Number(row.systemQuantity || 0)
+                  const actualQty = Number(row.actualQuantity || 0)
+                  const diff = actualQty - systemQty
+
+                  return `
+                    <tr>
+                      <td class="number">${index + 1}</td>
+                      <td>${row.partName || '-'}</td>
+                      <td>${row.partNumber || '-'}</td>
+                      <td>${row.category || '-'}</td>
+                      <td class="number">${systemQty}</td>
+                      <td class="number">${actualQty}</td>
+                      <td class="number">${diff > 0 ? `+${diff}` : diff}</td>
+                      <td>${row.note || '-'}</td>
+                    </tr>
+                  `
+                })
+                .join('')}
+            </tbody>
+          </table>
+
+          <div class="signatures">
+            <div>
+              <strong>Người lập phiếu</strong>
+              <div class="sign-box"></div>
+              <div>Ký, ghi rõ họ tên</div>
+            </div>
+
+            <div>
+              <strong>Thủ kho</strong>
+              <div class="sign-box"></div>
+              <div>Ký, ghi rõ họ tên</div>
+            </div>
+
+            <div>
+              <strong>Quản lý kỹ thuật</strong>
+              <div class="sign-box"></div>
+              <div>Ký, ghi rõ họ tên</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `
+
+    const printWindow = window.open('', '_blank')
+
+    if (!printWindow) {
+      setError('Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép popup.')
+      return
+    }
+
+    printWindow.document.write(printContent)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
   }
 
   const renderDifference = (row) => {
@@ -263,6 +451,7 @@ export default function InventoryCountPage() {
               <span className="inventory-label-text">
                 Năm <span className="inventory-required">*</span>
               </span>
+
               <input
                 type="number"
                 value={countForm.year}
@@ -279,6 +468,7 @@ export default function InventoryCountPage() {
               <span className="inventory-label-text">
                 Tháng <span className="inventory-required">*</span>
               </span>
+
               <input
                 type="number"
                 min="1"
@@ -296,6 +486,7 @@ export default function InventoryCountPage() {
 
           <label>
             <span className="inventory-label-text">Ghi chú</span>
+
             <textarea
               value={countForm.note}
               onChange={(e) =>
@@ -325,10 +516,12 @@ export default function InventoryCountPage() {
           <div className="inventory-count-header">
             <div>
               <strong>{createdCount.code}</strong>
+
               <p>
                 Kỳ kho: {createdCount.month}/{createdCount.year} — Trạng thái:{' '}
                 {createdCount.status}
               </p>
+
               <p>Số dòng chênh lệch: {totalDifferentRows}</p>
             </div>
 
@@ -352,6 +545,12 @@ export default function InventoryCountPage() {
                     Xóa phiếu
                   </button>
                 </>
+              )}
+
+              {createdCount.status === 'CONFIRMED' && (
+                <button type="button" onClick={printInventoryCount}>
+                  In phiếu kiểm kê
+                </button>
               )}
             </div>
           </div>
