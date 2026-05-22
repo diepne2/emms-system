@@ -22,7 +22,7 @@ import {
   FiChevronDown,
 } from 'react-icons/fi'
 
-const ROOT_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://emms-system-production-4239.up.railway.app'
+const ROOT_API_BASE_URL = 'https://emms-system-production-4239.up.railway.app'
 const API_BASE_URL = `${ROOT_API_BASE_URL}/api/asset-downtimes`
 const ASSET_API_BASE_URL = `${ROOT_API_BASE_URL}/api/assets`
 const WORK_ORDER_API_BASE_URL = `${ROOT_API_BASE_URL}/api/work-orders`
@@ -574,35 +574,88 @@ export default function AssetDowntimes() {
   }
 
   const buildPayload = (form) => ({
-    assetId: form.assetId ? Number(form.assetId) : null,
-    workOrderId: form.workOrderId ? Number(form.workOrderId) : null,
-    reason: form.reason?.trim() || '',
-    startsOn: form.startsOn || null,
-    endsOn: form.endsOn || null,
-    note: form.note?.trim() || '',
-  })
+  assetId: form.assetId ? Number(form.assetId) : null,
 
-  const handleCreateSubmit = async () => {
-    if (!canCreate) return
+  workOrderId:
+    form.workOrderId && form.workOrderId !== ''
+      ? Number(form.workOrderId)
+      : null,
 
-    const message = validateDowntimeForm(createForm)
-    if (message) {
-      setCreateError(message)
-      return
-    }
+  reason: form.reason,
 
-    try {
-      setCreateLoading(true)
-      setCreateError('')
-      await api.post('', buildPayload(createForm), getAuthConfig())
-      closeCreateModal()
-      await Promise.all([loadAssetOptions(), loadData()])
-    } catch (err) {
-      setCreateError(extractErrorMessage(err, 'Không thể thêm nhật ký dừng máy.'))
-    } finally {
-      setCreateLoading(false)
+  startsOn: form.startsOn
+    ? new Date(form.startsOn).toISOString()
+    : null,
+
+  endsOn: form.endsOn
+    ? new Date(form.endsOn).toISOString()
+    : null,
+
+  note: form.note?.trim() || '',
+})
+
+
+  const validateDowntimeForm = (form) => {
+  if (!form.assetId) {
+    return 'Vui lòng chọn thiết bị.'
+  }
+
+  if (!form.reason?.trim()) {
+    return 'Vui lòng chọn nguyên nhân downtime.'
+  }
+
+  if (!form.startsOn) {
+    return 'Vui lòng chọn thời gian bắt đầu.'
+  }
+
+  if (form.endsOn) {
+    const start = new Date(form.startsOn).getTime()
+    const end = new Date(form.endsOn).getTime()
+
+    if (end < start) {
+      return 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu.'
     }
   }
+
+  return ''
+}
+
+  const handleCreateSubmit = async () => {
+  if (!canCreate) return
+
+  const message = validateDowntimeForm(createForm)
+
+  if (message) {
+    setCreateError(message)
+    return
+  }
+
+  try {
+    setCreateLoading(true)
+    setCreateError('')
+
+    const payload = buildPayload(createForm)
+
+    console.log('CREATE PAYLOAD:', payload)
+
+    await api.post('', payload, getAuthConfig())
+
+    await loadData()
+
+    closeCreateModal()
+  } catch (err) {
+    console.error(err)
+
+    setCreateError(
+      extractErrorMessage(
+        err,
+        'Không thể thêm downtime.',
+      ),
+    )
+  } finally {
+    setCreateLoading(false)
+  }
+}
 
   const openEditModal = (item) => {
     if (!canEdit) return
@@ -628,26 +681,45 @@ export default function AssetDowntimes() {
   }
 
   const handleEditSubmit = async () => {
-    if (!editingDowntimeId || !canEdit) return
+  if (!editingDowntimeId || !canEdit) return
 
-    const message = validateDowntimeForm(editForm)
-    if (message) {
-      setEditError(message)
-      return
-    }
+  const message = validateDowntimeForm(editForm)
 
-    try {
-      setEditLoading(true)
-      setEditError('')
-      await api.put(`/${editingDowntimeId}`, buildPayload(editForm), getAuthConfig())
-      closeEditModal()
-      await Promise.all([loadAssetOptions(), loadData()])
-    } catch (err) {
-      setEditError(extractErrorMessage(err, 'Không thể cập nhật nhật ký dừng máy.'))
-    } finally {
-      setEditLoading(false)
-    }
+  if (message) {
+    setEditError(message)
+    return
   }
+
+  try {
+    setEditLoading(true)
+    setEditError('')
+
+    const payload = buildPayload(editForm)
+
+    console.log('UPDATE PAYLOAD:', payload)
+
+    await api.put(
+      `/${editingDowntimeId}`,
+      payload,
+      getAuthConfig(),
+    )
+
+    await loadData()
+
+    closeEditModal()
+  } catch (err) {
+    console.error(err)
+
+    setEditError(
+      extractErrorMessage(
+        err,
+        'Không thể cập nhật downtime.',
+      ),
+    )
+  } finally {
+    setEditLoading(false)
+  }
+}
 
   const openDeleteModal = (item) => {
     if (!canDelete) return

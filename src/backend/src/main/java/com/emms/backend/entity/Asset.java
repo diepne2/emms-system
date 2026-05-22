@@ -32,7 +32,7 @@ public class Asset {
 
     
 
-    @Column(name = "location_name",nullable = false, unique = true)
+    @Column(name = "location_name",nullable = false)
     private String locationName;
 
     @Column(name = "Barcode",nullable = false, unique = true)
@@ -65,10 +65,28 @@ public class Asset {
     @Column(name = "Contractor")
     private String contractor;
 
+    @Column(name = "criticality", nullable = false)
+    private Integer criticality = 60;
+
+    
+
     public Asset() {}
 
 
+    public boolean isActive() { 
+        return status != null && status.isActive(); 
+    }
+
+    public boolean isDecommissioned() {
+        return status == AssetStatus.DECOMMISSIONED;
+    }
+
+
     private String trim(String v) { return v == null ? null : v.trim(); }
+
+    public Integer getCriticality() {
+        return criticality != null ? criticality : 60;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -120,4 +138,9 @@ public class Asset {
 
     public String getContractor() { return contractor; }
     public void setContractor(String contractor) { this.contractor = trim(contractor); }
+
+
+    public void setCriticality(Integer criticality) {
+        this.criticality = (criticality == null) ? 60 : Math.min(100, Math.max(0, criticality));
+    }
 }

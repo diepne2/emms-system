@@ -12,50 +12,87 @@ public interface AssetDowntimeRepository extends JpaRepository<AssetDowntime, Lo
 
     List<AssetDowntime> findByAsset_Id(Long assetId);
 
-    Long countByAssetId(Long assetId);
-
-    @Query("SELECT ad FROM AssetDowntime ad WHERE ad.durationSeconds > 0")
-    List<AssetDowntime> findAllWithDuration();
+    Long countByAsset_Id(Long assetId);
 
     @Query("""
-           SELECT ad
-           FROM AssetDowntime ad
-           WHERE ad.startsOn BETWEEN :start AND :end
-             AND ad.durationSeconds > 0
-           """)
-    List<AssetDowntime> findByStartsOnBetween(@Param("start") LocalDateTime start,
-                                              @Param("end") LocalDateTime end);
+        SELECT ad
+        FROM AssetDowntime ad
+        WHERE ad.startsOn BETWEEN :start AND :end
+    """)
+    List<AssetDowntime> findByDateRange(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 
     @Query("""
-           SELECT ad
-           FROM AssetDowntime ad
-           WHERE ad.asset.id = :id
-             AND ad.startsOn BETWEEN :start AND :end
-             AND ad.durationSeconds > 0
-           """)
-    List<AssetDowntime> findByAsset_IdAndStartsOnBetween(@Param("id") Long id,
-                                                         @Param("start") LocalDateTime start,
-                                                         @Param("end") LocalDateTime end);
+        SELECT ad
+        FROM AssetDowntime ad
+        WHERE ad.asset.id = :assetId
+          AND ad.startsOn BETWEEN :start AND :end
+    """)
+    List<AssetDowntime> findByAssetIdAndDateRange(
+            @Param("assetId") Long assetId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 
     @Query("""
-           SELECT d
-           FROM AssetDowntime d
-           WHERE d.startsOn >= :fromDate
-             AND d.startsOn < :toDate
-           ORDER BY d.startsOn ASC
-           """)
-    List<AssetDowntime> findByDateRange(@Param("fromDate") LocalDateTime fromDate,
-                                        @Param("toDate") LocalDateTime toDate);
+        SELECT d.asset.id, COUNT(d)
+        FROM AssetDowntime d
+        WHERE MONTH(d.createdAt) = :month
+          AND YEAR(d.createdAt) = :year
+        GROUP BY d.asset.id
+    """)
+    List<Object[]> countMonthlyByAsset(
+            @Param("month") int month,
+            @Param("year") int year
+    );
 
     @Query("""
-           SELECT d
-           FROM AssetDowntime d
-           WHERE d.asset.id = :assetId
-             AND d.startsOn >= :fromDate
-             AND d.startsOn < :toDate
-           ORDER BY d.startsOn ASC
-           """)
-    List<AssetDowntime> findByAssetIdAndDateRange(@Param("assetId") Long assetId,
-                                                  @Param("fromDate") LocalDateTime fromDate,
-                                                  @Param("toDate") LocalDateTime toDate);
+        SELECT d.asset.id, COUNT(d)
+        FROM AssetDowntime d
+        WHERE d.createdAt >= :fromDate
+        GROUP BY d.asset.id
+    """)
+    List<Object[]> countRecentByAsset(
+            @Param("fromDate") LocalDateTime fromDate
+    );
+
+@Query("""
+    select d.asset.id,
+           sum(function('timestampdiff', hour, d.startsOn, d.endsOn))
+    from AssetDowntime d
+    where d.startsOn >= :fromDate
+      and d.startsOn < :toDate
+    group by d.asset.id
+""")
+List<Object[]> sumDowntimeHoursByAsset(
+        @Param("fromDate") LocalDateTime fromDate,
+        @Param("toDate") LocalDateTime toDate
+);
+
+@Query("""
+SELECT d.asset.id, COUNT(d)
+FROM AssetDowntime d
+WHERE d.startsOn >= :from
+AND d.startsOn < :to
+GROUP BY d.asset.id
+""")
+List<Object[]> countByAssetBetweenDates(
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
+);
+
+    @Query("""
+        SELECT d.asset.id, COALESCE(SUM(d.durationSeconds), 0)
+        FROM AssetDowntime d
+        WHERE d.startsOn >= :from
+          AND d.startsOn < :to
+        GROUP BY d.asset.id
+    """)
+    List<Object[]> countByAssetBetweenDates1(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
 }

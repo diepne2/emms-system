@@ -43,8 +43,16 @@ public class WebSecurityConfig {
                                 "/uploads/**",
                                 "/api/users/avatar/**",
                                 "/api/users/forgot-password",
-                                "/api/users/reset-password"
+                                "/api/users/reset-password",
+                                "/api/auth/**",
+                                "/api/ai/**"
+
                         ).permitAll()
+
+                        .requestMatchers("/api/ai/**").permitAll()
+                        .requestMatchers("/api/ai-risk/**").permitAll()
+                        .requestMatchers("/api/ai-decision/**").permitAll()
+
                         .requestMatchers("/api/dashboard/**").permitAll()
 
                         .requestMatchers("/api/labors", "/api/labors/**").permitAll()

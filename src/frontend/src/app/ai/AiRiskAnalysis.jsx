@@ -1,219 +1,212 @@
-import { useEffect, useMemo, useState } from 'react'
-import { notification } from 'antd'
-import axios from 'axios'
-import './AiRiskAnalysis.css'
-
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  'https://emms-system-production-4239.up.railway.app'
+import React, { useEffect, useMemo, useState } from "react";
+import { analyzeAI } from "./aiService";
+import "./AiRiskAnalysis.css";
 
 export default function AiRiskAnalysis() {
-  const [data, setData] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const getToken = () => {
-    return (
-      localStorage.getItem('token') ||
-      localStorage.getItem('accessToken') ||
-      localStorage.getItem('access_token') ||
-      localStorage.getItem('jwt')
-    )
-  }
-
-  const normalizeRiskData = (raw) => {
-    if (Array.isArray(raw)) return raw
-    if (Array.isArray(raw?.data)) return raw.data
-    if (Array.isArray(raw?.content)) return raw.content
-    if (Array.isArray(raw?.items)) return raw.items
-    return []
-  }
-
-  const showAiWarningNotification = (list) => {
-    const warningAssets = list.filter((item) => item.earlyWarning)
-
-    if (warningAssets.length === 0) return
-
-    const highRiskAssets = warningAssets.filter((item) => item.riskLevel === 'HIGH')
-    const topAssets = warningAssets
-      .slice(0, 3)
-      .map((item) => item.assetName)
-      .join(', ')
-
-    notification.warning({
-      message: 'AI cảnh báo thiết bị',
-      description: `Có ${warningAssets.length} thiết bị có nguy cơ hỏng hóc. ${
-        highRiskAssets.length > 0 ? `${highRiskAssets.length} thiết bị rủi ro cao. ` : ''
-      }Cần ưu tiên kiểm tra: ${topAssets}.`,
-      placement: 'topRight',
-      duration: 8,
-    })
-  }
-
-  const loadRiskData = async () => {
-    setLoading(true)
-    setError('')
+  const loadRiskAnalysis = async () => {
+    setLoading(true);
+    setError("");
 
     try {
-      const token = getToken()
-      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+      const res = await analyzeAI({
+        question:
+          "Phân tích mức độ rủi ro thiết bị dựa trên Work Order, downtime và cảnh báo sớm.",
+        from: null,
+        to: null,
+      });
 
-      const res = await axios.get(`${API_BASE}/api/ai-risk/assets`, { headers })
-
-      const normalized = normalizeRiskData(res.data)
-      setData(normalized)
-      showAiWarningNotification(normalized)
-    } catch (err) {
-      console.error('AI Risk Analysis error:', err)
-      setData([])
-      setError('Không thể tải dữ liệu AI Risk Analysis. Vui lòng kiểm tra backend, token hoặc CORS.')
+      setResult(res.data.data);
+    } catch (e) {
+      console.error("AI Risk Analysis error:", e);
+      setError(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          e?.message ||
+          "Không thể tải dữ liệu phân tích AI."
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadRiskData()
-  }, [])
+    loadRiskAnalysis();
+  }, []);
 
-  const riskList = Array.isArray(data) ? data : []
+  const risks = result?.risks || [];
 
-  const summary = useMemo(() => {
-    const total = riskList.length
-    const high = riskList.filter((item) => item.riskLevel === 'HIGH').length
-    const medium = riskList.filter((item) => item.riskLevel === 'MEDIUM').length
-    const low = riskList.filter((item) => item.riskLevel === 'LOW').length
-    const warning = riskList.filter((item) => item.earlyWarning).length
+  const stats = useMemo(() => {
+    const critical = risks.filter((item) => item.riskLevel === "CRITICAL").length;
+    const high = risks.filter((item) => item.riskLevel === "HIGH").length;
+    const medium = risks.filter((item) => item.riskLevel === "MEDIUM").length;
+    const aiWarnings = risks.filter((item) => item.riskScore >= 85).length;
 
-    return { total, high, medium, low, warning }
-  }, [riskList])
+    return {
+      totalAssets: result?.totalAssets || risks.length || 0,
+      critical,
+      high,
+      medium,
+      aiWarnings,
+    };
+  }, [result, risks]);
 
-  const getRiskClass = (level) => {
-    if (level === 'HIGH') return 'risk-high'
-    if (level === 'MEDIUM') return 'risk-medium'
-    return 'risk-low'
-  }
+  const getRecommendation = (asset) => {
+    if (asset.riskScore >= 85) {
+      return "Kiểm tra khẩn cấp và ưu tiên bảo trì ngay.";
+    }
+
+    if (asset.riskScore >= 65) {
+      return "Lập kế hoạch bảo trì trong thời gian gần.";
+    }
+
+    if (asset.riskScore >= 40) {
+      return "Theo dõi định kỳ và kiểm tra hàng tuần.";
+    }
+
+    return "Thiết bị ổn định, tiếp tục giám sát định kỳ.";
+  };
+
+  const getWarningText = (asset) => {
+    if (asset.riskScore >= 85) return "Nguy hiểm";
+    if (asset.riskScore >= 65) return "Cảnh báo";
+    return "Ổn định";
+  };
+
+  const getWarningClass = (asset) => {
+    if (asset.riskScore >= 85) return "danger";
+    if (asset.riskScore >= 65) return "warning";
+    return "stable";
+  };
 
   return (
     <div className="ai-risk-page">
       <div className="ai-risk-hero">
-        <span className="ai-risk-badge">EMMS AI</span>
-        <h2>AI Risk Analysis</h2>
-        <p>Phân tích mức độ rủi ro thiết bị dựa trên Work Order, downtime và cảnh báo sớm nguy cơ hỏng hóc.</p>
-      </div>
-
-      <div className="ai-risk-summary">
-        <div className="risk-card">
-          <span>Tổng thiết bị</span>
-          <strong>{summary.total}</strong>
-        </div>
-
-        <div className="risk-card high">
-          <span>Rủi ro cao</span>
-          <strong>{summary.high}</strong>
-        </div>
-
-        <div className="risk-card medium">
-          <span>Rủi ro trung bình</span>
-          <strong>{summary.medium}</strong>
-        </div>
-
-        <div className="risk-card warning">
-          <span>Cảnh báo AI</span>
-          <strong>{summary.warning}</strong>
-        </div>
-      </div>
-
-      <div className="ai-risk-actions">
-        <button type="button" onClick={loadRiskData} disabled={loading}>
-          {loading ? 'Đang phân tích...' : 'Tải lại phân tích'}
-        </button>
+        <h1>AI Risk Analysis</h1>
+        <p>
+          Phân tích mức độ rủi ro thiết bị dựa trên Work Order, downtime và cảnh báo sớm.
+        </p>
       </div>
 
       {error && <div className="ai-risk-error">{error}</div>}
 
-      <div className="ai-risk-table-card">
-        <h4>Danh sách rủi ro thiết bị</h4>
+      <div className="ai-risk-stats-grid">
+        <div className="ai-risk-stat-card">
+          <span>Tổng thiết bị</span>
+          <strong>{stats.totalAssets}</strong>
+        </div>
 
-        <div className="ai-risk-table-wrap">
-          <table className="ai-risk-table">
-            <thead>
-              <tr>
-                <th>Thiết bị</th>
-                <th>Trạng thái</th>
-                <th>Work Orders</th>
-                <th>Downtime</th>
-                <th>Risk Score</th>
-                <th>Risk Level</th>
-                <th>Cảnh báo AI</th>
-                <th>Khuyến nghị AI</th>
-              </tr>
-            </thead>
+        <div className="ai-risk-stat-card">
+          <span>CRITICAL</span>
+          <strong>{stats.critical}</strong>
+        </div>
 
-            <tbody>
-              {riskList.map((item) => (
-                <tr key={item.assetId} className={item.earlyWarning ? 'warning-row' : ''}>
-                  <td>
-                    <strong>{item.assetName}</strong>
-                    <div className="asset-id">ID: {item.assetId}</div>
-                  </td>
+        <div className="ai-risk-stat-card">
+          <span>HIGH</span>
+          <strong className="text-red">{stats.high}</strong>
+        </div>
 
-                  <td>{item.status}</td>
-                  <td>{item.totalWorkOrders}</td>
-                  <td>{item.totalDowntimes}</td>
+        <div className="ai-risk-stat-card">
+          <span>MEDIUM</span>
+          <strong className="text-orange">{stats.medium}</strong>
+        </div>
 
-                  <td>
-                    <div className="risk-score">
-                      <span>{item.riskScore}/100</span>
-                      <div className="risk-bar">
-                        <div
-                          className={`risk-bar-fill ${getRiskClass(item.riskLevel)}`}
-                          style={{ width: `${item.riskScore || 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-
-                  <td>
-                    <span className={`risk-badge ${getRiskClass(item.riskLevel)}`}>
-                      {item.riskLevel}
-                    </span>
-                  </td>
-
-                  <td className="ai-warning-cell">
-                    {item.earlyWarning ? (
-                      <div className="ai-warning-box">
-                        <strong>Cảnh báo</strong>
-                        <span>{item.warningMessage}</span>
-                      </div>
-                    ) : (
-                      <span className="ai-safe-text">Ổn định</span>
-                    )}
-                  </td>
-
-                  <td className="recommendation">{item.recommendation}</td>
-                </tr>
-              ))}
-
-              {!loading && riskList.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="empty-row">
-                    Chưa có dữ liệu phân tích rủi ro.
-                  </td>
-                </tr>
-              )}
-
-              {loading && (
-                <tr>
-                  <td colSpan={8} className="empty-row">
-                    AI đang phân tích dữ liệu...
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="ai-risk-stat-card small-card">
+          <span>Cảnh báo AI</span>
+          <strong className="text-orange">{stats.aiWarnings}</strong>
         </div>
       </div>
+
+      <div className="ai-risk-action-row">
+        <button
+          className="ai-risk-reload-btn"
+          onClick={loadRiskAnalysis}
+          disabled={loading}
+        >
+          {loading ? "Đang tải..." : "Tải lại phân tích"}
+        </button>
+      </div>
+
+      <div className="ai-risk-table-card">
+        <div className="ai-risk-table-header">
+          <h2>Danh sách rủi ro thiết bị</h2>
+        </div>
+
+        {loading && (
+          <div className="ai-risk-loading">
+            Đang phân tích dữ liệu thiết bị...
+          </div>
+        )}
+
+        {!loading && risks.length === 0 && (
+          <div className="ai-risk-empty">
+            Chưa có dữ liệu rủi ro thiết bị.
+          </div>
+        )}
+
+        {!loading && risks.length > 0 && (
+          <div className="ai-risk-table-wrapper">
+            <table className="ai-risk-table">
+              <thead>
+                <tr>
+                  <th>Thiết bị</th>
+                  <th>Status</th>
+                  <th>WO</th>
+                  <th>Downtime</th>
+                  <th>Risk</th>
+                  <th>Level</th>
+                  <th>AI Warning</th>
+                  <th>Recommendation</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {risks.map((asset) => (
+                  <tr key={asset.id}>
+                    <td className="asset-cell">
+                      <strong>{asset.name}</strong>
+                      <span>ID:{asset.id}</span>
+                    </td>
+
+                    <td>{asset.status}</td>
+
+                    <td>{asset.workOrders}</td>
+
+                    <td>{asset.downtime}</td>
+
+                    <td className="risk-score-cell">
+                      <strong>{asset.riskScore}/100</strong>
+                      <div className="risk-progress">
+                        <div
+                          className={`risk-progress-fill ${asset.riskLevel?.toLowerCase()}`}
+                          style={{ width: `${asset.riskScore}%` }}
+                        />
+                      </div>
+                    </td>
+
+                    <td>
+                      <span className={`risk-level ${asset.riskLevel?.toLowerCase()}`}>
+                        {asset.riskLevel}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span className={`ai-warning ${getWarningClass(asset)}`}>
+                        {getWarningText(asset)}
+                      </span>
+                    </td>
+
+                    <td>{getRecommendation(asset)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
-  )
+  );
 }

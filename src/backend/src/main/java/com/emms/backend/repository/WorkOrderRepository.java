@@ -429,4 +429,46 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
+
+
+@Query("""
+    SELECT w.asset.id, COUNT(w)
+    FROM WorkOrder w
+    WHERE w.createdAt >= :from
+      AND w.createdAt < :to
+      AND w.archived = false
+      AND w.status <> com.emms.backend.entity.WorkOrder$WorkOrderStatus.CANCELLED
+    GROUP BY w.asset.id
+""")
+List<Object[]> countByAssetBetweenDates(
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
+);
+
+@Query("""
+    SELECT w.asset.id, COUNT(w)
+    FROM WorkOrder w
+    WHERE w.createdAt >= :from
+      AND w.createdAt < :to
+      AND w.archived = false
+      AND w.status <> :cancelledStatus
+    GROUP BY w.asset.id
+""")
+List<Object[]> countByAssetBetweenDatesRaw(
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to,
+        @Param("cancelledStatus") WorkOrderStatus cancelledStatus
+);
+
+default List<Object[]> countByAssetBetweenDates1(
+        LocalDateTime from,
+        LocalDateTime to
+) {
+    return countByAssetBetweenDatesRaw(
+            from,
+            to,
+            WorkOrderStatus.CANCELLED
+    );
+}
+
 }
